@@ -97,12 +97,7 @@ function App() {
   }
 
   if (currentStep === 'financial-check') {
-    return (
-      <FinancialCheckPage
-        userName={user.displayName?.split(' ')[0] || ''}
-        onComplete={handleFinancialCheckComplete}
-      />
-    );
+    return <FinancialCheckPage onComplete={handleFinancialCheckComplete} />;
   }
 
   if (currentStep === 'financial-result' && financialResult) {

@@ -6,7 +6,6 @@ import house4 from '../assets/house4.jpg';
 import house5 from '../assets/house5.jpg';
 
 interface FinancialCheckPageProps {
-  userName: string;
   onComplete: (result: FinancialResult) => void;
 }
 
@@ -23,7 +22,7 @@ export interface FinancialResult {
   message: string;
 }
 
-function FinancialCheckPage({ userName, onComplete }: FinancialCheckPageProps) {
+function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
   const [formData, setFormData] = useState({
     name: '',
     age: '',
