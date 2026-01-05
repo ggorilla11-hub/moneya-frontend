@@ -1,4 +1,4 @@
-import { signInWithPopup, signInWithRedirect, browserPopupRedirectResolver } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 
 interface LoginPageProps {
@@ -6,19 +6,20 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
   const handleGoogleLogin = async () => {
     try {
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+      await signInWithPopup(auth, googleProvider);
+      onLogin();
+    } catch (error: any) {
+      // 팝업 차단된 경우 안내
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+        alert('팝업이 차단되었습니다. 팝업을 허용해주세요.');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert('승인되지 않은 도메인입니다.');
       } else {
-        await signInWithPopup(auth, googleProvider);
-        onLogin();
+        console.error('로그인 에러:', error);
+        alert('로그인에 실패했습니다. Chrome 브라우저에서 직접 접속해주세요.');
       }
-    } catch (error) {
-      console.error('로그인 에러:', error);
-      alert('로그인에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -73,8 +74,14 @@ function LoginPage({ onLogin }: LoginPageProps) {
         </button>
       </div>
 
+      {/* 안내 메시지 */}
+      <p className="text-xs text-purple-600 mt-6 text-center font-medium">
+        📱 카카오톡에서 여셨나요?<br />
+        Chrome 브라우저에서 직접 접속해주세요!
+      </p>
+
       {/* 이용약관 */}
-      <p className="text-xs text-gray-400 mt-8 text-center">
+      <p className="text-xs text-gray-400 mt-4 text-center">
         로그인 시 <span className="underline">이용약관</span> 및 <span className="underline">개인정보처리방침</span>에<br />
         동의하는 것으로 간주합니다.
       </p>
