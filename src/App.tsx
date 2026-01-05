@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { auth } from './config/firebase';
 import LoginPage from './pages/LoginPage';
 
@@ -8,6 +8,18 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 리다이렉트 로그인 결과 처리
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          setUser(result.user);
+        }
+      })
+      .catch((error) => {
+        console.error('리다이렉트 로그인 에러:', error);
+      });
+
+    // 로그인 상태 감시
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
