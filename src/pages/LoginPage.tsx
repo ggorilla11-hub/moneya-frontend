@@ -1,4 +1,4 @@
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, browserPopupRedirectResolver } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 
 interface LoginPageProps {
@@ -6,10 +6,16 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      onLogin();
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+        onLogin();
+      }
     } catch (error) {
       console.error('로그인 에러:', error);
       alert('로그인에 실패했습니다. 다시 시도해주세요.');
