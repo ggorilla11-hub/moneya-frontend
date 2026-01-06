@@ -170,6 +170,22 @@ function App() {
     );
   }
 
+  // 처음부터 다시하기 기능
+  const handleRestart = () => {
+    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 진단 데이터가 초기화됩니다.')) {
+      // 해당 사용자의 모든 진행 데이터 삭제
+      localStorage.removeItem(`onboarding_${user.uid}`);
+      localStorage.removeItem(`financial_${user.uid}`);
+      localStorage.removeItem(`financialData_${user.uid}`);
+      localStorage.removeItem(`incomeExpense_${user.uid}`);
+      
+      // 상태 초기화
+      setFinancialResult(null);
+      setIncomeExpenseData(null);
+      setCurrentStep('onboarding');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-green-50 flex flex-col items-center justify-center p-4">
       <div className="relative w-24 h-24 mb-6">
@@ -206,6 +222,14 @@ function App() {
           </p>
         </div>
       </div>
+
+      {/* 처음부터 다시하기 버튼 */}
+      <button
+        onClick={handleRestart}
+        className="w-full max-w-sm mb-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all"
+      >
+        🔄 처음부터 다시하기
+      </button>
 
       <button
         onClick={() => auth.signOut()}
