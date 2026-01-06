@@ -5,7 +5,8 @@ import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import FinancialCheckPage from './pages/FinancialCheckPage';
 import FinancialResultPage from './pages/FinancialResultPage';
-import IncomeExpenseInputPage, { IncomeExpenseData } from './pages/IncomeExpenseInputPage';
+import IncomeExpenseInputPage from './pages/IncomeExpenseInputPage';
+import type { IncomeExpenseData } from './pages/IncomeExpenseInputPage';
 import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 
 interface FinancialResult {
@@ -99,10 +100,6 @@ function App() {
   const handleIncomeExpenseComplete = (data: IncomeExpenseData) => {
     setIncomeExpenseData(data);
     setCurrentStep('income-expense-result');
-  };
-
-  const handleIncomeExpenseBack = () => {
-    setCurrentStep('financial-result');
   };
 
   const handleIncomeExpenseResultBack = () => {
