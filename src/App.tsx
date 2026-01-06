@@ -39,15 +39,21 @@ function App() {
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
 
   useEffect(() => {
+    // [테스트/시연 모드] 앱 시작 시 한 번만 로그아웃 처리
+    // 서비스 오픈 전에 이 부분 제거 예정
+    const isFirstLoad = sessionStorage.getItem('app_loaded');
+    if (!isFirstLoad) {
+      sessionStorage.setItem('app_loaded', 'true');
+      auth.signOut();
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
       
       if (currentUser) {
-        // [테스트/시연 모드] 접속 시 항상 로그아웃 → 로그인 화면부터 시작
-        // 서비스 오픈 전에 이 부분 제거 예정
-        auth.signOut();
-        return;
+        // 로그인 성공 시 온보딩부터 시작
+        setCurrentStep('onboarding');
         
         /* [서비스 오픈 시 아래 코드 활성화]
         const onboardingDone = localStorage.getItem(`onboarding_${currentUser.uid}`);
