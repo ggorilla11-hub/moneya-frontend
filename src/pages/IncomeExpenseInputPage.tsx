@@ -16,9 +16,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
   const [savings, setSavings] = useState('0');
   const [surplus, setSurplus] = useState('0');
 
-  // 생활비 자동 계산
+  // 생활비 자동 계산 (모두 만원 단위)
   const calculateLivingExpense = () => {
-    const incomeVal = (parseInt(income) || 0) * 10000; // 만원 → 원
+    const incomeVal = parseInt(income) || 0;
     const loanVal = parseInt(loanPayment) || 0;
     const insuranceVal = parseInt(insurance) || 0;
     const pensionVal = parseInt(pension) || 0;
@@ -26,15 +26,15 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
     const surplusVal = parseInt(surplus) || 0;
 
     const totalFixed = loanVal + insuranceVal + pensionVal + savingsVal + surplusVal;
-    return incomeVal - totalFixed;
+    return incomeVal - totalFixed; // 만원 단위
   };
 
   const livingExpense = calculateLivingExpense();
 
-  // 고정지출 합계
+  // 고정지출 합계 (만원 단위)
   const fixedExpense = (parseInt(loanPayment) || 0) + (parseInt(insurance) || 0);
   
-  // 저축투자 합계
+  // 저축투자 합계 (만원 단위)
   const totalSavings = (parseInt(pension) || 0) + (parseInt(savings) || 0) + (parseInt(surplus) || 0);
 
   const formatNumber = (num: number) => {
@@ -48,15 +48,16 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
       return;
     }
 
+    // 모든 값을 원 단위로 변환하여 전달
     const data: IncomeExpenseData = {
       familySize,
       income: incomeVal * 10000, // 만원 → 원
-      loanPayment: parseInt(loanPayment) || 0,
-      insurance: parseInt(insurance) || 0,
-      pension: parseInt(pension) || 0,
-      savings: parseInt(savings) || 0,
-      surplus: parseInt(surplus) || 0,
-      livingExpense,
+      loanPayment: (parseInt(loanPayment) || 0) * 10000, // 만원 → 원
+      insurance: (parseInt(insurance) || 0) * 10000, // 만원 → 원
+      pension: (parseInt(pension) || 0) * 10000, // 만원 → 원
+      savings: (parseInt(savings) || 0) * 10000, // 만원 → 원
+      surplus: (parseInt(surplus) || 0) * 10000, // 만원 → 원
+      livingExpense: livingExpense * 10000, // 만원 → 원
     };
 
     onComplete(data);
@@ -158,9 +159,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
                   value={loanPayment}
                   onChange={(e) => setLoanPayment(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-12 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-14 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">원</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">만원</span>
               </div>
             </div>
 
@@ -175,9 +176,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
                   value={insurance}
                   onChange={(e) => setInsurance(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-12 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-14 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">원</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">만원</span>
               </div>
             </div>
           </div>
@@ -202,9 +203,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
                   value={pension}
                   onChange={(e) => setPension(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-12 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-14 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">원</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">만원</span>
               </div>
             </div>
 
@@ -219,9 +220,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
                   value={savings}
                   onChange={(e) => setSavings(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-12 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-14 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">원</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">만원</span>
               </div>
             </div>
 
@@ -236,9 +237,9 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
                   value={surplus}
                   onChange={(e) => setSurplus(e.target.value)}
                   placeholder="0"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-12 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-right text-gray-800 font-semibold pr-14 focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">원</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">만원</span>
               </div>
             </div>
           </div>
@@ -257,27 +258,27 @@ function IncomeExpenseInputPage({ initialIncome = 0, onComplete, onBack }: Incom
               <span className={`text-3xl font-bold ${livingExpense >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {formatNumber(livingExpense)}
               </span>
-              <span className="text-gray-500 font-semibold">원</span>
+              <span className="text-gray-500 font-semibold">만원</span>
             </div>
           </div>
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>월 수입</span>
-              <span className="font-semibold">{formatNumber((parseInt(income) || 0) * 10000)}원</span>
+              <span className="font-semibold">{formatNumber(parseInt(income) || 0)}만원</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>- 고정지출</span>
-              <span className="font-semibold text-red-500">{formatNumber(fixedExpense)}원</span>
+              <span className="font-semibold text-red-500">{formatNumber(fixedExpense)}만원</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>- 저축투자</span>
-              <span className="font-semibold text-red-500">{formatNumber(totalSavings)}원</span>
+              <span className="font-semibold text-red-500">{formatNumber(totalSavings)}만원</span>
             </div>
             <div className="flex justify-between pt-2 border-t border-gray-200">
               <span className="font-bold text-gray-800">= 생활비</span>
               <span className={`font-bold ${livingExpense >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                {formatNumber(livingExpense)}원
+                {formatNumber(livingExpense)}만원
               </span>
             </div>
           </div>
