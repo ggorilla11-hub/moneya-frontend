@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import FinancialCheckPage from './pages/FinancialCheckPage';
 import FinancialResultPage from './pages/FinancialResultPage';
+import IncomeExpenseInputPage, { IncomeExpenseData } from './pages/IncomeExpenseInputPage';
+import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 
 interface FinancialResult {
   name: string;
@@ -19,13 +21,21 @@ interface FinancialResult {
   message: string;
 }
 
-type AppStep = 'login' | 'onboarding' | 'financial-check' | 'financial-result' | 'home';
+type AppStep = 
+  | 'login' 
+  | 'onboarding' 
+  | 'financial-check' 
+  | 'financial-result' 
+  | 'income-expense-input'
+  | 'income-expense-result'
+  | 'home';
 
 function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState<AppStep>('login');
   const [financialResult, setFinancialResult] = useState<FinancialResult | null>(null);
+  const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -35,11 +45,19 @@ function App() {
       if (currentUser) {
         const onboardingDone = localStorage.getItem(`onboarding_${currentUser.uid}`);
         const financialDone = localStorage.getItem(`financial_${currentUser.uid}`);
+        const incomeExpenseDone = localStorage.getItem(`incomeExpense_${currentUser.uid}`);
         
         if (!onboardingDone) {
           setCurrentStep('onboarding');
         } else if (!financialDone) {
           setCurrentStep('financial-check');
+        } else if (!incomeExpenseDone) {
+          // 1차 재무진단 데이터 복원
+          const savedFinancial = localStorage.getItem(`financialData_${currentUser.uid}`);
+          if (savedFinancial) {
+            setFinancialResult(JSON.parse(savedFinancial));
+          }
+          setCurrentStep('income-expense-input');
         } else {
           setCurrentStep('home');
         }
@@ -60,17 +78,42 @@ function App() {
 
   const handleFinancialCheckComplete = (result: FinancialResult) => {
     setFinancialResult(result);
+    if (user) {
+      localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));
+    }
     setCurrentStep('financial-result');
   };
 
-  const handleRetry = () => {
+  const handleFinancialRetry = () => {
     setFinancialResult(null);
     setCurrentStep('financial-check');
   };
 
-  const handleNext = () => {
+  const handleFinancialNext = () => {
     if (user) {
       localStorage.setItem(`financial_${user.uid}`, 'true');
+      setCurrentStep('income-expense-input');
+    }
+  };
+
+  const handleIncomeExpenseComplete = (data: IncomeExpenseData) => {
+    setIncomeExpenseData(data);
+    setCurrentStep('income-expense-result');
+  };
+
+  const handleIncomeExpenseBack = () => {
+    setCurrentStep('financial-result');
+  };
+
+  const handleIncomeExpenseResultBack = () => {
+    setCurrentStep('income-expense-input');
+  };
+
+  const handleIncomeExpenseResultNext = () => {
+    if (user) {
+      localStorage.setItem(`incomeExpense_${user.uid}`, 'true');
+      // 추후 예산 조정 페이지로 이동
+      // 현재는 홈으로 이동
       setCurrentStep('home');
     }
   };
@@ -104,8 +147,28 @@ function App() {
     return (
       <FinancialResultPage
         result={financialResult}
-        onRetry={handleRetry}
-        onNext={handleNext}
+        onRetry={handleFinancialRetry}
+        onNext={handleFinancialNext}
+      />
+    );
+  }
+
+  if (currentStep === 'income-expense-input') {
+    return (
+      <IncomeExpenseInputPage
+        initialIncome={financialResult?.income || 0}
+        onComplete={handleIncomeExpenseComplete}
+        onBack={() => setCurrentStep('financial-result')}
+      />
+    );
+  }
+
+  if (currentStep === 'income-expense-result' && incomeExpenseData) {
+    return (
+      <IncomeExpenseResultPage
+        data={incomeExpenseData}
+        onBack={handleIncomeExpenseResultBack}
+        onNext={handleIncomeExpenseResultNext}
       />
     );
   }
