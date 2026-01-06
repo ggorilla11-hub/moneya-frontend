@@ -131,6 +131,15 @@ function IncomeExpenseResultPage({ data, onBack, onNext }: IncomeExpenseResultPa
     },
   ];
 
+  const formatNumber = (num: number) => {
+    return Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  const formatMan = (num: number) => {
+    const man = Math.round(num / 10000);
+    return `${man}만`;
+  };
+
   // 핵심 진단 요약 생성
   const getSummaryItems = () => {
     const items: { icon: string; color: string; text: string }[] = [];
@@ -172,15 +181,6 @@ function IncomeExpenseResultPage({ data, onBack, onNext }: IncomeExpenseResultPa
   };
 
   const summaryItems = getSummaryItems();
-
-  const formatNumber = (num: number) => {
-    return Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  };
-
-  const formatMan = (num: number) => {
-    const man = Math.round(num / 10000);
-    return `${man}만`;
-  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
