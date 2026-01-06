@@ -44,6 +44,12 @@ function App() {
       setLoading(false);
       
       if (currentUser) {
+        // [테스트/시연 모드] 접속 시 항상 로그아웃 → 로그인 화면부터 시작
+        // 서비스 오픈 전에 이 부분 제거 예정
+        auth.signOut();
+        return;
+        
+        /* [서비스 오픈 시 아래 코드 활성화]
         const onboardingDone = localStorage.getItem(`onboarding_${currentUser.uid}`);
         const financialDone = localStorage.getItem(`financial_${currentUser.uid}`);
         const incomeExpenseDone = localStorage.getItem(`incomeExpense_${currentUser.uid}`);
@@ -53,7 +59,6 @@ function App() {
         } else if (!financialDone) {
           setCurrentStep('financial-check');
         } else if (!incomeExpenseDone) {
-          // 1차 재무진단 데이터 복원
           const savedFinancial = localStorage.getItem(`financialData_${currentUser.uid}`);
           if (savedFinancial) {
             setFinancialResult(JSON.parse(savedFinancial));
@@ -62,6 +67,7 @@ function App() {
         } else {
           setCurrentStep('home');
         }
+        */
       } else {
         setCurrentStep('login');
       }
