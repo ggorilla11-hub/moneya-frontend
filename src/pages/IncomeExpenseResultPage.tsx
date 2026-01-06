@@ -1,5 +1,5 @@
-import type { IncomeExpenseData } from './IncomeExpenseInputPage';
-import { BUDGET_RATIOS } from './IncomeExpenseInputPage';
+import type { IncomeExpenseData } from '../types/incomeExpense';
+import { BUDGET_RATIOS } from '../types/incomeExpense';
 
 interface IncomeExpenseResultPageProps {
   data: IncomeExpenseData;

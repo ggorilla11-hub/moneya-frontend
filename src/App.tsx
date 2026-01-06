@@ -6,7 +6,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import FinancialCheckPage from './pages/FinancialCheckPage';
 import FinancialResultPage from './pages/FinancialResultPage';
 import IncomeExpenseInputPage from './pages/IncomeExpenseInputPage';
-import type { IncomeExpenseData } from './pages/IncomeExpenseInputPage';
+import type { IncomeExpenseData } from './types/incomeExpense';
 import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 
 interface FinancialResult {
