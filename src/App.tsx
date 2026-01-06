@@ -171,8 +171,8 @@ function App() {
   }
 
   // 처음부터 다시하기 기능
-  const handleRestart = () => {
-    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 진단 데이터가 초기화됩니다.')) {
+  const handleRestart = async () => {
+    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n로그아웃 후 새로운 고객처럼 시작합니다.')) {
       // 해당 사용자의 모든 진행 데이터 삭제
       localStorage.removeItem(`onboarding_${user.uid}`);
       localStorage.removeItem(`financial_${user.uid}`);
@@ -182,7 +182,9 @@ function App() {
       // 상태 초기화
       setFinancialResult(null);
       setIncomeExpenseData(null);
-      setCurrentStep('onboarding');
+      
+      // 로그아웃 → 로그인 화면부터 시작
+      await auth.signOut();
     }
   };
 
