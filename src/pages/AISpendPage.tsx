@@ -36,7 +36,9 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   ]);
   const [inputText, setInputText] = useState('');
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   const [spendItems] = useState<SpendItem[]>([
@@ -44,6 +46,8 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: '2', name: '커피 참음!', amount: 15000, type: 'saved', category: '충동', time: '14:30', tag: 'AI 조언 후 취소' },
     { id: '3', name: '점심 김밥천국', amount: 8000, type: 'spent', category: '필수', time: '12:30', tag: '바로 지출' },
   ]);
+
+  const [connectedBanks, setConnectedBanks] = useState<string[]>(['KB국민은행']);
 
   const dailyBudget = adjustedBudget ? Math.round(adjustedBudget.livingExpense / 30) : 66667;
   const todaySpent = spendItems.filter(item => item.type === 'spent').reduce((sum, item) => sum + item.amount, 0);
@@ -58,13 +62,22 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { emoji: '📊', text: '이번 주 현황' },
   ];
 
-  const handleSendMessage = () => {
-    if (!inputText.trim()) return;
+  const banks = [
+    { id: 'kb', name: 'KB국민은행', logo: 'KB', color: 'bg-amber-500' },
+    { id: 'shinhan', name: '신한은행', logo: '신한', color: 'bg-blue-600' },
+    { id: 'woori', name: '우리은행', logo: '우리', color: 'bg-blue-500' },
+    { id: 'hana', name: '하나은행', logo: '하나', color: 'bg-green-600' },
+    { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
+  ];
+
+  const handleSendMessage = (text?: string) => {
+    const messageText = text || inputText;
+    if (!messageText.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      text: inputText,
+      text: messageText,
       timestamp: new Date(),
     };
 
@@ -75,7 +88,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        text: getAIResponse(inputText),
+        text: getAIResponse(messageText),
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
@@ -94,12 +107,41 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     if (lowerText.includes('얼마') || lowerText.includes('예산')) {
       return `오늘 남은 예산은 ₩${remainingBudget.toLocaleString()}이에요! 💰\n\n지금까지 ₩${todaySpent.toLocaleString()} 사용하셨어요.`;
     }
+    if (lowerText.includes('점심')) {
+      return `점심 예산은 약 ₩15,000 정도 추천드려요! 🍽️\n\n김밥천국이나 백반집 어떠세요?`;
+    }
     
     return `네, 알겠어요! 😊\n\n더 궁금한 점이 있으시면 말씀해주세요.`;
   };
 
   const handleFAQClick = (text: string) => {
-    setInputText(text);
+    handleSendMessage(text);
+  };
+
+  const handleVoiceToggle = () => {
+    if (isListening) {
+      setIsListening(false);
+    } else {
+      setIsListening(true);
+      setTimeout(() => {
+        const sampleTexts = [
+          '오늘 점심 뭐 먹을까?',
+          '커피 마셔도 돼?',
+          '이번 주 예산 현황 알려줘',
+        ];
+        const randomText = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+        handleSendMessage(randomText);
+        setIsListening(false);
+      }, 2000);
+    }
+  };
+
+  const handleBankConnect = (bankName: string) => {
+    if (connectedBanks.includes(bankName)) {
+      setConnectedBanks(prev => prev.filter(b => b !== bankName));
+    } else {
+      setConnectedBanks(prev => [...prev, bankName]);
+    }
   };
 
   useEffect(() => {
@@ -227,7 +269,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
       <div 
         ref={chatAreaRef}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[200px] max-h-[400px]"
       >
         {messages.map((message) => (
           <div
@@ -256,6 +298,26 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </div>
         ))}
         
+        {isListening && (
+          <div className="flex gap-2.5 max-w-[90%] ml-auto flex-row-reverse">
+            <div className="px-4 py-3 rounded-2xl text-sm bg-amber-100 text-amber-700 flex items-center gap-2">
+              <div className="flex items-center gap-0.5">
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1 bg-amber-500 rounded-full animate-pulse"
+                    style={{
+                      height: `${12 + Math.random() * 8}px`,
+                      animationDelay: `${i * 0.15}s`,
+                    }}
+                  ></div>
+                ))}
+              </div>
+              <span>음성 인식중...</span>
+            </div>
+          </div>
+        )}
+        
         <div className="text-center text-xs text-gray-300">방금 전</div>
       </div>
 
@@ -271,9 +333,9 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </button>
           
           <button
-            onClick={() => setIsVoiceMode(!isVoiceMode)}
+            onClick={handleVoiceToggle}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isVoiceMode 
+              isListening 
                 ? 'bg-red-500 animate-pulse' 
                 : 'bg-amber-400 hover:bg-amber-500'
             }`}
@@ -289,16 +351,17 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="지출전후에 물어보세요..."
+              placeholder={isListening ? "음성 인식중..." : "지출전후에 물어보세요..."}
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
+              disabled={isListening}
             />
           </div>
           
           <button
-            onClick={handleSendMessage}
-            disabled={!inputText.trim()}
+            onClick={() => handleSendMessage()}
+            disabled={!inputText.trim() || isListening}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim()
+              inputText.trim() && !isListening
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-gray-300'
             }`}
@@ -347,7 +410,13 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
                 </svg>
               </button>
               
-              <button className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50 transition-all">
+              <button 
+                onClick={() => {
+                  setIsInputMethodOpen(false);
+                  setIsReceiptModalOpen(true);
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50 transition-all"
+              >
                 <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
@@ -362,7 +431,13 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
                 </svg>
               </button>
               
-              <button className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all">
+              <button 
+                onClick={() => {
+                  setIsInputMethodOpen(false);
+                  setIsBankModalOpen(true);
+                }}
+                className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all"
+              >
                 <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/>
@@ -379,52 +454,112 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         </div>
       )}
 
-      {isVoiceMode && (
-        <div className="fixed inset-0 bg-gradient-to-b from-blue-600 to-blue-800 z-50 flex flex-col items-center justify-center">
-          <button
-            onClick={() => setIsVoiceMode(false)}
-            className="absolute top-12 right-6 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"
+      {isReceiptModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          onClick={() => setIsReceiptModalOpen(false)}
+        >
+          <div 
+            className="w-full bg-white rounded-t-3xl p-5 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
           >
-            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-          
-          <div className="relative mb-8">
-            <div className="absolute inset-0 w-32 h-32 bg-white/20 rounded-full animate-ping"></div>
-            <div className="absolute inset-2 w-28 h-28 bg-white/30 rounded-full animate-pulse"></div>
-            <div className="relative w-24 h-24 bg-white rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
-              </svg>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">📷 영수증 촬영</h2>
+              <button 
+                onClick={() => setIsReceiptModalOpen(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="bg-gray-900 rounded-2xl p-8 mb-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center">
+                <svg className="w-12 h-12 text-gray-500 mb-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
+                </svg>
+                <p className="text-white font-semibold mb-1">영수증을 프레임 안에 맞춰주세요</p>
+                <p className="text-blue-400 text-sm">자동으로 인식됩니다</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold hover:bg-gray-200 transition-all">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/>
+                </svg>
+                앨범에서 선택
+              </button>
+              <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 rounded-xl text-white font-semibold hover:bg-blue-700 transition-all">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                </svg>
+                촬영하기
+              </button>
             </div>
           </div>
-          
-          <p className="text-white text-xl font-bold mb-2">AI머니야가 듣고 있어요</p>
-          <p className="text-white/70 text-sm mb-8">궁금한 것을 말씀해주세요</p>
-          
-          <div className="flex items-center gap-1 mb-12">
-            {[...Array(9)].map((_, i) => (
-              <div
-                key={i}
-                className="w-1 bg-white rounded-full animate-pulse"
-                style={{
-                  height: `${20 + Math.random() * 30}px`,
-                  animationDelay: `${i * 0.1}s`,
-                }}
-              ></div>
-            ))}
-          </div>
-          
-          <button
-            onClick={() => setIsVoiceMode(false)}
-            className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center shadow-lg"
+        </div>
+      )}
+
+      {isBankModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          onClick={() => setIsBankModalOpen(false)}
+        >
+          <div 
+            className="w-full bg-white rounded-t-3xl p-5 animate-slide-up max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
-            </svg>
-          </button>
-          <p className="text-white/50 text-xs mt-4">탭하여 종료</p>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">🏦 계좌 연동</h2>
+              <button 
+                onClick={() => setIsBankModalOpen(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {banks.map((bank) => {
+                const isConnected = connectedBanks.includes(bank.name);
+                return (
+                  <div 
+                    key={bank.id}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                      isConnected 
+                        ? 'border-green-400 bg-green-50' 
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className={`w-14 h-14 ${bank.color} rounded-xl flex items-center justify-center`}>
+                      <span className="text-white font-bold text-sm">{bank.logo}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-800">{bank.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {isConnected ? '***-****-1234 · 연결됨' : '계좌를 연결해주세요'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleBankConnect(bank.name)}
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                        isConnected
+                          ? 'bg-green-500 text-white'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isConnected ? '연결됨' : '연결'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
