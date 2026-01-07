@@ -28,21 +28,17 @@ const API_URL = 'https://moneya-backend-x77a.onrender.com';
 
 function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) {
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'ai',
-      text: `안녕하세요, ${userName.split('(')[0]}님! 👋\n\nAI머니야예요. 오늘 하루도 현명한 소비 함께해요!`,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const chatAreaRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
@@ -58,6 +54,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const todayInvestment = spendItems.filter(item => item.type === 'investment').reduce((sum, item) => sum + item.amount, 0);
   const remainingBudget = dailyBudget - todaySpent;
   const usagePercent = Math.round((todaySpent / dailyBudget) * 100);
+  const displayName = userName.split('(')[0].trim();
 
   const faqChips = [
     { emoji: '💰', text: '오늘 얼마 쓸 수 있어?' },
@@ -73,9 +70,124 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
+  // 초기 인사 메시지
+  useEffect(() => {
+    const greeting: Message = {
+      id: '1',
+      type: 'ai',
+      text: `안녕하세요, ${displayName}님! 👋\n\n저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 "머니야"라고 불러주시면 바로 달려올게요!\n\n오늘도 현명한 소비 함께해요! 💰`,
+      timestamp: new Date(),
+    };
+    setMessages([greeting]);
+    
+    if (voiceEnabled) {
+      setTimeout(() => {
+        speak(greeting.text);
+      }, 500);
+    }
+  }, []);
+
+  // TTS 함수 - 머니야 목소리
+  const speak = (text: string) => {
+    if (!voiceEnabled || !('speechSynthesis' in window)) return;
+    
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.1;
+    utterance.volume = 1.0;
+    
+    const voices = window.speechSynthesis.getVoices();
+    const koreanFemaleVoice = voices.find(voice => 
+      voice.lang.includes('ko') && voice.name.toLowerCase().includes('female')
+    ) || voices.find(voice => 
+      voice.lang.includes('ko')
+    );
+    
+    if (koreanFemaleVoice) {
+      utterance.voice = koreanFemaleVoice;
+    }
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // STT 초기화
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'ko-KR';
+
+      recognitionRef.current.onresult = (event: any) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (interimTranscript) {
+          setInputText(interimTranscript);
+        }
+
+        if (finalTranscript) {
+          setInputText('');
+          handleSendMessage(finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('음성 인식 에러:', event.error);
+        if (event.error !== 'no-speech') {
+          setIsListening(false);
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        if (isListening) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.log('재시작 시도 중...');
+          }
+        }
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      window.speechSynthesis.cancel();
+    };
+  }, [isListening]);
+
+  // 대화 기록 생성
+  const getConversationHistory = () => {
+    return messages.slice(-6).map(m => 
+      `${m.type === 'user' ? '사용자' : '머니야'}: ${m.text}`
+    ).join('\n');
+  };
+
   const handleSendMessage = async (text?: string) => {
     const messageText = text || inputText;
     if (!messageText.trim() || isLoading) return;
+
+    // TTS 중이면 중단
+    window.speechSynthesis.cancel();
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -96,6 +208,8 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         },
         body: JSON.stringify({
           message: messageText,
+          userName: userName,
+          conversationHistory: getConversationHistory(),
           budgetInfo: {
             remainingBudget,
             dailyBudget,
@@ -106,14 +220,21 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       });
 
       const data = await response.json();
+      const aiText = data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요! 🙏';
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        text: data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요! 🙏',
+        text: aiText,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
+
+      // TTS로 읽어주기
+      if (voiceEnabled) {
+        speak(aiText);
+      }
+
     } catch (error) {
       console.error('API 에러:', error);
       const errorMessage: Message = {
@@ -134,19 +255,21 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
   const handleVoiceToggle = () => {
     if (isListening) {
+      // 음성 인식 중지
       setIsListening(false);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     } else {
+      // 음성 인식 시작
       setIsListening(true);
-      setTimeout(() => {
-        const sampleTexts = [
-          '오늘 점심 뭐 먹을까?',
-          '커피 마셔도 돼?',
-          '이번 주 예산 현황 알려줘',
-        ];
-        const randomText = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
-        handleSendMessage(randomText);
-        setIsListening(false);
-      }, 2000);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.log('이미 시작됨');
+        }
+      }
     }
   };
 
@@ -171,7 +294,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     }
   };
 
-  return (
+return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       
       <div className="mx-4 mt-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 relative overflow-hidden">
@@ -185,12 +308,27 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </div>
           
           <div className="flex-1">
-            <p className="text-white font-bold">안녕하세요, {userName.split('(')[0]}님! 👋</p>
+            <p className="text-white font-bold">안녕하세요, {displayName}님! 👋</p>
             <div className="flex items-center gap-2">
               <span className="text-white/80 text-sm">오늘 남은 예산</span>
               <span className="text-white text-xl font-extrabold">₩{remainingBudget.toLocaleString()}</span>
             </div>
           </div>
+          
+          <button
+            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${voiceEnabled ? 'bg-white/30' : 'bg-white/10'}`}
+          >
+            {voiceEnabled ? (
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-white/50" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+              </svg>
+            )}
+          </button>
         </div>
         
         <div className="mt-3 bg-white/20 rounded-full h-2 overflow-hidden">
@@ -293,7 +431,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
             }`}
           >
             {message.type === 'ai' && (
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isSpeaking ? 'bg-purple-600 animate-pulse' : 'bg-blue-600'}`}>
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
                 </svg>
@@ -329,28 +467,32 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </div>
         )}
         
-        {isListening && (
-          <div className="flex gap-2.5 max-w-[90%] ml-auto flex-row-reverse">
-            <div className="px-4 py-3 rounded-2xl text-sm bg-amber-100 text-amber-700 flex items-center gap-2">
-              <div className="flex items-center gap-0.5">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-amber-500 rounded-full animate-pulse"
-                    style={{
-                      height: `${12 + Math.random() * 8}px`,
-                      animationDelay: `${i * 0.15}s`,
-                    }}
-                  ></div>
-                ))}
-              </div>
-              <span>음성 인식중...</span>
-            </div>
-          </div>
-        )}
-        
         <div className="text-center text-xs text-gray-300">방금 전</div>
       </div>
+
+      {isListening && (
+        <div className="mx-4 mb-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="w-1 bg-red-500 rounded-full animate-pulse"
+                style={{
+                  height: `${10 + Math.random() * 15}px`,
+                  animationDelay: `${i * 0.1}s`,
+                }}
+              ></div>
+            ))}
+          </div>
+          <span className="text-red-600 font-semibold text-sm flex-1">음성 인식 중... "머니야"라고 불러주세요!</span>
+          <button
+            onClick={handleVoiceToggle}
+            className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full"
+          >
+            중지
+          </button>
+        </div>
+      )}
 
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
@@ -382,17 +524,17 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isListening ? "음성 인식중..." : "지출전후에 물어보세요..."}
+              placeholder={isListening ? "말씀해주세요..." : "머니야에게 물어보세요..."}
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-              disabled={isListening || isLoading}
+              disabled={isLoading}
             />
           </div>
           
           <button
             onClick={() => handleSendMessage()}
-            disabled={!inputText.trim() || isListening || isLoading}
+            disabled={!inputText.trim() || isLoading}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !isListening && !isLoading
+              inputText.trim() && !isLoading
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-gray-300'
             }`}
