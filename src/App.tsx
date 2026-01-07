@@ -8,6 +8,7 @@ import FinancialResultPage from './pages/FinancialResultPage';
 import IncomeExpenseInputPage from './pages/IncomeExpenseInputPage';
 import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 import BudgetAdjustPage from './pages/BudgetAdjustPage';
+import BudgetConfirmPage from './pages/BudgetConfirmPage';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
@@ -32,6 +33,7 @@ type AppStep =
   | 'income-expense-input'
   | 'income-expense-result'
   | 'budget-adjust'
+  | 'budget-confirm'
   | 'home';
 
 function App() {
@@ -109,6 +111,13 @@ function App() {
     if (user) {
       localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
     }
+    setCurrentStep('budget-confirm');
+  };
+
+  const handleBudgetConfirmStart = () => {
+    if (user) {
+      localStorage.setItem(`budgetConfirmed_${user.uid}`, 'true');
+    }
     setCurrentStep('home');
   };
 
@@ -177,6 +186,15 @@ function App() {
     );
   }
 
+  if (currentStep === 'budget-confirm' && adjustedBudget) {
+    return (
+      <BudgetConfirmPage
+        adjustedBudget={adjustedBudget}
+        onStart={handleBudgetConfirmStart}
+      />
+    );
+  }
+
   const handleRestart = async () => {
     if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n로그아웃 후 새로운 고객처럼 시작합니다.')) {
       localStorage.removeItem(`onboarding_${user.uid}`);
@@ -184,6 +202,7 @@ function App() {
       localStorage.removeItem(`financialData_${user.uid}`);
       localStorage.removeItem(`incomeExpense_${user.uid}`);
       localStorage.removeItem(`adjustedBudget_${user.uid}`);
+      localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -229,8 +248,8 @@ function App() {
           </p>
           {adjustedBudget && (
             <div className="mt-3 text-sm text-gray-600">
-              <p>월 예산: ₩{(adjustedBudget.totalIncome * 10000).toLocaleString()}</p>
-              <p>저축/투자: ₩{(adjustedBudget.savings * 10000).toLocaleString()}</p>
+              <p>월 예산: ₩{adjustedBudget.totalIncome.toLocaleString()}원</p>
+              <p>저축/투자: ₩{adjustedBudget.savings.toLocaleString()}원</p>
             </div>
           )}
         </div>
