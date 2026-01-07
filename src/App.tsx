@@ -9,6 +9,8 @@ import IncomeExpenseInputPage from './pages/IncomeExpenseInputPage';
 import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 import BudgetAdjustPage from './pages/BudgetAdjustPage';
 import BudgetConfirmPage from './pages/BudgetConfirmPage';
+import HomePage from './pages/HomePage';
+import BottomNav from './components/BottomNav';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
@@ -34,12 +36,15 @@ type AppStep =
   | 'income-expense-result'
   | 'budget-adjust'
   | 'budget-confirm'
-  | 'home';
+  | 'main';
+
+type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
 function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState<AppStep>('login');
+  const [currentTab, setCurrentTab] = useState<MainTab>('home');
   const [financialResult, setFinancialResult] = useState<FinancialResult | null>(null);
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
   const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
@@ -50,7 +55,16 @@ function App() {
       setLoading(false);
       
       if (currentUser) {
-        setCurrentStep('onboarding');
+        const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
+        if (budgetConfirmed) {
+          const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
+          if (savedBudget) {
+            setAdjustedBudget(JSON.parse(savedBudget));
+          }
+          setCurrentStep('main');
+        } else {
+          setCurrentStep('onboarding');
+        }
       } else {
         setCurrentStep('login');
       }
@@ -118,7 +132,32 @@ function App() {
     if (user) {
       localStorage.setItem(`budgetConfirmed_${user.uid}`, 'true');
     }
-    setCurrentStep('home');
+    setCurrentStep('main');
+    setCurrentTab('home');
+  };
+
+  const handleTabChange = (tab: MainTab) => {
+    setCurrentTab(tab);
+  };
+
+  const handleMoreDetail = () => {
+    alert('상세 리포트 페이지는 Phase 2-2-1에서 개발 예정입니다!');
+  };
+
+  const handleRestart = async () => {
+    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 데이터가 초기화됩니다.')) {
+      localStorage.removeItem(`onboarding_${user.uid}`);
+      localStorage.removeItem(`financial_${user.uid}`);
+      localStorage.removeItem(`financialData_${user.uid}`);
+      localStorage.removeItem(`incomeExpense_${user.uid}`);
+      localStorage.removeItem(`adjustedBudget_${user.uid}`);
+      localStorage.removeItem(`budgetConfirmed_${user.uid}`);
+      
+      setFinancialResult(null);
+      setIncomeExpenseData(null);
+      setAdjustedBudget(null);
+      setCurrentStep('onboarding');
+    }
   };
 
   if (loading) {
@@ -195,81 +234,71 @@ function App() {
     );
   }
 
-  const handleRestart = async () => {
-    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n로그아웃 후 새로운 고객처럼 시작합니다.')) {
-      localStorage.removeItem(`onboarding_${user.uid}`);
-      localStorage.removeItem(`financial_${user.uid}`);
-      localStorage.removeItem(`financialData_${user.uid}`);
-      localStorage.removeItem(`incomeExpense_${user.uid}`);
-      localStorage.removeItem(`adjustedBudget_${user.uid}`);
-      localStorage.removeItem(`budgetConfirmed_${user.uid}`);
-      
-      setFinancialResult(null);
-      setIncomeExpenseData(null);
-      setAdjustedBudget(null);
-      
-      await auth.signOut();
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-green-50 flex flex-col items-center justify-center p-4">
-      <div className="relative w-24 h-24 mb-6">
-        <div className="absolute inset-0 bg-purple-500 rounded-full animate-pulse opacity-30"></div>
-        <div className="absolute inset-2 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-lg">
-          <span className="text-white text-4xl font-bold">M</span>
-        </div>
-      </div>
-
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">
-        안녕하세요, {user.displayName}님!
-      </h1>
-      <p className="text-gray-600 text-center mb-8">
-        <span className="text-purple-600 font-semibold">AI머니야</span>에 오신 것을 환영합니다
-      </p>
-
-      <div className="bg-white rounded-2xl shadow-md p-6 w-full max-w-sm mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          {user.photoURL && (
-            <img 
-              src={user.photoURL} 
-              alt="프로필" 
-              className="w-12 h-12 rounded-full"
-            />
-          )}
-          <div>
-            <p className="font-semibold text-gray-800">{user.displayName}</p>
-            <p className="text-sm text-gray-500">{user.email}</p>
-          </div>
-        </div>
-        <div className="border-t pt-4">
-          <p className="text-center text-green-600 font-semibold">
-            ✅ 예산 설정 완료!
-          </p>
-          {adjustedBudget && (
-            <div className="mt-3 text-sm text-gray-600">
-              <p>월 예산: ₩{adjustedBudget.totalIncome.toLocaleString()}원</p>
-              <p>저축/투자: ₩{adjustedBudget.savings.toLocaleString()}원</p>
+  // 메인 화면 (탭 네비게이션)
+  if (currentStep === 'main') {
+    return (
+      <div className="relative">
+        {currentTab === 'home' && (
+          <HomePage 
+            userName={user.displayName || '사용자'} 
+            adjustedBudget={adjustedBudget}
+            onMoreDetail={handleMoreDetail}
+          />
+        )}
+        {currentTab === 'ai-spend' && (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
+            <div className="text-center p-6">
+              <span className="text-6xl mb-4 block">💬</span>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">AI 지출 상담</h2>
+              <p className="text-gray-500">Phase 3에서 개발 예정입니다</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+        {currentTab === 'financial-house' && (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
+            <div className="text-center p-6">
+              <span className="text-6xl mb-4 block">🏗️</span>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
+              <p className="text-gray-500">Phase 4에서 개발 예정입니다</p>
+            </div>
+          </div>
+        )}
+        {currentTab === 'mypage' && (
+          <div className="min-h-screen bg-gray-50 pb-24">
+            <div className="bg-white p-6 border-b">
+              <div className="flex items-center gap-4">
+                {user.photoURL && (
+                  <img src={user.photoURL} alt="프로필" className="w-16 h-16 rounded-full" />
+                )}
+                <div>
+                  <p className="font-bold text-lg text-gray-800">{user.displayName}</p>
+                  <p className="text-sm text-gray-500">{user.email}</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              <button 
+                onClick={handleRestart}
+                className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
+              >
+                🔄 처음부터 다시하기
+              </button>
+              <button 
+                onClick={() => auth.signOut()}
+                className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        )}
+        
+        <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
       </div>
+    );
+  }
 
-      <button
-        onClick={handleRestart}
-        className="w-full max-w-sm mb-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all"
-      >
-        🔄 처음부터 다시하기
-      </button>
-
-      <button
-        onClick={() => auth.signOut()}
-        className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-3 px-8 rounded-xl transition-all"
-      >
-        로그아웃
-      </button>
-    </div>
-  );
+  return null;
 }
 
 export default App;
