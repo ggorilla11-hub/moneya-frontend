@@ -6,8 +6,28 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
+  const isInAppBrowser = () => {
+    const ua = navigator.userAgent || navigator.vendor;
+    return /KAKAOTALK|NAVER|LINE|Instagram|FBAN|FBAV/i.test(ua);
+  };
 
   const handleGoogleLogin = async () => {
+    if (isInAppBrowser()) {
+      const currentUrl = window.location.href;
+      
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = currentUrl;
+        setTimeout(() => {
+          alert('Safari에서 열어주세요.\n\n우측 하단 ··· 메뉴 → Safari로 열기');
+        }, 100);
+        return;
+      }
+      
+      const externalUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+      window.location.href = externalUrl;
+      return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
