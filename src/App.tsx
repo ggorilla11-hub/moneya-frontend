@@ -10,6 +10,7 @@ import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
 import BudgetAdjustPage from './pages/BudgetAdjustPage';
 import BudgetConfirmPage from './pages/BudgetConfirmPage';
 import HomePage from './pages/HomePage';
+import DetailReportPage from './pages/DetailReportPage';
 import BottomNav from './components/BottomNav';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
@@ -36,7 +37,8 @@ type AppStep =
   | 'income-expense-result'
   | 'budget-adjust'
   | 'budget-confirm'
-  | 'main';
+  | 'main'
+  | 'detail-report';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -141,7 +143,12 @@ function App() {
   };
 
   const handleMoreDetail = () => {
-    alert('상세 리포트 페이지는 Phase 2-2-1에서 개발 예정입니다!');
+    setCurrentStep('detail-report');
+  };
+
+  const handleDetailReportBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('home');
   };
 
   const handleRestart = async () => {
@@ -230,6 +237,15 @@ function App() {
       <BudgetConfirmPage
         adjustedBudget={adjustedBudget}
         onStart={handleBudgetConfirmStart}
+      />
+    );
+  }
+
+  if (currentStep === 'detail-report') {
+    return (
+      <DetailReportPage
+        adjustedBudget={adjustedBudget}
+        onBack={handleDetailReportBack}
       />
     );
   }
