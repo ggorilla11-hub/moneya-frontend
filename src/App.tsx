@@ -6,8 +6,10 @@ import OnboardingPage from './pages/OnboardingPage';
 import FinancialCheckPage from './pages/FinancialCheckPage';
 import FinancialResultPage from './pages/FinancialResultPage';
 import IncomeExpenseInputPage from './pages/IncomeExpenseInputPage';
-import type { IncomeExpenseData } from './types/incomeExpense';
 import IncomeExpenseResultPage from './pages/IncomeExpenseResultPage';
+import BudgetAdjustPage from './pages/BudgetAdjustPage';
+import type { IncomeExpenseData } from './types/incomeExpense';
+import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
 interface FinancialResult {
   name: string;
@@ -29,6 +31,7 @@ type AppStep =
   | 'financial-result' 
   | 'income-expense-input'
   | 'income-expense-result'
+  | 'budget-adjust'
   | 'home';
 
 function App() {
@@ -37,6 +40,7 @@ function App() {
   const [currentStep, setCurrentStep] = useState<AppStep>('login');
   const [financialResult, setFinancialResult] = useState<FinancialResult | null>(null);
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
+  const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -44,29 +48,7 @@ function App() {
       setLoading(false);
       
       if (currentUser) {
-        // 로그인 성공 시 항상 온보딩부터 시작 (테스트/시연 모드)
-        // 서비스 오픈 시 아래 주석 해제하여 진행 상태 유지하도록 변경
         setCurrentStep('onboarding');
-        
-        /* [서비스 오픈 시 아래 코드 활성화]
-        const onboardingDone = localStorage.getItem(`onboarding_${currentUser.uid}`);
-        const financialDone = localStorage.getItem(`financial_${currentUser.uid}`);
-        const incomeExpenseDone = localStorage.getItem(`incomeExpense_${currentUser.uid}`);
-        
-        if (!onboardingDone) {
-          setCurrentStep('onboarding');
-        } else if (!financialDone) {
-          setCurrentStep('financial-check');
-        } else if (!incomeExpenseDone) {
-          const savedFinancial = localStorage.getItem(`financialData_${currentUser.uid}`);
-          if (savedFinancial) {
-            setFinancialResult(JSON.parse(savedFinancial));
-          }
-          setCurrentStep('income-expense-input');
-        } else {
-          setCurrentStep('home');
-        }
-        */
       } else {
         setCurrentStep('login');
       }
@@ -114,10 +96,20 @@ function App() {
   const handleIncomeExpenseResultNext = () => {
     if (user) {
       localStorage.setItem(`incomeExpense_${user.uid}`, 'true');
-      // 추후 예산 조정 페이지로 이동
-      // 현재는 홈으로 이동
-      setCurrentStep('home');
+      setCurrentStep('budget-adjust');
     }
+  };
+
+  const handleBudgetAdjustBack = () => {
+    setCurrentStep('income-expense-result');
+  };
+
+  const handleBudgetAdjustConfirm = (budget: AdjustedBudget) => {
+    setAdjustedBudget(budget);
+    if (user) {
+      localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
+    }
+    setCurrentStep('home');
   };
 
   if (loading) {
@@ -175,20 +167,28 @@ function App() {
     );
   }
 
-  // 처음부터 다시하기 기능
+  if (currentStep === 'budget-adjust' && incomeExpenseData) {
+    return (
+      <BudgetAdjustPage
+        incomeExpenseData={incomeExpenseData}
+        onConfirm={handleBudgetAdjustConfirm}
+        onBack={handleBudgetAdjustBack}
+      />
+    );
+  }
+
   const handleRestart = async () => {
     if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n로그아웃 후 새로운 고객처럼 시작합니다.')) {
-      // 해당 사용자의 모든 진행 데이터 삭제
       localStorage.removeItem(`onboarding_${user.uid}`);
       localStorage.removeItem(`financial_${user.uid}`);
       localStorage.removeItem(`financialData_${user.uid}`);
       localStorage.removeItem(`incomeExpense_${user.uid}`);
+      localStorage.removeItem(`adjustedBudget_${user.uid}`);
       
-      // 상태 초기화
       setFinancialResult(null);
       setIncomeExpenseData(null);
+      setAdjustedBudget(null);
       
-      // 로그아웃 → 로그인 화면부터 시작
       await auth.signOut();
     }
   };
@@ -225,12 +225,17 @@ function App() {
         </div>
         <div className="border-t pt-4">
           <p className="text-center text-green-600 font-semibold">
-            ✅ 재무진단 완료!
+            ✅ 예산 설정 완료!
           </p>
+          {adjustedBudget && (
+            <div className="mt-3 text-sm text-gray-600">
+              <p>월 예산: ₩{(adjustedBudget.totalIncome * 10000).toLocaleString()}</p>
+              <p>저축/투자: ₩{(adjustedBudget.savings * 10000).toLocaleString()}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 처음부터 다시하기 버튼 */}
       <button
         onClick={handleRestart}
         className="w-full max-w-sm mb-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all"
