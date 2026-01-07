@@ -24,13 +24,15 @@ interface SpendItem {
   tag?: string;
 }
 
+const API_URL = 'https://moneya-backend-x77a.onrender.com';
+
 function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) {
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       type: 'ai',
-      text: `오후에 커피 ₩15,000 참으셨네요! 👏\n\n오늘 하루만 이렇게 하면 한 달에 ₩450,000 추가 저축이 가능해요.`,
+      text: `안녕하세요, ${userName.split('(')[0]}님! 👋\n\nAI머니야예요. 오늘 하루도 현명한 소비 함께해요!`,
       timestamp: new Date(),
     },
   ]);
@@ -39,6 +41,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
   const [spendItems] = useState<SpendItem[]>([
@@ -70,9 +73,9 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
-  const handleSendMessage = (text?: string) => {
+  const handleSendMessage = async (text?: string) => {
     const messageText = text || inputText;
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -83,35 +86,46 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: messageText,
+          budgetInfo: {
+            remainingBudget,
+            dailyBudget,
+            todaySpent,
+            livingExpense: adjustedBudget?.livingExpense || 2000000,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        text: getAIResponse(messageText),
+        text: data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요! 🙏',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
-  };
-
-  const getAIResponse = (userText: string): string => {
-    const lowerText = userText.toLowerCase();
-    
-    if (lowerText.includes('치킨') || lowerText.includes('먹어도')) {
-      return `치킨이요! 🍗 맛있죠~\n\n남은 예산 ₩${remainingBudget.toLocaleString()}이면 충분해요!`;
+    } catch (error) {
+      console.error('API 에러:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        text: '네트워크 연결을 확인해주세요! 🌐',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
-    if (lowerText.includes('커피') || lowerText.includes('카페')) {
-      return `커피 한 잔 정도는 괜찮아요! ☕\n\n오늘 남은 예산 ₩${remainingBudget.toLocaleString()} 중 ₩5,000 정도면 여유있어요.`;
-    }
-    if (lowerText.includes('얼마') || lowerText.includes('예산')) {
-      return `오늘 남은 예산은 ₩${remainingBudget.toLocaleString()}이에요! 💰\n\n지금까지 ₩${todaySpent.toLocaleString()} 사용하셨어요.`;
-    }
-    if (lowerText.includes('점심')) {
-      return `점심 예산은 약 ₩15,000 정도 추천드려요! 🍽️\n\n김밥천국이나 백반집 어떠세요?`;
-    }
-    
-    return `네, 알겠어요! 😊\n\n더 궁금한 점이 있으시면 말씀해주세요.`;
   };
 
   const handleFAQClick = (text: string) => {
@@ -298,6 +312,23 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </div>
         ))}
         
+        {isLoading && (
+          <div className="flex gap-2.5 max-w-[90%]">
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+              </svg>
+            </div>
+            <div className="px-4 py-3 rounded-2xl text-sm bg-white border border-gray-100 text-gray-500">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {isListening && (
           <div className="flex gap-2.5 max-w-[90%] ml-auto flex-row-reverse">
             <div className="px-4 py-3 rounded-2xl text-sm bg-amber-100 text-amber-700 flex items-center gap-2">
@@ -353,15 +384,15 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
               onKeyPress={handleKeyPress}
               placeholder={isListening ? "음성 인식중..." : "지출전후에 물어보세요..."}
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-              disabled={isListening}
+              disabled={isListening || isLoading}
             />
           </div>
           
           <button
             onClick={() => handleSendMessage()}
-            disabled={!inputText.trim() || isListening}
+            disabled={!inputText.trim() || isListening || isLoading}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !isListening
+              inputText.trim() && !isListening && !isLoading
                 ? 'bg-blue-600 hover:bg-blue-700'
                 : 'bg-gray-300'
             }`}
