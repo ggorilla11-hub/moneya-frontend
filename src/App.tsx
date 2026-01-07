@@ -11,6 +11,8 @@ import BudgetAdjustPage from './pages/BudgetAdjustPage';
 import BudgetConfirmPage from './pages/BudgetConfirmPage';
 import HomePage from './pages/HomePage';
 import DetailReportPage from './pages/DetailReportPage';
+import AISpendPage from './pages/AISpendPage';
+import FAQMorePage from './pages/FAQMorePage';
 import BottomNav from './components/BottomNav';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
@@ -38,7 +40,8 @@ type AppStep =
   | 'budget-adjust'
   | 'budget-confirm'
   | 'main'
-  | 'detail-report';
+  | 'detail-report'
+  | 'faq-more';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -153,6 +156,19 @@ function App() {
     setCurrentTab('home');
   };
 
+  const handleFAQMore = () => {
+    setCurrentStep('faq-more');
+  };
+
+  const handleFAQBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('ai-spend');
+  };
+
+  const handleSelectQuestion = (question: string) => {
+    console.log('Selected question:', question);
+  };
+
   const handleRestart = async () => {
     if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 데이터가 초기화됩니다.')) {
       localStorage.removeItem(`onboarding_${user.uid}`);
@@ -253,7 +269,15 @@ function App() {
     );
   }
 
-  // 메인 화면 (탭 네비게이션)
+  if (currentStep === 'faq-more') {
+    return (
+      <FAQMorePage
+        onBack={handleFAQBack}
+        onSelectQuestion={handleSelectQuestion}
+      />
+    );
+  }
+
   if (currentStep === 'main') {
     return (
       <div className="relative">
@@ -265,13 +289,11 @@ function App() {
           />
         )}
         {currentTab === 'ai-spend' && (
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
-            <div className="text-center p-6">
-              <span className="text-6xl mb-4 block">💬</span>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">AI 지출 상담</h2>
-              <p className="text-gray-500">Phase 3에서 개발 예정입니다</p>
-            </div>
-          </div>
+          <AISpendPage
+            userName={user.displayName || '사용자'}
+            adjustedBudget={adjustedBudget}
+            onFAQMore={handleFAQMore}
+          />
         )}
         {currentTab === 'financial-house' && (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
