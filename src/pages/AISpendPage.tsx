@@ -39,6 +39,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
@@ -70,54 +71,77 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
+  // OpenAI TTS - 머니야 목소리
+  const speak = async (text: string) => {
+    if (!voiceEnabled) return;
+    
+    try {
+      setIsSpeaking(true);
+      
+      const response = await fetch(`${API_URL}/api/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: 'nova'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.audio) {
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))],
+          { type: 'audio/mp3' }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audioRef.current.onerror = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error('TTS 에러:', error);
+      setIsSpeaking(false);
+    }
+  };
+
   // 초기 인사 메시지
   useEffect(() => {
+    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 "머니야"라고 불러주시면 바로 달려올게요! 오늘도 현명한 소비 함께해요!`;
+    
     const greeting: Message = {
       id: '1',
       type: 'ai',
-      text: `안녕하세요, ${displayName}님! 👋\n\n저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 "머니야"라고 불러주시면 바로 달려올게요!\n\n오늘도 현명한 소비 함께해요! 💰`,
+      text: greetingText,
       timestamp: new Date(),
     };
     setMessages([greeting]);
     
     if (voiceEnabled) {
       setTimeout(() => {
-        speak(greeting.text);
+        speak(greetingText);
       }, 500);
     }
   }, []);
 
-  // TTS 함수 - 머니야 목소리
-  const speak = (text: string) => {
-    if (!voiceEnabled || !('speechSynthesis' in window)) return;
-    
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ko-KR';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.1;
-    utterance.volume = 1.0;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const koreanFemaleVoice = voices.find(voice => 
-      voice.lang.includes('ko') && voice.name.toLowerCase().includes('female')
-    ) || voices.find(voice => 
-      voice.lang.includes('ko')
-    );
-    
-    if (koreanFemaleVoice) {
-      utterance.voice = koreanFemaleVoice;
-    }
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // STT 초기화
+  // STT 초기화 (Web Speech API 유지 - 나중에 Whisper로 업그레이드 가능)
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -171,7 +195,9 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     };
   }, [isListening]);
 
@@ -186,8 +212,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     const messageText = text || inputText;
     if (!messageText.trim() || isLoading) return;
 
-    // TTS 중이면 중단
-    window.speechSynthesis.cancel();
+    // 음성 재생 중이면 중단
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsSpeaking(false);
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -220,7 +249,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       });
 
       const data = await response.json();
-      const aiText = data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요! 🙏';
+      const aiText = data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요!';
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -230,7 +259,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       };
       setMessages(prev => [...prev, aiResponse]);
 
-      // TTS로 읽어주기
+      // OpenAI TTS로 읽어주기
       if (voiceEnabled) {
         speak(aiText);
       }
@@ -240,7 +269,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        text: '네트워크 연결을 확인해주세요! 🌐',
+        text: '네트워크 연결을 확인해주세요!',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -255,13 +284,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
   const handleVoiceToggle = () => {
     if (isListening) {
-      // 음성 인식 중지
       setIsListening(false);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
     } else {
-      // 음성 인식 시작
       setIsListening(true);
       if (recognitionRef.current) {
         try {
@@ -301,7 +328,7 @@ return (
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
         
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isSpeaking ? 'bg-purple-500 animate-pulse' : 'bg-white/20'}`}>
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
             </svg>
@@ -576,11 +603,8 @@ return (
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-bold text-gray-800">수동 입력</p>
-                  <p className="text-sm text-gray-500">지출 또는 참음(가상저축)을 직접 입력해요</p>
+                  <p className="text-sm text-gray-500">지출 또는 참음을 직접 입력해요</p>
                 </div>
-                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                </svg>
               </button>
               
               <button 
@@ -596,12 +620,9 @@ return (
                   </svg>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-800">영수증 촬영 (OCR)</p>
-                  <p className="text-sm text-gray-500">영수증 사진 찍으면 자동으로 인식해요</p>
+                  <p className="font-bold text-gray-800">영수증 촬영</p>
+                  <p className="text-sm text-gray-500">영수증 사진으로 자동 인식해요</p>
                 </div>
-                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-                </svg>
               </button>
               
               <button 
@@ -617,8 +638,8 @@ return (
                   </svg>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-800">금융결제원 API 연동</p>
-                  <p className="text-sm text-gray-500">계좌 연결하면 지출이 자동으로 기록돼요</p>
+                  <p className="font-bold text-gray-800">계좌 연동</p>
+                  <p className="text-sm text-gray-500">계좌 연결하면 자동으로 기록돼요</p>
                 </div>
                 <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-md">추천</span>
               </button>
@@ -659,16 +680,10 @@ return (
             </div>
             
             <div className="flex gap-3">
-              <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold hover:bg-gray-200 transition-all">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/>
-                </svg>
+              <button className="flex-1 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold">
                 앨범에서 선택
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 rounded-xl text-white font-semibold hover:bg-blue-700 transition-all">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                </svg>
+              <button className="flex-1 py-3 bg-blue-600 rounded-xl text-white font-semibold">
                 촬영하기
               </button>
             </div>
@@ -715,15 +730,15 @@ return (
                     <div className="flex-1">
                       <p className="font-bold text-gray-800 text-sm">{bank.name}</p>
                       <p className="text-xs text-gray-500">
-                        {isConnected ? '***-****-1234 · 연결됨' : '계좌를 연결해주세요'}
+                        {isConnected ? '연결됨' : '연결 필요'}
                       </p>
                     </div>
                     <button
                       onClick={() => handleBankConnect(bank.name)}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs ${
                         isConnected
                           ? 'bg-green-500 text-white'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-blue-600 text-white'
                       }`}
                     >
                       {isConnected ? '연결됨' : '연결'}
