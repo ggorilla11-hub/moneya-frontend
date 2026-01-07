@@ -9,13 +9,6 @@ interface DetailReportPageProps {
 function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
   const [periodTab, setPeriodTab] = useState<'1m' | '3m' | '6m' | '1y'>('3m');
 
-  const formatWon = (amount: number) => {
-    if (amount >= 10000) {
-      return `₩${(amount / 10000).toFixed(2)}억`;
-    }
-    return `₩${amount.toLocaleString()}만`;
-  };
-
   const totalIncome = adjustedBudget?.totalIncome || 500;
   const totalExpense = adjustedBudget ? (adjustedBudget.livingExpense + adjustedBudget.loanPayment + adjustedBudget.insurance + adjustedBudget.pension) : 400;
   const totalSaving = adjustedBudget?.savings || 100;
@@ -59,7 +52,7 @@ function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setPeriodTab(tab.id as any)}
+              onClick={() => setPeriodTab(tab.id as '1m' | '3m' | '6m' | '1y')}
               className={`px-2.5 py-1.5 rounded-md text-xs font-semibold ${
                 periodTab === tab.id 
                   ? 'bg-blue-600 text-white' 
