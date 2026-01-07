@@ -375,11 +375,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
       {isInputMethodOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setIsInputMethodOpen(false)}
         >
           <div 
-            className="w-full bg-white rounded-t-3xl p-5 animate-slide-up"
+            className="w-full max-w-md bg-white rounded-2xl p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -456,11 +456,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
       {isReceiptModalOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setIsReceiptModalOpen(false)}
         >
           <div 
-            className="w-full bg-white rounded-t-3xl p-5 animate-slide-up"
+            className="w-full max-w-md bg-white rounded-2xl p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -475,13 +475,13 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
               </button>
             </div>
             
-            <div className="bg-gray-900 rounded-2xl p-8 mb-4">
-              <div className="border-2 border-dashed border-gray-600 rounded-xl p-8 flex flex-col items-center justify-center">
-                <svg className="w-12 h-12 text-gray-500 mb-3" fill="currentColor" viewBox="0 0 24 24">
+            <div className="bg-gray-900 rounded-2xl p-6 mb-4">
+              <div className="border-2 border-dashed border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center">
+                <svg className="w-10 h-10 text-gray-500 mb-2" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
                 </svg>
-                <p className="text-white font-semibold mb-1">영수증을 프레임 안에 맞춰주세요</p>
-                <p className="text-blue-400 text-sm">자동으로 인식됩니다</p>
+                <p className="text-white font-semibold text-sm mb-1">영수증을 프레임 안에 맞춰주세요</p>
+                <p className="text-blue-400 text-xs">자동으로 인식됩니다</p>
               </div>
             </div>
             
@@ -505,11 +505,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
       {isBankModalOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setIsBankModalOpen(false)}
         >
           <div 
-            className="w-full bg-white rounded-t-3xl p-5 animate-slide-up max-h-[80vh] overflow-y-auto"
+            className="w-full max-w-md bg-white rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -536,18 +536,18 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
                         : 'border-gray-200 bg-gray-50'
                     }`}
                   >
-                    <div className={`w-14 h-14 ${bank.color} rounded-xl flex items-center justify-center`}>
-                      <span className="text-white font-bold text-sm">{bank.logo}</span>
+                    <div className={`w-12 h-12 ${bank.color} rounded-xl flex items-center justify-center`}>
+                      <span className="text-white font-bold text-xs">{bank.logo}</span>
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold text-gray-800">{bank.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-bold text-gray-800 text-sm">{bank.name}</p>
+                      <p className="text-xs text-gray-500">
                         {isConnected ? '***-****-1234 · 연결됨' : '계좌를 연결해주세요'}
                       </p>
                     </div>
                     <button
                       onClick={() => handleBankConnect(bank.name)}
-                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-all ${
                         isConnected
                           ? 'bg-green-500 text-white'
                           : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -564,13 +564,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       )}
 
       <style>{`
-        @keyframes slide-up {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
