@@ -46,7 +46,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
     savings: false,
     pension: false,
     insurance: false,
-    loanPayment: true,
+    loanPayment: false,
   });
 
   const [activeSlider, setActiveSlider] = useState<string | null>(null);
@@ -60,18 +60,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
 
   const handleSliderChange = (field: BudgetField, newValue: number) => {
     if (confirmed[field]) return;
-    if (field === 'loanPayment') return;
     newValue = Math.max(0, Math.min(newValue, income));
     setBudget(prev => ({ ...prev, [field]: newValue }));
   };
 
   const handleConfirmToggle = (field: BudgetField) => {
-    if (field === 'loanPayment') return;
     setConfirmed(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
-  const formatWon = (manwon: number) => `₩${(manwon * 10000).toLocaleString()}`;
+  const formatWon = (manwon: number) => `₩${manwon.toLocaleString()}만`;
 
   const wealthIndex = income > 0 ? ((surplus / income) * 100).toFixed(1) : '0.0';
   const debtRatio = income > 0 ? Math.round((budget.loanPayment / income) * 100) : 0;
@@ -114,7 +112,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-32">
+      <div className="flex-1 overflow-y-auto px-4 pb-40">
         
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 mb-4 text-white shadow-lg">
           <div className="flex items-center gap-3 mb-3">
@@ -127,7 +125,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
           </div>
           <p className="text-sm leading-relaxed opacity-95">
             {familySize}인 가구 기준으로 예산을 추천해드려요.<br/>
-            <span className="bg-white/20 px-2 py-0.5 rounded font-bold">각 항목을 조정한 후 [확정] 버튼</span>을 눌러주세요!
+            <span className="bg-white/20 px-2 py-0.5 rounded font-bold">각 항목을 조정한 후 [확정/조정] 버튼</span>을 눌러주세요!
           </p>
         </div>
 
@@ -163,7 +161,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-gray-800">🎯 예산 조정 (월 기준)</h2>
-              <p className="text-xs text-gray-400 mt-0.5">슬라이더 조정 후 [확정] 버튼을 눌러주세요</p>
+              <p className="text-xs text-gray-400 mt-0.5">슬라이더 조정 후 [확정/조정] 버튼을 눌러주세요</p>
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-400">총 수입</div>
@@ -179,22 +177,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
 
           <SliderItem icon="🛡️" label="보장성보험" value={budget.insurance} recommended={recommendedBudget.insurance} maxValue={income} percent={getPercent(budget.insurance)} onChange={(v) => handleSliderChange('insurance', v)} isConfirmed={confirmed.insurance} onConfirmToggle={() => handleConfirmToggle('insurance')} isActive={activeSlider === 'insurance'} onFocus={() => setActiveSlider('insurance')} onBlur={() => setActiveSlider(null)} color="purple" formatWon={formatWon} />
 
-          <div className="mb-4 pb-4 border-b border-gray-100">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><span>💳</span> 대출원리금</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-extrabold text-gray-500">{formatWon(budget.loanPayment)}</span>
-                <span className="text-sm text-gray-400">({getPercent(budget.loanPayment)}%)</span>
-                <span className="px-3 py-1 bg-gray-200 text-gray-500 text-xs font-bold rounded-lg">고정</span>
-              </div>
-            </div>
-            <div className="relative h-10">
-              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 bg-gray-200 rounded-full"></div>
-              <div className="absolute top-1/2 -translate-y-1/2 left-0 h-3 bg-gray-400 rounded-full" style={{ width: `${getPercent(budget.loanPayment)}%` }}></div>
-              <div className="absolute top-1/2 w-7 h-7 bg-gray-300 border-4 border-gray-400 rounded-full" style={{ left: `${getPercent(budget.loanPayment)}%`, transform: 'translate(-50%, -50%)' }}></div>
-            </div>
-            <div className="text-right text-xs text-gray-400 mt-1">고정 지출 (조정 불가)</div>
-          </div>
+          <SliderItem icon="💳" label="대출원리금" value={budget.loanPayment} recommended={recommendedBudget.loanPayment} maxValue={income} percent={getPercent(budget.loanPayment)} onChange={(v) => handleSliderChange('loanPayment', v)} isConfirmed={confirmed.loanPayment} onConfirmToggle={() => handleConfirmToggle('loanPayment')} isActive={activeSlider === 'loanPayment'} onFocus={() => setActiveSlider('loanPayment')} onBlur={() => setActiveSlider(null)} color="gray" formatWon={formatWon} />
 
           <div className="pt-2">
             <div className="flex justify-between items-center">
@@ -226,9 +209,24 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
 
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pt-8">
-        {!allConfirmed && <p className="text-center text-sm text-amber-600 font-semibold mb-2">⚠️ 모든 항목을 확정해주세요 ({confirmedCount}/5)</p>}
-        {allConfirmed && !isValidBudget && <p className="text-center text-sm text-red-600 font-semibold mb-2">⚠️ 예산이 {formatWon(Math.abs(surplus))} 초과되었습니다</p>}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pt-6">
+        {!allConfirmed && (
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3">
+            <p className="text-center text-base text-amber-700 font-bold">
+              ⚠️ 모든 항목을 확정해주세요 ({confirmedCount}/5)
+            </p>
+          </div>
+        )}
+        {allConfirmed && !isValidBudget && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-3">
+            <p className="text-center text-xl text-red-600 font-extrabold">
+              🚫 예산이 {formatWon(Math.abs(surplus))} 초과!
+            </p>
+            <p className="text-center text-sm text-red-500 mt-1">
+              다른 항목을 줄여주세요
+            </p>
+          </div>
+        )}
         <button onClick={handleConfirm} disabled={!canStart} className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl transition-all ${canStart ? 'bg-gradient-to-r from-green-500 to-green-600 text-white active:scale-95' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
           {canStart ? '이 예산으로 시작하기' : '모든 항목을 확정해주세요'}
           {canStart && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
@@ -252,7 +250,7 @@ interface SliderItemProps {
   isActive: boolean;
   onFocus: () => void;
   onBlur: () => void;
-  color: 'green' | 'amber' | 'blue' | 'purple';
+  color: 'green' | 'amber' | 'blue' | 'purple' | 'gray';
   formatWon: (v: number) => string;
 }
 
@@ -262,6 +260,7 @@ function SliderItem({ icon, label, value, recommended, maxValue, percent, onChan
     amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600' },
     blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600' },
     purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600' },
+    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600' },
   };
   const colors = colorMap[color];
   const difference = value - recommended;
@@ -273,8 +272,8 @@ function SliderItem({ icon, label, value, recommended, maxValue, percent, onChan
         <div className="flex items-center gap-2">
           <span className={`font-extrabold transition-all duration-200 ${colors.text} ${isActive && !isConfirmed ? 'text-2xl' : 'text-xl'}`}>{formatWon(value)}</span>
           <span className="text-sm text-gray-400">({percent}%)</span>
-          <button onClick={onConfirmToggle} className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${isConfirmed ? 'bg-green-100 text-green-600 border border-green-300' : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'}`}>
-            {isConfirmed ? '✓ 확정됨' : '확정'}
+          <button onClick={onConfirmToggle} className={`px-2 py-1 text-xs font-bold rounded-lg transition-all ${isConfirmed ? 'bg-green-100 text-green-600 border border-green-300' : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'}`}>
+            {isConfirmed ? '✓ 확정됨' : '확정/조정'}
           </button>
         </div>
       </div>
