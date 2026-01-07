@@ -58,8 +58,11 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
+  const STEP = 10;
+
   const handleSliderChange = (field: BudgetField, newValue: number) => {
     if (confirmed[field]) return;
+    newValue = Math.round(newValue / STEP) * STEP;
     newValue = Math.max(0, Math.min(newValue, income));
     setBudget(prev => ({ ...prev, [field]: newValue }));
   };
@@ -69,7 +72,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
   };
 
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
-  const formatWon = (manwon: number) => `₩${manwon.toLocaleString()}만`;
+  const formatWon = (manwon: number) => `₩${manwon.toLocaleString()}원`;
 
   const wealthIndex = income > 0 ? ((surplus / income) * 100).toFixed(1) : '0.0';
   const debtRatio = income > 0 ? Math.round((budget.loanPayment / income) * 100) : 0;
@@ -169,15 +172,15 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
             </div>
           </div>
 
-          <SliderItem icon="🏠" label="생활비" value={budget.livingExpense} recommended={recommendedBudget.livingExpense} maxValue={income} percent={getPercent(budget.livingExpense)} onChange={(v) => handleSliderChange('livingExpense', v)} isConfirmed={confirmed.livingExpense} onConfirmToggle={() => handleConfirmToggle('livingExpense')} isActive={activeSlider === 'livingExpense'} onFocus={() => setActiveSlider('livingExpense')} onBlur={() => setActiveSlider(null)} color="amber" formatWon={formatWon} />
+          <SliderItem icon="🏠" label="생활비" value={budget.livingExpense} recommended={recommendedBudget.livingExpense} maxValue={income} percent={getPercent(budget.livingExpense)} onChange={(v) => handleSliderChange('livingExpense', v)} isConfirmed={confirmed.livingExpense} onConfirmToggle={() => handleConfirmToggle('livingExpense')} isActive={activeSlider === 'livingExpense'} onFocus={() => setActiveSlider('livingExpense')} onBlur={() => setActiveSlider(null)} color="amber" formatWon={formatWon} step={STEP} />
 
-          <SliderItem icon="💰" label="저축/투자" value={budget.savings} recommended={recommendedBudget.savings} maxValue={income} percent={getPercent(budget.savings)} onChange={(v) => handleSliderChange('savings', v)} isConfirmed={confirmed.savings} onConfirmToggle={() => handleConfirmToggle('savings')} isActive={activeSlider === 'savings'} onFocus={() => setActiveSlider('savings')} onBlur={() => setActiveSlider(null)} color="green" formatWon={formatWon} />
+          <SliderItem icon="💰" label="저축/투자" value={budget.savings} recommended={recommendedBudget.savings} maxValue={income} percent={getPercent(budget.savings)} onChange={(v) => handleSliderChange('savings', v)} isConfirmed={confirmed.savings} onConfirmToggle={() => handleConfirmToggle('savings')} isActive={activeSlider === 'savings'} onFocus={() => setActiveSlider('savings')} onBlur={() => setActiveSlider(null)} color="green" formatWon={formatWon} step={STEP} />
 
-          <SliderItem icon="🏦" label="노후연금" value={budget.pension} recommended={recommendedBudget.pension} maxValue={income} percent={getPercent(budget.pension)} onChange={(v) => handleSliderChange('pension', v)} isConfirmed={confirmed.pension} onConfirmToggle={() => handleConfirmToggle('pension')} isActive={activeSlider === 'pension'} onFocus={() => setActiveSlider('pension')} onBlur={() => setActiveSlider(null)} color="blue" formatWon={formatWon} />
+          <SliderItem icon="🏦" label="노후연금" value={budget.pension} recommended={recommendedBudget.pension} maxValue={income} percent={getPercent(budget.pension)} onChange={(v) => handleSliderChange('pension', v)} isConfirmed={confirmed.pension} onConfirmToggle={() => handleConfirmToggle('pension')} isActive={activeSlider === 'pension'} onFocus={() => setActiveSlider('pension')} onBlur={() => setActiveSlider(null)} color="blue" formatWon={formatWon} step={STEP} />
 
-          <SliderItem icon="🛡️" label="보장성보험" value={budget.insurance} recommended={recommendedBudget.insurance} maxValue={income} percent={getPercent(budget.insurance)} onChange={(v) => handleSliderChange('insurance', v)} isConfirmed={confirmed.insurance} onConfirmToggle={() => handleConfirmToggle('insurance')} isActive={activeSlider === 'insurance'} onFocus={() => setActiveSlider('insurance')} onBlur={() => setActiveSlider(null)} color="purple" formatWon={formatWon} />
+          <SliderItem icon="🛡️" label="보장성보험" value={budget.insurance} recommended={recommendedBudget.insurance} maxValue={income} percent={getPercent(budget.insurance)} onChange={(v) => handleSliderChange('insurance', v)} isConfirmed={confirmed.insurance} onConfirmToggle={() => handleConfirmToggle('insurance')} isActive={activeSlider === 'insurance'} onFocus={() => setActiveSlider('insurance')} onBlur={() => setActiveSlider(null)} color="purple" formatWon={formatWon} step={STEP} />
 
-          <SliderItem icon="💳" label="대출원리금" value={budget.loanPayment} recommended={recommendedBudget.loanPayment} maxValue={income} percent={getPercent(budget.loanPayment)} onChange={(v) => handleSliderChange('loanPayment', v)} isConfirmed={confirmed.loanPayment} onConfirmToggle={() => handleConfirmToggle('loanPayment')} isActive={activeSlider === 'loanPayment'} onFocus={() => setActiveSlider('loanPayment')} onBlur={() => setActiveSlider(null)} color="gray" formatWon={formatWon} />
+          <SliderItem icon="💳" label="대출원리금" value={budget.loanPayment} recommended={recommendedBudget.loanPayment} maxValue={income} percent={getPercent(budget.loanPayment)} onChange={(v) => handleSliderChange('loanPayment', v)} isConfirmed={confirmed.loanPayment} onConfirmToggle={() => handleConfirmToggle('loanPayment')} isActive={activeSlider === 'loanPayment'} onFocus={() => setActiveSlider('loanPayment')} onBlur={() => setActiveSlider(null)} color="gray" formatWon={formatWon} step={STEP} />
 
           <div className="pt-2">
             <div className="flex justify-between items-center">
@@ -197,11 +200,11 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
           <h3 className="font-bold text-green-700 mb-3">✨ 조정 효과 요약</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white rounded-xl p-4 text-center shadow-sm">
-              <div className={`text-2xl font-extrabold ${monthlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{monthlySavingsIncrease >= 0 ? '+' : ''}{monthlySavingsIncrease}만</div>
+              <div className={`text-2xl font-extrabold ${monthlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{monthlySavingsIncrease >= 0 ? '+' : ''}{monthlySavingsIncrease}만원</div>
               <div className="text-xs text-gray-500 mt-1">월 저축 변화</div>
             </div>
             <div className="bg-white rounded-xl p-4 text-center shadow-sm">
-              <div className={`text-2xl font-extrabold ${yearlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{yearlySavingsIncrease >= 0 ? '+' : ''}{yearlySavingsIncrease}만</div>
+              <div className={`text-2xl font-extrabold ${yearlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{yearlySavingsIncrease >= 0 ? '+' : ''}{yearlySavingsIncrease}만원</div>
               <div className="text-xs text-gray-500 mt-1">연간 저축 변화</div>
             </div>
           </div>
@@ -252,9 +255,10 @@ interface SliderItemProps {
   onBlur: () => void;
   color: 'green' | 'amber' | 'blue' | 'purple' | 'gray';
   formatWon: (v: number) => string;
+  step: number;
 }
 
-function SliderItem({ icon, label, value, recommended, maxValue, percent, onChange, isConfirmed, onConfirmToggle, isActive, onFocus, onBlur, color, formatWon }: SliderItemProps) {
+function SliderItem({ icon, label, value, recommended, maxValue, percent, onChange, isConfirmed, onConfirmToggle, isActive, onFocus, onBlur, color, formatWon, step }: SliderItemProps) {
   const colorMap = {
     green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600' },
     amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600' },
@@ -282,7 +286,7 @@ function SliderItem({ icon, label, value, recommended, maxValue, percent, onChan
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 bg-gray-200 rounded-full"></div>
         <div className={`absolute top-1/2 -translate-y-1/2 left-0 h-3 rounded-full transition-all ${isConfirmed ? 'bg-gray-400' : colors.fill}`} style={{ width: `${percent}%` }}></div>
         {!isConfirmed && <div className="absolute top-1/2 w-0.5 h-8 bg-gray-400 -translate-y-1/2" style={{ left: `${(recommended / maxValue) * 100}%` }}></div>}
-        {!isConfirmed && <input type="range" min={0} max={maxValue} value={value} onChange={(e) => onChange(Number(e.target.value))} onFocus={onFocus} onBlur={onBlur} onTouchStart={onFocus} onTouchEnd={onBlur} className="absolute top-0 left-0 w-full h-10 opacity-0 cursor-pointer z-10" />}
+        {!isConfirmed && <input type="range" min={0} max={maxValue} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} onFocus={onFocus} onBlur={onBlur} onTouchStart={onFocus} onTouchEnd={onBlur} className="absolute top-0 left-0 w-full h-10 opacity-0 cursor-pointer z-10" />}
         <div className={`absolute top-1/2 w-7 h-7 bg-white border-4 rounded-full shadow-lg pointer-events-none transition-all ${isConfirmed ? 'border-gray-400' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''}`} style={{ left: `${percent}%`, transform: 'translate(-50%, -50%)' }}></div>
       </div>
       
