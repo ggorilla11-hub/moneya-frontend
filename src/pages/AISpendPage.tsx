@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 
 interface AISpendPageProps {
@@ -40,6 +40,8 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const interimTextRef = useRef<string>('');
 
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
@@ -71,11 +73,23 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
+  // Barge-in: 음성 재생 중단
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setIsSpeaking(false);
+  }, []);
+
   // OpenAI TTS - 머니야 목소리
-  const speak = async (text: string) => {
+  const speak = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
     
     try {
+      // 기존 재생 중단
+      stopSpeaking();
       setIsSpeaking(true);
       
       const response = await fetch(`${API_URL}/api/tts`, {
@@ -98,10 +112,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         );
         const audioUrl = URL.createObjectURL(audioBlob);
         
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        
         audioRef.current = new Audio(audioUrl);
         audioRef.current.onended = () => {
           setIsSpeaking(false);
@@ -120,103 +130,22 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       console.error('TTS 에러:', error);
       setIsSpeaking(false);
     }
-  };
-
-  // 초기 인사 메시지
-  useEffect(() => {
-    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 "머니야"라고 불러주시면 바로 달려올게요! 오늘도 현명한 소비 함께해요!`;
-    
-    const greeting: Message = {
-      id: '1',
-      type: 'ai',
-      text: greetingText,
-      timestamp: new Date(),
-    };
-    setMessages([greeting]);
-    
-    if (voiceEnabled) {
-      setTimeout(() => {
-        speak(greetingText);
-      }, 500);
-    }
-  }, []);
-
-  // STT 초기화 (Web Speech API 유지 - 나중에 Whisper로 업그레이드 가능)
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'ko-KR';
-
-      recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (interimTranscript) {
-          setInputText(interimTranscript);
-        }
-
-        if (finalTranscript) {
-          setInputText('');
-          handleSendMessage(finalTranscript);
-        }
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('음성 인식 에러:', event.error);
-        if (event.error !== 'no-speech') {
-          setIsListening(false);
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        if (isListening) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.log('재시작 시도 중...');
-          }
-        }
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, [isListening]);
+  }, [voiceEnabled, stopSpeaking]);
 
   // 대화 기록 생성
-  const getConversationHistory = () => {
+  const getConversationHistory = useCallback(() => {
     return messages.slice(-6).map(m => 
       `${m.type === 'user' ? '사용자' : '머니야'}: ${m.text}`
     ).join('\n');
-  };
+  }, [messages]);
 
-  const handleSendMessage = async (text?: string) => {
+  // 메시지 전송
+  const handleSendMessage = useCallback(async (text?: string) => {
     const messageText = text || inputText;
     if (!messageText.trim() || isLoading) return;
 
-    // 음성 재생 중이면 중단
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsSpeaking(false);
-    }
+    // Barge-in: 머니야가 말하는 중이면 중단
+    stopSpeaking();
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -227,6 +156,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    interimTextRef.current = '';
     setIsLoading(true);
 
     try {
@@ -276,7 +206,165 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [inputText, isLoading, userName, getConversationHistory, remainingBudget, dailyBudget, todaySpent, adjustedBudget, voiceEnabled, speak, stopSpeaking]);
+
+  // 초기 인사 메시지
+  useEffect(() => {
+    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 머니야라고 불러주시면 바로 달려올게요! 오늘도 현명한 소비 함께해요!`;
+    
+    const greeting: Message = {
+      id: '1',
+      type: 'ai',
+      text: greetingText,
+      timestamp: new Date(),
+    };
+    setMessages([greeting]);
+    
+    if (voiceEnabled) {
+      setTimeout(() => {
+        speak(greetingText);
+      }, 500);
+    }
+  }, []);
+
+  // STT 초기화 - 개선된 버전
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'ko-KR';
+      recognitionRef.current.maxAlternatives = 1;
+
+      recognitionRef.current.onresult = (event: any) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // 중간 결과 표시
+        if (interimTranscript) {
+          interimTextRef.current = interimTranscript;
+          setInputText(interimTranscript);
+          
+          // Barge-in: 사용자가 말하기 시작하면 머니야 음성 중단
+          if (isSpeaking && interimTranscript.length > 2) {
+            stopSpeaking();
+          }
+          
+          // 침묵 타이머 리셋
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+        }
+
+        // 최종 결과 처리
+        if (finalTranscript) {
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          
+          setInputText('');
+          interimTextRef.current = '';
+          handleSendMessage(finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('음성 인식 에러:', event.error);
+        // no-speech 에러는 무시하고 계속 진행
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+          // 자동 재시작
+          if (isListening && recognitionRef.current) {
+            setTimeout(() => {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {
+                // 이미 시작됨
+              }
+            }, 100);
+          }
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        // 음성 인식이 끝나면 자동 재시작 (isListening이 true인 경우)
+        if (isListening && recognitionRef.current) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // 이미 시작됨
+            }
+          }, 100);
+        }
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [isListening, isSpeaking, stopSpeaking]);
+
+  // handleSendMessage 의존성 업데이트를 위한 별도 effect
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onresult = (event: any) => {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (interimTranscript) {
+          interimTextRef.current = interimTranscript;
+          setInputText(interimTranscript);
+          
+          if (isSpeaking && interimTranscript.length > 2) {
+            stopSpeaking();
+          }
+          
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+        }
+
+        if (finalTranscript) {
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          
+          setInputText('');
+          interimTextRef.current = '';
+          handleSendMessage(finalTranscript);
+        }
+      };
+    }
+  }, [handleSendMessage, isSpeaking, stopSpeaking]);
 
   const handleFAQClick = (text: string) => {
     handleSendMessage(text);
@@ -286,10 +374,14 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     if (isListening) {
       setIsListening(false);
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
       }
     } else {
       setIsListening(true);
+      // Barge-in: 음성 인식 시작 시 머니야 음성 중단
+      stopSpeaking();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
@@ -320,7 +412,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       handleSendMessage();
     }
   };
-
 return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       
@@ -335,7 +426,7 @@ return (
           </div>
           
           <div className="flex-1">
-            <p className="text-white font-bold">안녕하세요, {displayName}님! 👋</p>
+            <p className="text-white font-bold">안녕하세요, {displayName}님!</p>
             <div className="flex items-center gap-2">
               <span className="text-white/80 text-sm">오늘 남은 예산</span>
               <span className="text-white text-xl font-extrabold">₩{remainingBudget.toLocaleString()}</span>
@@ -498,23 +589,23 @@ return (
       </div>
 
       {isListening && (
-        <div className="mx-4 mb-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+        <div className="mx-4 mb-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
           <div className="flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="w-1 bg-red-500 rounded-full animate-pulse"
+                className="w-1 bg-green-500 rounded-full animate-pulse"
                 style={{
-                  height: `${10 + Math.random() * 15}px`,
+                  height: `${12 + Math.random() * 12}px`,
                   animationDelay: `${i * 0.1}s`,
                 }}
               ></div>
             ))}
           </div>
-          <span className="text-red-600 font-semibold text-sm flex-1">음성 인식 중... "머니야"라고 불러주세요!</span>
+          <span className="text-green-700 font-semibold text-sm flex-1">듣고 있어요... 편하게 말씀하세요!</span>
           <button
             onClick={handleVoiceToggle}
-            className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full"
+            className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full"
           >
             중지
           </button>
@@ -536,7 +627,7 @@ return (
             onClick={handleVoiceToggle}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
               isListening 
-                ? 'bg-red-500 animate-pulse' 
+                ? 'bg-green-500 animate-pulse' 
                 : 'bg-amber-400 hover:bg-amber-500'
             }`}
           >
@@ -583,7 +674,7 @@ return (
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">📝 지출 입력 방식</h2>
+              <h2 className="text-lg font-bold text-gray-800">지출 입력 방식</h2>
               <button 
                 onClick={() => setIsInputMethodOpen(false)}
                 className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
@@ -658,7 +749,7 @@ return (
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">📷 영수증 촬영</h2>
+              <h2 className="text-lg font-bold text-gray-800">영수증 촬영</h2>
               <button 
                 onClick={() => setIsReceiptModalOpen(false)}
                 className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
@@ -701,7 +792,7 @@ return (
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-800">🏦 계좌 연동</h2>
+              <h2 className="text-lg font-bold text-gray-800">계좌 연동</h2>
               <button 
                 onClick={() => setIsBankModalOpen(false)}
                 className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
