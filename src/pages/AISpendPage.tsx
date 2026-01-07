@@ -41,7 +41,8 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const interimTextRef = useRef<string>('');
+  const lastSentMessageRef = useRef<string>('');
+  const isProcessingRef = useRef<boolean>(false);
 
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
@@ -73,7 +74,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
-  // Barge-in: 음성 재생 중단
+  // Barge-in: 음성 재생 즉시 중단
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -88,19 +89,13 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     if (!voiceEnabled) return;
     
     try {
-      // 기존 재생 중단
       stopSpeaking();
       setIsSpeaking(true);
       
       const response = await fetch(`${API_URL}/api/tts`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: text,
-          voice: 'nova'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: 'nova' }),
       });
 
       const data = await response.json();
@@ -134,15 +129,22 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
   // 대화 기록 생성
   const getConversationHistory = useCallback(() => {
-    return messages.slice(-6).map(m => 
+    return messages.slice(-4).map(m => 
       `${m.type === 'user' ? '사용자' : '머니야'}: ${m.text}`
     ).join('\n');
   }, [messages]);
 
-  // 메시지 전송
+  // 메시지 전송 (중복 방지 강화)
   const handleSendMessage = useCallback(async (text?: string) => {
-    const messageText = text || inputText;
-    if (!messageText.trim() || isLoading) return;
+    const messageText = (text || inputText).trim();
+    
+    // 중복 방지: 같은 메시지 or 처리 중이면 무시
+    if (!messageText || isLoading || isProcessingRef.current) return;
+    if (messageText === lastSentMessageRef.current) return;
+    
+    // 처리 시작
+    isProcessingRef.current = true;
+    lastSentMessageRef.current = messageText;
 
     // Barge-in: 머니야가 말하는 중이면 중단
     stopSpeaking();
@@ -156,15 +158,12 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
-    interimTextRef.current = '';
     setIsLoading(true);
 
     try {
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageText,
           userName: userName,
@@ -179,7 +178,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       });
 
       const data = await response.json();
-      const aiText = data.success ? data.message : '죄송해요, 잠시 문제가 생겼어요. 다시 말씀해주세요!';
+      const aiText = data.success ? data.message : '죄송해요, 다시 말씀해주세요!';
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -189,7 +188,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       };
       setMessages(prev => [...prev, aiResponse]);
 
-      // OpenAI TTS로 읽어주기
       if (voiceEnabled) {
         speak(aiText);
       }
@@ -205,12 +203,16 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // 1초 후 중복 방지 해제
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1000);
     }
   }, [inputText, isLoading, userName, getConversationHistory, remainingBudget, dailyBudget, todaySpent, adjustedBudget, voiceEnabled, speak, stopSpeaking]);
 
   // 초기 인사 메시지
   useEffect(() => {
-    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. ${displayName}님의 AI 금융집사로서 언제든 머니야라고 불러주시면 바로 달려올게요! 오늘도 현명한 소비 함께해요!`;
+    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. 편하게 머니야 하고 불러주세요!`;
     
     const greeting: Message = {
       id: '1',
@@ -221,150 +223,91 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     setMessages([greeting]);
     
     if (voiceEnabled) {
-      setTimeout(() => {
-        speak(greetingText);
-      }, 500);
+      setTimeout(() => speak(greetingText), 500);
     }
   }, []);
 
-  // STT 초기화 - 개선된 버전
+  // STT 초기화 - 침묵 감지 방식 (1.5초 후 전송)
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'ko-KR';
-      recognitionRef.current.maxAlternatives = 1;
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
 
-      recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'ko-KR';
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
+    let finalText = '';
+
+    recognitionRef.current.onresult = (event: any) => {
+      let interimTranscript = '';
+      let newFinalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          newFinalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
         }
-
-        // 중간 결과 표시
-        if (interimTranscript) {
-          interimTextRef.current = interimTranscript;
-          setInputText(interimTranscript);
-          
-          // Barge-in: 사용자가 말하기 시작하면 머니야 음성 중단
-          if (isSpeaking && interimTranscript.length > 2) {
-            stopSpeaking();
-          }
-          
-          // 침묵 타이머 리셋
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-        }
-
-        // 최종 결과 처리
-        if (finalTranscript) {
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-          
-          setInputText('');
-          interimTextRef.current = '';
-          handleSendMessage(finalTranscript);
-        }
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('음성 인식 에러:', event.error);
-        // no-speech 에러는 무시하고 계속 진행
-        if (event.error === 'no-speech' || event.error === 'aborted') {
-          // 자동 재시작
-          if (isListening && recognitionRef.current) {
-            setTimeout(() => {
-              try {
-                recognitionRef.current.start();
-              } catch (e) {
-                // 이미 시작됨
-              }
-            }, 100);
-          }
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        // 음성 인식이 끝나면 자동 재시작 (isListening이 true인 경우)
-        if (isListening && recognitionRef.current) {
-          setTimeout(() => {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              // 이미 시작됨
-            }
-          }, 100);
-        }
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
+
+      // Barge-in: 사용자가 말하기 시작하면 머니야 음성 중단
+      if ((interimTranscript.length > 2 || newFinalTranscript) && isSpeaking) {
+        stopSpeaking();
       }
+
+      // 중간 결과 표시
+      if (interimTranscript) {
+        setInputText(finalText + interimTranscript);
+      }
+
+      // 최종 결과 누적
+      if (newFinalTranscript) {
+        finalText += newFinalTranscript;
+        setInputText(finalText);
+      }
+
+      // 침묵 타이머: 1.5초 동안 말 안하면 전송
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
-    };
-  }, [isListening, isSpeaking, stopSpeaking]);
-
-  // handleSendMessage 의존성 업데이트를 위한 별도 effect
-  useEffect(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (interimTranscript) {
-          interimTextRef.current = interimTranscript;
-          setInputText(interimTranscript);
-          
-          if (isSpeaking && interimTranscript.length > 2) {
-            stopSpeaking();
-          }
-          
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-        }
-
-        if (finalTranscript) {
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-          
+      
+      silenceTimerRef.current = setTimeout(() => {
+        if (finalText.trim() && !isProcessingRef.current) {
+          const textToSend = finalText.trim();
+          finalText = '';
           setInputText('');
-          interimTextRef.current = '';
-          handleSendMessage(finalTranscript);
+          handleSendMessage(textToSend);
         }
-      };
-    }
-  }, [handleSendMessage, isSpeaking, stopSpeaking]);
+      }, 1500);
+    };
+
+    recognitionRef.current.onerror = (event: any) => {
+      console.log('STT 에러:', event.error);
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        if (isListening) {
+          setTimeout(() => {
+            try { recognitionRef.current?.start(); } catch(e) {}
+          }, 100);
+        }
+      }
+    };
+
+    recognitionRef.current.onend = () => {
+      if (isListening) {
+        setTimeout(() => {
+          try { recognitionRef.current?.start(); } catch(e) {}
+        }, 100);
+      }
+    };
+
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      try { recognitionRef.current?.stop(); } catch(e) {}
+      if (audioRef.current) audioRef.current.pause();
+    };
+  }, [isListening, isSpeaking, stopSpeaking, handleSendMessage]);
 
   const handleFAQClick = (text: string) => {
     handleSendMessage(text);
@@ -373,22 +316,13 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const handleVoiceToggle = () => {
     if (isListening) {
       setIsListening(false);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      }
+      try { recognitionRef.current?.stop(); } catch(e) {}
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     } else {
       setIsListening(true);
-      // Barge-in: 음성 인식 시작 시 머니야 음성 중단
       stopSpeaking();
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch (e) {
-          console.log('이미 시작됨');
-        }
-      }
+      lastSentMessageRef.current = '';
+      try { recognitionRef.current?.start(); } catch(e) {}
     }
   };
 
@@ -412,6 +346,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       handleSendMessage();
     }
   };
+
 return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       
@@ -584,8 +519,6 @@ return (
             </div>
           </div>
         )}
-        
-        <div className="text-center text-xs text-gray-300">방금 전</div>
       </div>
 
       {isListening && (
@@ -595,18 +528,12 @@ return (
               <div
                 key={i}
                 className="w-1 bg-green-500 rounded-full animate-pulse"
-                style={{
-                  height: `${12 + Math.random() * 12}px`,
-                  animationDelay: `${i * 0.1}s`,
-                }}
+                style={{ height: `${12 + Math.random() * 12}px`, animationDelay: `${i * 0.1}s` }}
               ></div>
             ))}
           </div>
-          <span className="text-green-700 font-semibold text-sm flex-1">듣고 있어요... 편하게 말씀하세요!</span>
-          <button
-            onClick={handleVoiceToggle}
-            className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full"
-          >
+          <span className="text-green-700 font-semibold text-sm flex-1">듣고 있어요...</span>
+          <button onClick={handleVoiceToggle} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
             중지
           </button>
         </div>
@@ -626,9 +553,7 @@ return (
           <button
             onClick={handleVoiceToggle}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isListening 
-                ? 'bg-green-500 animate-pulse' 
-                : 'bg-amber-400 hover:bg-amber-500'
+              isListening ? 'bg-green-500 animate-pulse' : 'bg-amber-400 hover:bg-amber-500'
             }`}
           >
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -642,7 +567,7 @@ return (
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isListening ? "말씀해주세요..." : "머니야에게 물어보세요..."}
+              placeholder="머니야에게 물어보세요..."
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
               disabled={isLoading}
             />
@@ -652,9 +577,7 @@ return (
             onClick={() => handleSendMessage()}
             disabled={!inputText.trim() || isLoading}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !isLoading
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-gray-300'
+              inputText.trim() && !isLoading ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
             }`}
           >
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -665,26 +588,16 @@ return (
       </div>
 
       {isInputMethodOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsInputMethodOpen(false)}
-        >
-          <div 
-            className="w-full max-w-md bg-white rounded-2xl p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsInputMethodOpen(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">지출 입력 방식</h2>
-              <button 
-                onClick={() => setIsInputMethodOpen(false)}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-              >
+              <button onClick={() => setIsInputMethodOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
               </button>
             </div>
-            
             <div className="space-y-3">
               <button className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -697,14 +610,7 @@ return (
                   <p className="text-sm text-gray-500">지출 또는 참음을 직접 입력해요</p>
                 </div>
               </button>
-              
-              <button 
-                onClick={() => {
-                  setIsInputMethodOpen(false);
-                  setIsReceiptModalOpen(true);
-                }}
-                className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50 transition-all"
-              >
+              <button onClick={() => { setIsInputMethodOpen(false); setIsReceiptModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50 transition-all">
                 <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
@@ -715,14 +621,7 @@ return (
                   <p className="text-sm text-gray-500">영수증 사진으로 자동 인식해요</p>
                 </div>
               </button>
-              
-              <button 
-                onClick={() => {
-                  setIsInputMethodOpen(false);
-                  setIsBankModalOpen(true);
-                }}
-                className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all"
-              >
+              <button onClick={() => { setIsInputMethodOpen(false); setIsBankModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all">
                 <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/>
@@ -740,26 +639,16 @@ return (
       )}
 
       {isReceiptModalOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsReceiptModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-md bg-white rounded-2xl p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsReceiptModalOpen(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">영수증 촬영</h2>
-              <button 
-                onClick={() => setIsReceiptModalOpen(false)}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-              >
+              <button onClick={() => setIsReceiptModalOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
               </button>
             </div>
-            
             <div className="bg-gray-900 rounded-2xl p-6 mb-4">
               <div className="border-2 border-dashed border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center">
                 <svg className="w-10 h-10 text-gray-500 mb-2" fill="currentColor" viewBox="0 0 24 24">
@@ -769,69 +658,38 @@ return (
                 <p className="text-blue-400 text-xs">자동으로 인식됩니다</p>
               </div>
             </div>
-            
             <div className="flex gap-3">
-              <button className="flex-1 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold">
-                앨범에서 선택
-              </button>
-              <button className="flex-1 py-3 bg-blue-600 rounded-xl text-white font-semibold">
-                촬영하기
-              </button>
+              <button className="flex-1 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold">앨범에서 선택</button>
+              <button className="flex-1 py-3 bg-blue-600 rounded-xl text-white font-semibold">촬영하기</button>
             </div>
           </div>
         </div>
       )}
 
       {isBankModalOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setIsBankModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-md bg-white rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsBankModalOpen(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl p-5 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">계좌 연동</h2>
-              <button 
-                onClick={() => setIsBankModalOpen(false)}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-              >
+              <button onClick={() => setIsBankModalOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
               </button>
             </div>
-            
             <div className="space-y-3">
               {banks.map((bank) => {
                 const isConnected = connectedBanks.includes(bank.name);
                 return (
-                  <div 
-                    key={bank.id}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
-                      isConnected 
-                        ? 'border-green-400 bg-green-50' 
-                        : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
+                  <div key={bank.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${isConnected ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
                     <div className={`w-12 h-12 ${bank.color} rounded-xl flex items-center justify-center`}>
                       <span className="text-white font-bold text-xs">{bank.logo}</span>
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-gray-800 text-sm">{bank.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {isConnected ? '연결됨' : '연결 필요'}
-                      </p>
+                      <p className="text-xs text-gray-500">{isConnected ? '연결됨' : '연결 필요'}</p>
                     </div>
-                    <button
-                      onClick={() => handleBankConnect(bank.name)}
-                      className={`px-3 py-1.5 rounded-lg font-semibold text-xs ${
-                        isConnected
-                          ? 'bg-green-500 text-white'
-                          : 'bg-blue-600 text-white'
-                      }`}
-                    >
+                    <button onClick={() => handleBankConnect(bank.name)} className={`px-3 py-1.5 rounded-lg font-semibold text-xs ${isConnected ? 'bg-green-500 text-white' : 'bg-blue-600 text-white'}`}>
                       {isConnected ? '연결됨' : '연결'}
                     </button>
                   </div>
@@ -842,11 +700,7 @@ return (
         </div>
       )}
 
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
     </div>
   );
 }
