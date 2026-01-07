@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 
 interface AISpendPageProps {
@@ -40,9 +40,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSentMessageRef = useRef<string>('');
-  const isProcessingRef = useRef<boolean>(false);
 
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
@@ -74,18 +71,18 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
-  // Barge-in: 음성 재생 즉시 중단
-  const stopSpeaking = useCallback(() => {
+  // 음성 재생 중단 (Barge-in)
+  const stopSpeaking = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
     setIsSpeaking(false);
-  }, []);
+  };
 
-  // OpenAI TTS - 머니야 목소리
-  const speak = useCallback(async (text: string) => {
+  // TTS 재생
+  const speak = async (text: string) => {
     if (!voiceEnabled) return;
     
     try {
@@ -114,7 +111,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         };
         audioRef.current.onerror = () => {
           setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
         };
         
         await audioRef.current.play();
@@ -125,34 +121,18 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       console.error('TTS 에러:', error);
       setIsSpeaking(false);
     }
-  }, [voiceEnabled, stopSpeaking]);
+  };
 
-  // 대화 기록 생성
-  const getConversationHistory = useCallback(() => {
-    return messages.slice(-4).map(m => 
-      `${m.type === 'user' ? '사용자' : '머니야'}: ${m.text}`
-    ).join('\n');
-  }, [messages]);
+  // 메시지 전송
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isLoading) return;
 
-  // 메시지 전송 (중복 방지 강화)
-  const handleSendMessage = useCallback(async (text?: string) => {
-    const messageText = (text || inputText).trim();
-    
-    // 중복 방지: 같은 메시지 or 처리 중이면 무시
-    if (!messageText || isLoading || isProcessingRef.current) return;
-    if (messageText === lastSentMessageRef.current) return;
-    
-    // 처리 시작
-    isProcessingRef.current = true;
-    lastSentMessageRef.current = messageText;
-
-    // Barge-in: 머니야가 말하는 중이면 중단
     stopSpeaking();
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      text: messageText,
+      text: text.trim(),
       timestamp: new Date(),
     };
 
@@ -165,20 +145,18 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: messageText,
+          message: text.trim(),
           userName: userName,
-          conversationHistory: getConversationHistory(),
           budgetInfo: {
             remainingBudget,
             dailyBudget,
             todaySpent,
-            livingExpense: adjustedBudget?.livingExpense || 2000000,
           },
         }),
       });
 
       const data = await response.json();
-      const aiText = data.success ? data.message : '죄송해요, 다시 말씀해주세요!';
+      const aiText = data.success ? data.message : '다시 말씀해주세요!';
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -191,138 +169,103 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       if (voiceEnabled) {
         speak(aiText);
       }
-
     } catch (error) {
       console.error('API 에러:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        text: '네트워크 연결을 확인해주세요!',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      // 1초 후 중복 방지 해제
-      setTimeout(() => {
-        isProcessingRef.current = false;
-      }, 1000);
     }
-  }, [inputText, isLoading, userName, getConversationHistory, remainingBudget, dailyBudget, todaySpent, adjustedBudget, voiceEnabled, speak, stopSpeaking]);
+  };
 
-  // 초기 인사 메시지
+  // 초기 인사
   useEffect(() => {
-    const greetingText = `안녕하세요, ${displayName}님! 저는 머니야예요. 편하게 머니야 하고 불러주세요!`;
-    
-    const greeting: Message = {
+    const greetingText = `안녕하세요, ${displayName}님! 머니야예요. 편하게 불러주세요!`;
+    setMessages([{
       id: '1',
       type: 'ai',
       text: greetingText,
       timestamp: new Date(),
-    };
-    setMessages([greeting]);
+    }]);
     
     if (voiceEnabled) {
       setTimeout(() => speak(greetingText), 500);
     }
   }, []);
 
-  // STT 초기화 - 침묵 감지 방식 (1.5초 후 전송)
+  // STT 초기화 (단순화 버전)
   useEffect(() => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+    if (!('webkitSpeechRecognition' in window)) return;
 
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'ko-KR';
+    const SpeechRecognition = (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'ko-KR';
 
-    let finalText = '';
-
-    recognitionRef.current.onresult = (event: any) => {
-      let interimTranscript = '';
-      let newFinalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          newFinalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
       }
+      setInputText(transcript);
 
-      // Barge-in: 사용자가 말하기 시작하면 머니야 음성 중단
-      if ((interimTranscript.length > 2 || newFinalTranscript) && isSpeaking) {
+      // Barge-in: 말하기 시작하면 머니야 음성 중단
+      if (transcript.length > 0 && isSpeaking) {
         stopSpeaking();
       }
 
-      // 중간 결과 표시
-      if (interimTranscript) {
-        setInputText(finalText + interimTranscript);
-      }
-
-      // 최종 결과 누적
-      if (newFinalTranscript) {
-        finalText += newFinalTranscript;
-        setInputText(finalText);
-      }
-
-      // 침묵 타이머: 1.5초 동안 말 안하면 전송
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      
-      silenceTimerRef.current = setTimeout(() => {
-        if (finalText.trim() && !isProcessingRef.current) {
-          const textToSend = finalText.trim();
-          finalText = '';
-          setInputText('');
-          handleSendMessage(textToSend);
-        }
-      }, 1500);
-    };
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.log('STT 에러:', event.error);
-      if (event.error === 'no-speech' || event.error === 'aborted') {
-        if (isListening) {
-          setTimeout(() => {
-            try { recognitionRef.current?.start(); } catch(e) {}
-          }, 100);
+      // 최종 결과면 전송
+      if (event.results[event.results.length - 1].isFinal) {
+        if (transcript.trim()) {
+          sendMessage(transcript);
         }
       }
     };
 
-    recognitionRef.current.onend = () => {
+    recognition.onend = () => {
+      // 음성 인식 종료 후 다시 시작 (isListening이 true면)
       if (isListening) {
         setTimeout(() => {
-          try { recognitionRef.current?.start(); } catch(e) {}
+          try {
+            recognition.start();
+          } catch (e) {}
         }, 100);
       }
     };
 
-    return () => {
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      try { recognitionRef.current?.stop(); } catch(e) {}
-      if (audioRef.current) audioRef.current.pause();
+    recognition.onerror = (event: any) => {
+      console.log('STT 에러:', event.error);
+      if (isListening && event.error !== 'aborted') {
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e) {}
+        }, 100);
+      }
     };
-  }, [isListening, isSpeaking, stopSpeaking, handleSendMessage]);
 
-  const handleFAQClick = (text: string) => {
-    handleSendMessage(text);
-  };
+    recognitionRef.current = recognition;
 
-  const handleVoiceToggle = () => {
+    return () => {
+      try {
+        recognition.stop();
+      } catch (e) {}
+    };
+  }, [isListening, isSpeaking]);
+
+  // 음성 인식 시작/중지
+  const toggleListening = () => {
     if (isListening) {
       setIsListening(false);
-      try { recognitionRef.current?.stop(); } catch(e) {}
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      try {
+        recognitionRef.current?.stop();
+      } catch (e) {}
     } else {
       setIsListening(true);
       stopSpeaking();
-      lastSentMessageRef.current = '';
-      try { recognitionRef.current?.start(); } catch(e) {}
+      setInputText('');
+      try {
+        recognitionRef.current?.start();
+      } catch (e) {}
     }
   };
 
@@ -343,7 +286,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      sendMessage(inputText);
     }
   };
 
@@ -455,15 +398,13 @@ return (
       <div className="px-4 mt-3">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-gray-400"># 자주 묻는 질문</span>
-          <button onClick={onFAQMore} className="text-xs font-semibold text-blue-600">
-            더보기 &gt;
-          </button>
+          <button onClick={onFAQMore} className="text-xs font-semibold text-blue-600">더보기 &gt;</button>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {faqChips.map((chip, index) => (
             <button
               key={index}
-              onClick={() => handleFAQClick(chip.text)}
+              onClick={() => sendMessage(chip.text)}
               className="flex-shrink-0 px-3 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all"
             >
               {chip.emoji} {chip.text}
@@ -472,17 +413,9 @@ return (
         </div>
       </div>
 
-      <div 
-        ref={chatAreaRef}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[200px] max-h-[400px]"
-      >
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[200px] max-h-[400px]">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex gap-2.5 max-w-[90%] ${
-              message.type === 'user' ? 'ml-auto flex-row-reverse' : ''
-            }`}
-          >
+          <div key={message.id} className={`flex gap-2.5 max-w-[90%] ${message.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
             {message.type === 'ai' && (
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isSpeaking ? 'bg-purple-600 animate-pulse' : 'bg-blue-600'}`}>
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -490,14 +423,9 @@ return (
                 </svg>
               </div>
             )}
-            
-            <div
-              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-                message.type === 'ai'
-                  ? 'bg-white border border-gray-100 text-gray-800'
-                  : 'bg-blue-600 text-white'
-              }`}
-            >
+            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+              message.type === 'ai' ? 'bg-white border border-gray-100 text-gray-800' : 'bg-blue-600 text-white'
+            }`}>
               {message.text}
             </div>
           </div>
@@ -510,9 +438,9 @@ return (
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
               </svg>
             </div>
-            <div className="px-4 py-3 rounded-2xl text-sm bg-white border border-gray-100 text-gray-500">
+            <div className="px-4 py-3 rounded-2xl text-sm bg-white border border-gray-100">
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
@@ -525,37 +453,21 @@ return (
         <div className="mx-4 mb-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
           <div className="flex items-center gap-1">
             {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="w-1 bg-green-500 rounded-full animate-pulse"
-                style={{ height: `${12 + Math.random() * 12}px`, animationDelay: `${i * 0.1}s` }}
-              ></div>
+              <div key={i} className="w-1 bg-green-500 rounded-full animate-pulse" style={{ height: `${12 + Math.random() * 12}px` }}></div>
             ))}
           </div>
           <span className="text-green-700 font-semibold text-sm flex-1">듣고 있어요...</span>
-          <button onClick={handleVoiceToggle} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-            중지
-          </button>
+          <button onClick={toggleListening} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">중지</button>
         </div>
       )}
 
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsInputMethodOpen(true)}
-            className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50"
-          >
-            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
+          <button onClick={() => setIsInputMethodOpen(true)} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </button>
           
-          <button
-            onClick={handleVoiceToggle}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isListening ? 'bg-green-500 animate-pulse' : 'bg-amber-400 hover:bg-amber-500'
-            }`}
-          >
+          <button onClick={toggleListening} className={`w-10 h-10 rounded-full flex items-center justify-center ${isListening ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`}>
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
             </svg>
@@ -574,15 +486,11 @@ return (
           </div>
           
           <button
-            onClick={() => handleSendMessage()}
+            onClick={() => sendMessage(inputText)}
             disabled={!inputText.trim() || isLoading}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              inputText.trim() && !isLoading ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
-            }`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${inputText.trim() && !isLoading ? 'bg-blue-600' : 'bg-gray-300'}`}
           >
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
       </div>
@@ -593,43 +501,35 @@ return (
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">지출 입력 방식</h2>
               <button onClick={() => setIsInputMethodOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
             </div>
             <div className="space-y-3">
-              <button className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-blue-400 hover:bg-blue-50 transition-all">
+              <button className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl">
                 <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                  </svg>
+                  <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-bold text-gray-800">수동 입력</p>
-                  <p className="text-sm text-gray-500">지출 또는 참음을 직접 입력해요</p>
+                  <p className="text-sm text-gray-500">직접 입력해요</p>
                 </div>
               </button>
-              <button onClick={() => { setIsInputMethodOpen(false); setIsReceiptModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50 transition-all">
+              <button onClick={() => { setIsInputMethodOpen(false); setIsReceiptModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl">
                 <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                  </svg>
+                  <svg className="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 24 24"><path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-bold text-gray-800">영수증 촬영</p>
-                  <p className="text-sm text-gray-500">영수증 사진으로 자동 인식해요</p>
+                  <p className="text-sm text-gray-500">자동 인식</p>
                 </div>
               </button>
-              <button onClick={() => { setIsInputMethodOpen(false); setIsBankModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all">
+              <button onClick={() => { setIsInputMethodOpen(false); setIsBankModalOpen(true); }} className="w-full flex items-center gap-4 p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl">
                 <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/>
-                  </svg>
+                  <svg className="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 24 24"><path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zm-5-9L2 6v2h20V6z"/></svg>
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-bold text-gray-800">계좌 연동</p>
-                  <p className="text-sm text-gray-500">계좌 연결하면 자동으로 기록돼요</p>
+                  <p className="text-sm text-gray-500">자동 기록</p>
                 </div>
                 <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs font-bold rounded-md">추천</span>
               </button>
@@ -644,23 +544,18 @@ return (
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">영수증 촬영</h2>
               <button onClick={() => setIsReceiptModalOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
             </div>
             <div className="bg-gray-900 rounded-2xl p-6 mb-4">
-              <div className="border-2 border-dashed border-gray-600 rounded-xl p-6 flex flex-col items-center justify-center">
-                <svg className="w-10 h-10 text-gray-500 mb-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/>
-                </svg>
-                <p className="text-white font-semibold text-sm mb-1">영수증을 프레임 안에 맞춰주세요</p>
-                <p className="text-blue-400 text-xs">자동으로 인식됩니다</p>
+              <div className="border-2 border-dashed border-gray-600 rounded-xl p-6 flex flex-col items-center">
+                <p className="text-white font-semibold text-sm">영수증을 프레임 안에</p>
+                <p className="text-blue-400 text-xs">자동 인식됩니다</p>
               </div>
             </div>
             <div className="flex gap-3">
-              <button className="flex-1 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold">앨범에서 선택</button>
-              <button className="flex-1 py-3 bg-blue-600 rounded-xl text-white font-semibold">촬영하기</button>
+              <button className="flex-1 py-3 bg-gray-100 rounded-xl text-gray-700 font-semibold">앨범</button>
+              <button className="flex-1 py-3 bg-blue-600 rounded-xl text-white font-semibold">촬영</button>
             </div>
           </div>
         </div>
@@ -672,16 +567,14 @@ return (
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-800">계좌 연동</h2>
               <button onClick={() => setIsBankModalOpen(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
+                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
             </div>
             <div className="space-y-3">
               {banks.map((bank) => {
                 const isConnected = connectedBanks.includes(bank.name);
                 return (
-                  <div key={bank.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${isConnected ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div key={bank.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${isConnected ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
                     <div className={`w-12 h-12 ${bank.color} rounded-xl flex items-center justify-center`}>
                       <span className="text-white font-bold text-xs">{bank.logo}</span>
                     </div>
