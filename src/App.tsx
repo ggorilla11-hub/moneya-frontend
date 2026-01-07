@@ -64,11 +64,13 @@ function App() {
             setAdjustedBudget(JSON.parse(savedBudget));
           }
           setCurrentStep('main');
+          setCurrentTab('home');
         } else {
           setCurrentStep('onboarding');
         }
       } else {
         setCurrentStep('login');
+        setCurrentTab('home');
       }
     });
 
@@ -164,6 +166,7 @@ function App() {
       setIncomeExpenseData(null);
       setAdjustedBudget(null);
       setCurrentStep('onboarding');
+      setCurrentTab('home');
     }
   };
 
