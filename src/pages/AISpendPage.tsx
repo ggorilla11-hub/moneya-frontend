@@ -39,7 +39,7 @@ interface SpendItem {
 }
 
 const API_URL = 'https://moneya-server.onrender.com';
-const WS_URL = 'wss://moneya-server.onrender.com/ws/realtime?mode=app';
+const WS_URL = 'wss://moneya-server.onrender.com';
 
 function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: AISpendPageProps) {
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
@@ -370,7 +370,7 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
   };
 
   useEffect(() => {
-    const greetingText = `안녕하세요, ${displayName}님! 머니야예요. 편하게 불러주세요!`;
+    const greetingText = `안녕하세요, ${displayName}님! 머니야예요. 무엇을 도와드릴까요?`;
     setMessages([{ id: '1', type: 'ai', text: greetingText, timestamp: new Date() }]);
     return () => { cleanupVoiceMode(); };
   }, []);
@@ -440,7 +440,7 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
             <div className="flex items-center gap-1">
               {[...Array(5)].map((_, i) => (<div key={i} className="w-1 bg-green-500 rounded-full animate-pulse" style={{ height: `${12 + Math.random() * 12}px`, animationDelay: `${i * 100}ms` }}></div>))}
             </div>
-            <span className="text-green-700 font-semibold text-sm">🎙️ 머니야와 대화중... "{status}"</span>
+            <span className="text-green-700 font-semibold text-sm">머니야와 대화중... "{status}"</span>
           </div>
           <button onClick={stopVoiceMode} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">종료</button>
         </div>
