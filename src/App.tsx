@@ -62,6 +62,11 @@ function App() {
       if (currentUser) {
         const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
         if (budgetConfirmed) {
+          // ★★★ 저장된 재무진단 데이터도 불러오기 ★★★
+          const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
+          if (savedFinancialData) {
+            setFinancialResult(JSON.parse(savedFinancialData));
+          }
           const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
           if (savedBudget) {
             setAdjustedBudget(JSON.parse(savedBudget));
@@ -292,6 +297,7 @@ function App() {
           <AISpendPage
             userName={user.displayName || '사용자'}
             adjustedBudget={adjustedBudget}
+            financialResult={financialResult}
             onFAQMore={handleFAQMore}
           />
         )}
