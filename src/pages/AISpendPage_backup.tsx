@@ -24,9 +24,7 @@ interface SpendItem {
   tag?: string;
 }
 
-// ★★★ 백엔드 URL ★★★
-const API_URL = 'https://moneya-server.onrender.com';
-const WS_URL = 'wss://moneya-server.onrender.com/ws/realtime';
+const API_URL = 'https://moneya-backend-x77a.onrender.com';
 
 function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) {
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
@@ -35,24 +33,14 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const chatAreaRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // ★★★ AI지니와 동일한 상태 관리 ★★★
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [status, setStatus] = useState('대기중');
-  
-  // Refs (AI지니와 동일)
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const processorRef = useRef<any>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef(false);
-  const isConnectedRef = useRef(false);
-
-  // 지출 데이터
   const [spendItems] = useState<SpendItem[]>([
     { id: '1', name: '적금 자동이체', amount: 500000, type: 'investment', category: '저축투자', time: '09:00', tag: '실제저축' },
     { id: '2', name: '커피 참음!', amount: 15000, type: 'saved', category: '충동', time: '14:30', tag: 'AI 조언 후 취소' },
@@ -61,7 +49,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
 
   const [connectedBanks, setConnectedBanks] = useState<string[]>(['KB국민은행']);
 
-  // 예산 계산
   const dailyBudget = adjustedBudget ? Math.round(adjustedBudget.livingExpense / 30) : 66667;
   const todaySpent = spendItems.filter(item => item.type === 'spent').reduce((sum, item) => sum + item.amount, 0);
   const todaySaved = spendItems.filter(item => item.type === 'saved').reduce((sum, item) => sum + item.amount, 0);
@@ -84,266 +71,63 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     { id: 'kakao', name: '카카오뱅크', logo: '카카오', color: 'bg-yellow-400' },
   ];
 
-  // ============================================
-  // ★★★ AI지니와 동일한 오디오 재생 ★★★
-  // ============================================
-  const playAudio = async (base64Audio: string) => {
-    audioQueueRef.current.push(base64Audio);
-    if (!isPlayingRef.current) {
-      processAudioQueue();
+  // 음성 재생 중단 (Barge-in)
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
+    setIsSpeaking(false);
   };
 
-  const processAudioQueue = async () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      return;
-    }
-    
-    isPlayingRef.current = true;
-    const base64Audio = audioQueueRef.current.shift()!;
+  // TTS 재생
+  const speak = async (text: string) => {
+    if (!voiceEnabled) return;
     
     try {
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
+      stopSpeaking();
+      setIsSpeaking(true);
       
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-      
-      const audioData = atob(base64Audio);
-      const arrayBuffer = new ArrayBuffer(audioData.length);
-      const view = new Uint8Array(arrayBuffer);
-      for (let i = 0; i < audioData.length; i++) {
-        view[i] = audioData.charCodeAt(i);
-      }
-      
-      const pcm16 = new Int16Array(arrayBuffer);
-      const float32 = new Float32Array(pcm16.length);
-      for (let i = 0; i < pcm16.length; i++) {
-        float32[i] = pcm16[i] / 32768;
-      }
-      
-      const audioBuffer = audioContextRef.current.createBuffer(1, float32.length, 24000);
-      audioBuffer.getChannelData(0).set(float32);
-      
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
-      source.onended = () => processAudioQueue();
-      source.start();
-    } catch (e) {
-      console.error('오디오 재생 에러:', e);
-      processAudioQueue();
-    }
-  };
-
-  // ============================================
-  // ★★★ AI지니와 동일한 cleanup ★★★
-  // ============================================
-  const cleanupVoiceMode = () => {
-    if (wsRef.current) {
-      try {
-        wsRef.current.send(JSON.stringify({ type: 'stop' }));
-        wsRef.current.close();
-      } catch (e) {}
-      wsRef.current = null;
-    }
-    
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
-    }
-    
-    if (processorRef.current) {
-      try {
-        const { processor, source, audioContext } = processorRef.current;
-        processor.disconnect();
-        source.disconnect();
-        audioContext.close();
-      } catch (e) {}
-      processorRef.current = null;
-    }
-    
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    isConnectedRef.current = false;
-  };
-
-  // ============================================
-  // ★★★ AI지니와 동일한 오디오 캡처 ★★★
-  // ============================================
-  const startAudioCapture = (stream: MediaStream, ws: WebSocket) => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      
-      processor.onaudioprocess = (e) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) {
-          pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
-        }
-        
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
-        ws.send(JSON.stringify({ type: 'audio', data: base64 }));
-      };
-      
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-      processorRef.current = { processor, source, audioContext };
-    } catch (e) {
-      console.error('오디오 캡처 에러:', e);
-    }
-  };
-
-  // ============================================
-  // ★★★ AI지니와 동일한 startVoiceMode ★★★
-  // ============================================
-  const startVoiceMode = async () => {
-    if (isConnectedRef.current) return;
-    
-    try {
-      setStatus('연결중...');
-      setIsVoiceMode(true);
-      
-      // 1. 마이크 권한 요청
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          sampleRate: 24000, 
-          channelCount: 1, 
-          echoCancellation: true, 
-          noiseSuppression: true 
-        } 
+      const response = await fetch(`${API_URL}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: 'nova' }),
       });
-      mediaStreamRef.current = stream;
+
+      const data = await response.json();
       
-      // 2. WebSocket 연결
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-      
-      ws.onopen = () => {
-        console.log('WebSocket 연결됨!');
+      if (data.success && data.audio) {
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))],
+          { type: 'audio/mp3' }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
         
-        // ★★★ AI지니와 동일: start_app 메시지 전송! ★★★
-        const startMessage = { 
-          type: 'start_app',
-          userName: userName,
-          budgetInfo: {
-            remainingBudget,
-            dailyBudget,
-            todaySpent
-          }
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
         };
-        ws.send(JSON.stringify(startMessage));
-        console.log('start_app 메시지 전송 완료');
-      };
-      
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          
-          // 세션 시작됨
-          if (msg.type === 'session_started') {
-            console.log('✅ 세션 시작됨!');
-            isConnectedRef.current = true;
-            setStatus('듣는중...');
-            startAudioCapture(stream, ws);
-          }
-          
-          // 오디오 재생
-          if (msg.type === 'audio' && msg.data) {
-            playAudio(msg.data);
-          }
-          
-          // 사용자 음성 텍스트
-          if (msg.type === 'transcript' && msg.role === 'user') {
-            const userMsg: Message = {
-              id: Date.now().toString(),
-              type: 'user',
-              text: msg.text,
-              timestamp: new Date()
-            };
-            setMessages(prev => [...prev, userMsg]);
-          }
-          
-          // 머니야 응답 텍스트
-          if (msg.type === 'transcript' && msg.role === 'assistant') {
-            const aiMsg: Message = {
-              id: (Date.now() + 1).toString(),
-              type: 'ai',
-              text: msg.text,
-              timestamp: new Date()
-            };
-            setMessages(prev => [...prev, aiMsg]);
-          }
-          
-          // Barge-in
-          if (msg.type === 'interrupt') {
-            audioQueueRef.current = [];
-            isPlayingRef.current = false;
-          }
-          
-          // 에러
-          if (msg.type === 'error') {
-            console.error('서버 에러:', msg.error);
-          }
-          
-        } catch (e) {
-          console.error('메시지 파싱 에러:', e);
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.error('WebSocket 에러:', error);
-        setStatus('연결 실패');
-        cleanupVoiceMode();
-        setIsVoiceMode(false);
-      };
-      
-      ws.onclose = () => {
-        console.log('WebSocket 연결 종료');
-        isConnectedRef.current = false;
-        setStatus('대기중');
-        setIsVoiceMode(false);
-      };
-      
+        audioRef.current.onerror = () => {
+          setIsSpeaking(false);
+        };
+        
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
+      }
     } catch (error) {
-      console.error('마이크 에러:', error);
-      alert('마이크 권한이 필요합니다.');
-      cleanupVoiceMode();
-      setIsVoiceMode(false);
-      setStatus('대기중');
+      console.error('TTS 에러:', error);
+      setIsSpeaking(false);
     }
   };
 
-  // ============================================
-  // ★★★ AI지니와 동일한 stopVoiceMode ★★★
-  // ============================================
-  const stopVoiceMode = () => {
-    cleanupVoiceMode();
-    setIsVoiceMode(false);
-    setStatus('대기중');
-  };
-
-  // 마이크 버튼 토글
-  const toggleVoiceMode = () => {
-    if (isVoiceMode) {
-      stopVoiceMode();
-    } else {
-      startVoiceMode();
-    }
-  };
-
-  // ============================================
-  // 텍스트 메시지 전송 (기존 HTTP API)
-  // ============================================
-  const sendTextMessage = async (text: string) => {
+  // 메시지 전송
+  const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    stopSpeaking();
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -363,7 +147,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         body: JSON.stringify({
           message: text.trim(),
           userName: userName,
-          budgetInfo: { remainingBudget, dailyBudget, todaySpent },
+          budgetInfo: {
+            remainingBudget,
+            dailyBudget,
+            todaySpent,
+          },
         }),
       });
 
@@ -378,30 +166,8 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       };
       setMessages(prev => [...prev, aiResponse]);
 
-      // TTS 재생
       if (voiceEnabled) {
-        try {
-          const ttsResponse = await fetch(`${API_URL}/api/tts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: aiText, voice: 'shimmer' }),
-          });
-
-          const ttsData = await ttsResponse.json();
-          
-          if (ttsData.success && ttsData.audio) {
-            const audioBlob = new Blob(
-              [Uint8Array.from(atob(ttsData.audio), c => c.charCodeAt(0))],
-              { type: 'audio/mp3' }
-            );
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            audio.onended = () => URL.revokeObjectURL(audioUrl);
-            await audio.play();
-          }
-        } catch (e) {
-          console.error('TTS 에러:', e);
-        }
+        speak(aiText);
       }
     } catch (error) {
       console.error('API 에러:', error);
@@ -410,9 +176,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     }
   };
 
-  // ============================================
-  // 초기화 및 정리
-  // ============================================
+  // 초기 인사
   useEffect(() => {
     const greetingText = `안녕하세요, ${displayName}님! 머니야예요. 편하게 불러주세요!`;
     setMessages([{
@@ -422,21 +186,86 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
       timestamp: new Date(),
     }]);
     
-    return () => {
-      cleanupVoiceMode();
-    };
+    if (voiceEnabled) {
+      setTimeout(() => speak(greetingText), 500);
+    }
   }, []);
 
+  // STT 초기화 (단순화 버전)
   useEffect(() => {
-    if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
+    if (!('webkitSpeechRecognition' in window)) return;
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendTextMessage(inputText);
+    const SpeechRecognition = (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'ko-KR';
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInputText(transcript);
+
+      // Barge-in: 말하기 시작하면 머니야 음성 중단
+      if (transcript.length > 0 && isSpeaking) {
+        stopSpeaking();
+      }
+
+      // 최종 결과면 전송
+      if (event.results[event.results.length - 1].isFinal) {
+        if (transcript.trim()) {
+          sendMessage(transcript);
+        }
+      }
+    };
+
+    recognition.onend = () => {
+      // 음성 인식 종료 후 다시 시작 (isListening이 true면)
+      if (isListening) {
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e) {}
+        }, 100);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.log('STT 에러:', event.error);
+      if (isListening && event.error !== 'aborted') {
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e) {}
+        }, 100);
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch (e) {}
+    };
+  }, [isListening, isSpeaking]);
+
+  // 음성 인식 시작/중지
+  const toggleListening = () => {
+    if (isListening) {
+      setIsListening(false);
+      try {
+        recognitionRef.current?.stop();
+      } catch (e) {}
+    } else {
+      setIsListening(true);
+      stopSpeaking();
+      setInputText('');
+      try {
+        recognitionRef.current?.start();
+      } catch (e) {}
     }
   };
 
@@ -448,32 +277,34 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
     }
   };
 
-  // ============================================
-  // UI 렌더링
-  // ============================================
-  return (
+  useEffect(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputText);
+    }
+  };
+
+return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       
-      {/* 헤더 카드 */}
       <div className="mx-4 mt-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
         
         <div className="flex items-center gap-3 relative z-10">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-            isVoiceMode ? 'bg-green-500 animate-pulse' : 'bg-white/20'
-          }`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isSpeaking ? 'bg-purple-500 animate-pulse' : 'bg-white/20'}`}>
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
             </svg>
           </div>
           
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <p className="text-white font-bold">안녕하세요, {displayName}님!</p>
-              {isVoiceMode && (
-                <span className="px-2 py-0.5 bg-green-500/30 text-green-200 text-xs rounded-full">● {status}</span>
-              )}
-            </div>
+            <p className="text-white font-bold">안녕하세요, {displayName}님!</p>
             <div className="flex items-center gap-2">
               <span className="text-white/80 text-sm">오늘 남은 예산</span>
               <span className="text-white text-xl font-extrabold">₩{remainingBudget.toLocaleString()}</span>
@@ -496,7 +327,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           </button>
         </div>
         
-        {/* 예산 진행바 */}
         <div className="mt-3 bg-white/20 rounded-full h-2 overflow-hidden">
           <div 
             className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all"
@@ -509,28 +339,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         </div>
       </div>
 
-      {/* 음성 모드 배너 (AI지니 스타일) */}
-      {isVoiceMode && (
-        <div className="mx-4 mt-3 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              {[...Array(5)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className="w-1 bg-green-500 rounded-full animate-pulse" 
-                  style={{ height: `${12 + Math.random() * 12}px`, animationDelay: `${i * 100}ms` }}
-                ></div>
-              ))}
-            </div>
-            <span className="text-green-700 font-semibold text-sm">🎙️ 머니야와 대화중... "{status}"</span>
-          </div>
-          <button onClick={stopVoiceMode} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-            종료
-          </button>
-        </div>
-      )}
-
-      {/* 타임라인 */}
       <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div 
           className="p-3 flex items-center cursor-pointer hover:bg-gray-50"
@@ -587,7 +395,6 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         </div>
       </div>
 
-      {/* FAQ 칩 */}
       <div className="px-4 mt-3">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-gray-400"># 자주 묻는 질문</span>
@@ -597,7 +404,7 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
           {faqChips.map((chip, index) => (
             <button
               key={index}
-              onClick={() => sendTextMessage(chip.text)}
+              onClick={() => sendMessage(chip.text)}
               className="flex-shrink-0 px-3 py-2 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all"
             >
               {chip.emoji} {chip.text}
@@ -606,12 +413,11 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         </div>
       </div>
 
-      {/* 채팅 영역 */}
       <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[200px] max-h-[400px]">
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-2.5 max-w-[90%] ${message.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
             {message.type === 'ai' && (
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isSpeaking ? 'bg-purple-600 animate-pulse' : 'bg-blue-600'}`}>
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
                 </svg>
@@ -643,22 +449,25 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
         )}
       </div>
 
-      {/* 하단 입력 영역 */}
+      {isListening && (
+        <div className="mx-4 mb-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="w-1 bg-green-500 rounded-full animate-pulse" style={{ height: `${12 + Math.random() * 12}px` }}></div>
+            ))}
+          </div>
+          <span className="text-green-700 font-semibold text-sm flex-1">듣고 있어요...</span>
+          <button onClick={toggleListening} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">중지</button>
+        </div>
+      )}
+
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
           <button onClick={() => setIsInputMethodOpen(true)} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
+            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </button>
           
-          {/* ★★★ 마이크 버튼 - AI지니 스타일 ★★★ */}
-          <button 
-            onClick={toggleVoiceMode} 
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isVoiceMode ? 'bg-red-500 animate-pulse scale-110' : 'bg-amber-400'
-            }`}
-          >
+          <button onClick={toggleListening} className={`w-10 h-10 rounded-full flex items-center justify-center ${isListening ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`}>
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
             </svg>
@@ -672,23 +481,20 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
               onKeyPress={handleKeyPress}
               placeholder="머니야에게 물어보세요..."
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-              disabled={isLoading || isVoiceMode}
+              disabled={isLoading}
             />
           </div>
           
           <button
-            onClick={() => sendTextMessage(inputText)}
-            disabled={!inputText.trim() || isLoading || isVoiceMode}
-            className={`w-10 h-10 rounded-full flex items-center justify-center ${inputText.trim() && !isLoading && !isVoiceMode ? 'bg-blue-600' : 'bg-gray-300'}`}
+            onClick={() => sendMessage(inputText)}
+            disabled={!inputText.trim() || isLoading}
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${inputText.trim() && !isLoading ? 'bg-blue-600' : 'bg-gray-300'}`}
           >
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
       </div>
 
-      {/* 모달들 */}
       {isInputMethodOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsInputMethodOpen(false)}>
           <div className="w-full max-w-md bg-white rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
@@ -766,18 +572,18 @@ function AISpendPage({ userName, adjustedBudget, onFAQMore }: AISpendPageProps) 
             </div>
             <div className="space-y-3">
               {banks.map((bank) => {
-                const isBankConnected = connectedBanks.includes(bank.name);
+                const isConnected = connectedBanks.includes(bank.name);
                 return (
-                  <div key={bank.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${isBankConnected ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div key={bank.id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${isConnected ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
                     <div className={`w-12 h-12 ${bank.color} rounded-xl flex items-center justify-center`}>
                       <span className="text-white font-bold text-xs">{bank.logo}</span>
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-gray-800 text-sm">{bank.name}</p>
-                      <p className="text-xs text-gray-500">{isBankConnected ? '연결됨' : '연결 필요'}</p>
+                      <p className="text-xs text-gray-500">{isConnected ? '연결됨' : '연결 필요'}</p>
                     </div>
-                    <button onClick={() => handleBankConnect(bank.name)} className={`px-3 py-1.5 rounded-lg font-semibold text-xs ${isBankConnected ? 'bg-green-500 text-white' : 'bg-blue-600 text-white'}`}>
-                      {isBankConnected ? '연결됨' : '연결'}
+                    <button onClick={() => handleBankConnect(bank.name)} className={`px-3 py-1.5 rounded-lg font-semibold text-xs ${isConnected ? 'bg-green-500 text-white' : 'bg-blue-600 text-white'}`}>
+                      {isConnected ? '연결됨' : '연결'}
                     </button>
                   </div>
                 );
