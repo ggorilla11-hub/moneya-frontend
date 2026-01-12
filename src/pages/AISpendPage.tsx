@@ -39,7 +39,7 @@ interface SpendItem {
 }
 
 const API_URL = 'https://moneya-server.onrender.com';
-const WS_URL = 'wss://moneya-server.onrender.com/ws/realtime';
+const WS_URL = 'wss://moneya-server.onrender.com/ws/realtime?mode=app';
 
 function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: AISpendPageProps) {
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
