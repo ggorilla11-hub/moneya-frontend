@@ -62,7 +62,7 @@ function SpendTimeline() {
             지출 -₩{todaySpent.toLocaleString()}
           </span>
           <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md whitespace-nowrap">
-            참음 +₩{todaySaved.toLocaleString()}
+            감정저축 +₩{todaySaved.toLocaleString()}
           </span>
           <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md whitespace-nowrap">
             저축 +₩{todayInvestment.toLocaleString()}
