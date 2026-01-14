@@ -43,7 +43,9 @@ type AppStep =
   | 'main'
   | 'detail-report'
   | 'faq-more'
-  | 're-diagnosis';
+  | 're-diagnosis'
+  | 're-analysis'
+  | 're-analysis-input';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -187,12 +189,12 @@ function App() {
     setCurrentStep('re-diagnosis');
   };
 
-  // 재무분석 다시하기 → 정보입력 화면으로 이동
+  // 재무분석 다시하기 → 예산조정화면으로 이동
   const handleReAnalysis = () => {
-    setCurrentStep('income-expense-input');
+    setCurrentStep('re-analysis');
   };
 
-  // 재진단에서 홈으로 돌아가기
+  // 재진단/재분석에서 홈으로 돌아가기
   const handleBackToHome = () => {
     setCurrentStep('main');
     setCurrentTab('home');
@@ -257,7 +259,7 @@ function App() {
       <IncomeExpenseInputPage
         initialIncome={financialResult?.income || 0}
         onComplete={handleIncomeExpenseComplete}
-        onBack={() => setCurrentStep('main')}
+        onBack={() => setCurrentStep('financial-result')}
       />
     );
   }
@@ -321,6 +323,42 @@ function App() {
     );
   }
 
+  // 재무분석 다시하기 → 예산조정화면
+  if (currentStep === 're-analysis' && incomeExpenseData) {
+    return (
+      <BudgetAdjustPage
+        incomeExpenseData={incomeExpenseData}
+        onConfirm={(budget) => {
+          setAdjustedBudget(budget);
+          if (user) {
+            localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
+          }
+          handleBackToHome();
+        }}
+        onBack={handleBackToHome}
+        isFromHome={true}
+        onReAnalysis={() => setCurrentStep('re-analysis-input')}
+      />
+    );
+  }
+
+  // 재분석 - 정보입력화면 (다시 분석하기 클릭 시)
+  if (currentStep === 're-analysis-input') {
+    return (
+      <IncomeExpenseInputPage
+        initialIncome={financialResult?.income || 0}
+        onComplete={(data) => {
+          setIncomeExpenseData(data);
+          if (user) {
+            localStorage.setItem(`incomeExpenseData_${user.uid}`, JSON.stringify(data));
+          }
+          setCurrentStep('re-analysis');
+        }}
+        onBack={() => setCurrentStep('re-analysis')}
+      />
+    );
+  }
+
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
@@ -333,6 +371,12 @@ function App() {
               onMoreDetail={handleMoreDetail}
               onReDiagnosis={handleReDiagnosis}
               onReAnalysis={handleReAnalysis}
+              onBudgetUpdate={(budget) => {
+                setAdjustedBudget(budget);
+                if (user) {
+                  localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
+                }
+              }}
             />
           )}
           {currentTab === 'ai-spend' && (
