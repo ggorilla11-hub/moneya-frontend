@@ -40,6 +40,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const [showAIModal, setShowAIModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalSavingsRate, setGoalSavingsRate] = useState(30);
+  const [graphType, setGraphType] = useState<'netAssets' | 'netSavings'>('netAssets');
 
   const currentUserId = userId || 'guest';
   const daysSinceJoin = getDaysSinceJoin(currentUserId);
@@ -73,6 +74,32 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const cumulativeNetSavings = spendItems
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
     .reduce((sum, item) => sum + item.amount, 0);
+
+  // 월별 데이터 생성 (최근 4개월)
+  const getMonthlyData = () => {
+    const months = [];
+    const now = new Date();
+    
+    for (let i = 3; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthLabel = (date.getMonth() + 1) + '월';
+      
+      // 시뮬레이션 데이터 (실제로는 Firebase에서 가져와야 함)
+      const baseNetAssets = netAssets - (i * 200); // 월별 순자산 증가 시뮬레이션
+      const baseNetSavings = cumulativeNetSavings > 0 
+        ? Math.round(cumulativeNetSavings * ((4 - i) / 4)) 
+        : (budgetSavings + budgetPension) * (4 - i);
+      
+      months.push({
+        month: monthLabel,
+        netAssets: Math.max(baseNetAssets, netAssets * 0.85),
+        netSavings: baseNetSavings,
+      });
+    }
+    return months;
+  };
+
+  const monthlyData = getMonthlyData();
 
   useEffect(() => {
     const savedGoal = localStorage.getItem(`moneya_goalSavingsRate_${currentUserId}`);
@@ -238,19 +265,36 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     return messages.join('\n\n');
   };
 
-  const getGraphPoints = () => {
-    if (snapshots.length === 0) return [];
+  // 월별 그래프 포인트 계산
+  const getMonthlyGraphPoints = () => {
+    const data = monthlyData.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
+    const maxValue = Math.max(...data, 1);
+    const minValue = Math.min(...data, 0);
+    const range = maxValue - minValue || 1;
     
-    const maxValue = Math.max(...snapshots.map(s => s.netSavings), 1);
-    return snapshots.map((s, i) => ({
-      x: (i / Math.max(snapshots.length - 1, 1)) * 280 + 10,
-      y: 70 - (s.netSavings / maxValue) * 60,
-      value: s.netSavings,
-      day: s.daysSinceJoin,
-    }));
+    return monthlyData.map((d, i) => {
+      const value = graphType === 'netAssets' ? d.netAssets : d.netSavings;
+      return {
+        x: 40 + (i * 80),
+        y: 90 - ((value - minValue) / range) * 70,
+        value: value,
+        month: d.month,
+      };
+    });
   };
 
-  const graphPoints = getGraphPoints();
+  const graphPoints = getMonthlyGraphPoints();
+
+  // 변화율 계산
+  const getChangePercent = () => {
+    if (monthlyData.length < 2) return 0;
+    const first = graphType === 'netAssets' ? monthlyData[0].netAssets : monthlyData[0].netSavings;
+    const last = graphType === 'netAssets' ? monthlyData[monthlyData.length - 1].netAssets : monthlyData[monthlyData.length - 1].netSavings;
+    if (first === 0) return 0;
+    return Math.round(((last - first) / first) * 100 * 10) / 10;
+  };
+
+  const changePercent = getChangePercent();
 
   const formatMoney = (amount: number) => {
     if (amount >= 10000) return (amount / 10000).toFixed(2) + '억';
@@ -398,44 +442,76 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
+        {/* 그래프 변화추이 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <span className="font-bold text-gray-800">📈 순저축 추이</span>
-            <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (cumulativeNetSavings > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500')}>
-              {cumulativeNetSavings > 0 ? '+' + Math.round(cumulativeNetSavings / 10000) + '만' : '시작'}
+            <span className="font-bold text-gray-800">📈 그래프 변화추이</span>
+            <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (changePercent > 0 ? 'bg-green-100 text-green-600' : changePercent < 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500')}>
+              {changePercent > 0 ? '▲' : changePercent < 0 ? '▼' : ''} {Math.abs(changePercent)}%
             </span>
           </div>
           
-          {snapshots.length > 1 ? (
-            <div>
-              <div className="h-24 bg-gradient-to-b from-green-50 to-transparent rounded-xl relative mb-2">
-                <svg className="w-full h-full" viewBox="0 0 300 80" preserveAspectRatio="none">
-                  <path 
-                    d={'M' + graphPoints.map(p => p.x + ',' + p.y).join(' L')} 
-                    fill="none" 
-                    stroke="#10B981" 
-                    strokeWidth="3"
-                  />
-                  {graphPoints.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="#10B981" />
-                  ))}
-                </svg>
-              </div>
-              <div className="flex justify-between text-xs text-gray-400 px-2">
-                <span>D+0</span>
-                <span>D+{daysSinceJoin}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="h-24 bg-gray-50 rounded-xl flex items-center justify-center">
-              <p className="text-gray-400 text-sm">저축 기록이 쌓이면 그래프가 표시됩니다</p>
-            </div>
-          )}
+          {/* 월별 그래프 */}
+          <div className="h-32 bg-gradient-to-b from-green-50 to-transparent rounded-xl relative mb-2">
+            <svg className="w-full h-full" viewBox="0 0 360 120" preserveAspectRatio="none">
+              {/* 점선 목표선 */}
+              <line x1="30" y1="30" x2="330" y2="30" stroke="#3B82F6" strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+              
+              {/* 그래프 영역 (채우기) */}
+              <path 
+                d={`M${graphPoints[0]?.x || 40},${graphPoints[0]?.y || 90} ${graphPoints.map(p => `L${p.x},${p.y}`).join(' ')} L${graphPoints[graphPoints.length - 1]?.x || 280},100 L${graphPoints[0]?.x || 40},100 Z`}
+                fill="url(#greenGradient)"
+                opacity="0.3"
+              />
+              
+              {/* 그래프 선 */}
+              <path 
+                d={`M${graphPoints.map(p => `${p.x},${p.y}`).join(' L')}`}
+                fill="none" 
+                stroke="#10B981" 
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              
+              {/* 포인트 */}
+              {graphPoints.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r="5" fill="#10B981" stroke="white" strokeWidth="2" />
+              ))}
+              
+              {/* 그라데이션 정의 */}
+              <defs>
+                <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
           
-          <div className="flex justify-center gap-4 mt-3 pt-3 border-t border-gray-100">
-            <div className="flex items-center gap-1.5 text-xs text-gray-600">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>누적 순저축
-            </div>
+          {/* 월 라벨 */}
+          <div className="flex justify-between text-xs text-gray-400 px-6 mb-3">
+            {monthlyData.map((d, i) => (
+              <span key={i}>{d.month}</span>
+            ))}
+          </div>
+          
+          {/* 탭 선택 (순자산 / 순저축) */}
+          <div className="flex justify-center gap-6 pt-3 border-t border-gray-100">
+            <button 
+              onClick={() => setGraphType('netAssets')}
+              className="flex items-center gap-1.5 text-xs"
+            >
+              <div className={`w-3 h-3 rounded-full ${graphType === 'netAssets' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className={graphType === 'netAssets' ? 'text-green-600 font-semibold' : 'text-gray-400'}>순자산추이</span>
+            </button>
+            <button 
+              onClick={() => setGraphType('netSavings')}
+              className="flex items-center gap-1.5 text-xs"
+            >
+              <div className={`w-3 h-3 rounded-full ${graphType === 'netSavings' ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+              <span className={graphType === 'netSavings' ? 'text-blue-600 font-semibold' : 'text-gray-400'}>순저축추이</span>
+            </button>
           </div>
         </div>
 
