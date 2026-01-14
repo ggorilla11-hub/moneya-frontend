@@ -1,13 +1,28 @@
 // src/pages/spend/SpendTimeline.tsx
-// 지출 타임라인 - A+B 방식 (내부 스크롤 + 전체보기)
+// 지출 타임라인 - A+B 방식 (내부 스크롤 + 전체보기) + 자동 펼침
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSpend } from '../../context/SpendContext';
 
-function SpendTimeline() {
+interface SpendTimelineProps {
+  autoExpand?: boolean;
+  onExpandComplete?: () => void;
+}
+
+function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
   const { spendItems, todaySpent, todaySaved, todayInvestment, deleteSpendItem } = useSpend();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullView, setShowFullView] = useState(false);
+
+  // 자동 펼침 처리
+  useEffect(() => {
+    if (autoExpand) {
+      setIsExpanded(true);
+      if (onExpandComplete) {
+        onExpandComplete();
+      }
+    }
+  }, [autoExpand, onExpandComplete]);
 
   // 오늘 날짜
   const today = new Date();
@@ -137,12 +152,13 @@ function SpendTimeline() {
               </div>
             ) : (
               <>
-                {displayItems.map((item) => {
+                {displayItems.map((item, index) => {
                   const style = getTypeStyle(item.type);
+                  const isNew = index === 0 && autoExpand;
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 py-2 px-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg transition-colors group"
+                      className={`flex items-center gap-3 py-2 px-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg transition-colors group ${isNew ? 'bg-blue-50 animate-pulse' : ''}`}
                     >
                       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.dot}`} />
                       <div className="flex-1 min-w-0">
