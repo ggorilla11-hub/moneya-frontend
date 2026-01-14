@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import { useSpend } from '../context/SpendContext';
 import { inferCategory, getCategoryInfo } from '../utils/categoryUtils';
@@ -53,11 +53,9 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     let periodEnd: Date;
     
     if (date >= startDay) {
-      // 이번 달 시작
       periodStart = new Date(year, month - 1, startDay);
       periodEnd = new Date(year, month, startDay - 1);
     } else {
-      // 지난 달 시작
       periodStart = new Date(year, month - 2, startDay);
       periodEnd = new Date(year, month - 1, startDay - 1);
     }
@@ -200,12 +198,10 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     const lastDate = new Date(year, month, 0).getDate();
     const days = [];
     
-    // 빈 칸 채우기
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
     }
     
-    // 날짜 채우기
     for (let i = 1; i <= lastDate; i++) {
       days.push(i);
     }
@@ -256,6 +252,14 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   };
 
   const consecutiveDays = getConsecutiveDays();
+
+  // 예산 주기 끝 날짜 표시
+  const getEndDayDisplay = () => {
+    if (payday === 1) {
+      return '말일';
+    }
+    return `${payday - 1}일`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -673,7 +677,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
 
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-xs text-blue-700">
-                  <span className="font-bold">현재 설정:</span> 매월 {payday}일 ~ 다음달 {payday - 1 || 말}일
+                  <span className="font-bold">현재 설정:</span> 매월 {payday}일 ~ 다음달 {getEndDayDisplay()}
                 </p>
               </div>
             </div>
