@@ -83,6 +83,7 @@ interface AIConversationProps {
   todayInvestment: number;
   remainingBudget: number;
   onFAQMore: () => void;
+  children?: React.ReactNode;
 }
 
 const API_URL = 'https://moneya-server.onrender.com';
@@ -99,6 +100,7 @@ function AIConversation({
   todayInvestment,
   remainingBudget,
   onFAQMore,
+  children,
 }: AIConversationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -473,6 +475,9 @@ function AIConversation({
           <span>지출 ₩{todaySpent.toLocaleString()} ({usagePercent}%)</span>
         </div>
       </div>
+
+      {/* 지출 타임라인 (children으로 전달받음) */}
+      {children}
 
       {/* 음성 모드 표시 */}
       {isVoiceMode && (
