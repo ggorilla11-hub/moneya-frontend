@@ -14,6 +14,7 @@ import DetailReportPage from './pages/DetailReportPage';
 import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import BottomNav from './components/BottomNav';
+import { SpendProvider } from './context/SpendContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
@@ -62,7 +63,6 @@ function App() {
       if (currentUser) {
         const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
         if (budgetConfirmed) {
-          // ★★★ 저장된 재무진단 데이터도 불러오기 ★★★
           const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
           if (savedFinancialData) {
             setFinancialResult(JSON.parse(savedFinancialData));
@@ -182,6 +182,7 @@ function App() {
       localStorage.removeItem(`incomeExpense_${user.uid}`);
       localStorage.removeItem(`adjustedBudget_${user.uid}`);
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
+      localStorage.removeItem(`moneya_spend_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -285,63 +286,65 @@ function App() {
 
   if (currentStep === 'main') {
     return (
-      <div className="relative">
-        {currentTab === 'home' && (
-          <HomePage 
-            userName={user.displayName || '사용자'} 
-            adjustedBudget={adjustedBudget}
-            onMoreDetail={handleMoreDetail}
-          />
-        )}
-        {currentTab === 'ai-spend' && (
-          <AISpendPage
-            userName={user.displayName || '사용자'}
-            adjustedBudget={adjustedBudget}
-            financialResult={financialResult}
-            onFAQMore={handleFAQMore}
-          />
-        )}
-        {currentTab === 'financial-house' && (
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
-            <div className="text-center p-6">
-              <span className="text-6xl mb-4 block">🏗️</span>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
-              <p className="text-gray-500">Phase 4에서 개발 예정입니다</p>
-            </div>
-          </div>
-        )}
-        {currentTab === 'mypage' && (
-          <div className="min-h-screen bg-gray-50 pb-24">
-            <div className="bg-white p-6 border-b">
-              <div className="flex items-center gap-4">
-                {user.photoURL && (
-                  <img src={user.photoURL} alt="프로필" className="w-16 h-16 rounded-full" />
-                )}
-                <div>
-                  <p className="font-bold text-lg text-gray-800">{user.displayName}</p>
-                  <p className="text-sm text-gray-500">{user.email}</p>
-                </div>
+      <SpendProvider userId={user.uid}>
+        <div className="relative">
+          {currentTab === 'home' && (
+            <HomePage 
+              userName={user.displayName || '사용자'} 
+              adjustedBudget={adjustedBudget}
+              onMoreDetail={handleMoreDetail}
+            />
+          )}
+          {currentTab === 'ai-spend' && (
+            <AISpendPage
+              userName={user.displayName || '사용자'}
+              adjustedBudget={adjustedBudget}
+              financialResult={financialResult}
+              onFAQMore={handleFAQMore}
+            />
+          )}
+          {currentTab === 'financial-house' && (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
+              <div className="text-center p-6">
+                <span className="text-6xl mb-4 block">🏗️</span>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
+                <p className="text-gray-500">Phase 4에서 개발 예정입니다</p>
               </div>
             </div>
-            <div className="p-4 space-y-3">
-              <button 
-                onClick={handleRestart}
-                className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
-              >
-                🔄 처음부터 다시하기
-              </button>
-              <button 
-                onClick={() => auth.signOut()}
-                className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
-              >
-                로그아웃
-              </button>
+          )}
+          {currentTab === 'mypage' && (
+            <div className="min-h-screen bg-gray-50 pb-24">
+              <div className="bg-white p-6 border-b">
+                <div className="flex items-center gap-4">
+                  {user.photoURL && (
+                    <img src={user.photoURL} alt="프로필" className="w-16 h-16 rounded-full" />
+                  )}
+                  <div>
+                    <p className="font-bold text-lg text-gray-800">{user.displayName}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                <button 
+                  onClick={handleRestart}
+                  className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
+                >
+                  🔄 처음부터 다시하기
+                </button>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
+                >
+                  로그아웃
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        
-        <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
-      </div>
+          )}
+          
+          <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
+        </div>
+      </SpendProvider>
     );
   }
 
