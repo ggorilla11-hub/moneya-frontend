@@ -62,10 +62,10 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
 
   const budgetCards = adjustedBudget ? [
     { id: 'living', label: '생활비', icon: '🛒', amount: adjustedBudget.livingExpense, spent: Math.round(adjustedBudget.livingExpense * 0.45), color: 'from-blue-500 to-blue-700' },
-    { id: 'saving', label: '저축/투자', icon: '💰', amount: adjustedBudget.savings, target: 2000000, color: 'from-green-500 to-green-700' },
-    { id: 'pension', label: '노후연금', icon: '🏦', amount: adjustedBudget.pension, target: 500000, color: 'from-purple-500 to-purple-700' },
-    { id: 'insurance', label: '보장성보험', icon: '🛡️', amount: adjustedBudget.insurance, target: adjustedBudget.insurance, color: 'from-sky-500 to-sky-700' },
-    { id: 'loan', label: '대출원리금', icon: '💳', amount: adjustedBudget.loanPayment, target: adjustedBudget.loanPayment, color: 'from-red-500 to-red-700' },
+    { id: 'saving', label: '저축/투자', icon: '💰', amount: adjustedBudget.savings, spent: adjustedBudget.savings, color: 'from-green-500 to-green-700' },
+    { id: 'pension', label: '노후연금', icon: '🏦', amount: adjustedBudget.pension, spent: adjustedBudget.pension, color: 'from-purple-500 to-purple-700' },
+    { id: 'insurance', label: '보장성보험', icon: '🛡️', amount: adjustedBudget.insurance, spent: adjustedBudget.insurance, color: 'from-sky-500 to-sky-700' },
+    { id: 'loan', label: '대출원리금', icon: '💳', amount: adjustedBudget.loanPayment, spent: adjustedBudget.loanPayment, color: 'from-red-500 to-red-700' },
   ] : [];
 
   const formatWon = (amount: number) => `₩${amount.toLocaleString()}`;
@@ -155,10 +155,10 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
               >
                 {budgetCards.map((card) => {
                   const isLiving = card.id === 'living';
-                  const spent = isLiving ? card.spent : card.amount;
-                  const total = isLiving ? card.amount : (card.target || card.amount);
-                  const percent = Math.round((spent / total) * 100);
-                  const remaining = total - spent;
+                  const cardSpent = card.spent;
+                  const cardTotal = card.amount;
+                  const percent = cardTotal > 0 ? Math.round((cardSpent / cardTotal) * 100) : 0;
+                  const remaining = cardTotal - cardSpent;
                   
                   return (
                     <div 
@@ -170,8 +170,8 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
                         <span className="text-xs bg-white/20 px-2 py-1 rounded-lg">{month}월</span>
                       </div>
                       <div className="text-3xl font-extrabold mb-1">
-                        {formatWon(spent)}
-                        <span className="text-base font-normal opacity-80"> / {formatWon(total)}</span>
+                        {formatWon(cardSpent)}
+                        <span className="text-base font-normal opacity-80"> / {formatWon(cardTotal)}</span>
                       </div>
                       <div className="flex items-center gap-3 mb-2">
                         <button onClick={handlePrevSlide} className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-sm">‹</button>
