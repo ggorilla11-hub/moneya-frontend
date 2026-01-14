@@ -355,10 +355,26 @@ function AIConversation({
     return () => { cleanupVoiceMode(); };
   }, []);
 
-  useEffect(() => {
+  // 스크롤을 맨 아래로 이동하는 함수
+  const scrollToBottom = () => {
     if (chatAreaRef.current) {
+      // 방법 1: scrollTop 설정
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+      
+      // 방법 2: 마지막 메시지로 스크롤 (더 확실함)
+      const lastMessage = chatAreaRef.current.lastElementChild;
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
     }
+  };
+
+  // 메시지 변경 시 스크롤
+  useEffect(() => {
+    scrollToBottom();
+    // 약간의 딜레이 후 한번 더 스크롤 (렌더링 완료 후)
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -434,7 +450,7 @@ function AIConversation({
       </div>
 
       {/* 채팅 영역 */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[200px] max-h-[400px]">
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[250px]" style={{ maxHeight: 'calc(100vh - 380px)' }}>
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-2.5 max-w-[90%] ${message.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
             {message.type === 'ai' && (
