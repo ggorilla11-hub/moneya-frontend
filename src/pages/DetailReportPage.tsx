@@ -38,6 +38,8 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const [aiInsight, setAiInsight] = useState<string>('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalSavingsRate, setGoalSavingsRate] = useState(30);
 
   const currentUserId = userId || 'guest';
   const daysSinceJoin = getDaysSinceJoin(currentUserId);
@@ -71,6 +73,13 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const cumulativeNetSavings = spendItems
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
     .reduce((sum, item) => sum + item.amount, 0);
+
+  useEffect(() => {
+    const savedGoal = localStorage.getItem(`moneya_goalSavingsRate_${currentUserId}`);
+    if (savedGoal) {
+      setGoalSavingsRate(parseInt(savedGoal));
+    }
+  }, [currentUserId]);
 
   useEffect(() => {
     saveJoinDate(currentUserId);
@@ -141,6 +150,11 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     }
   };
 
+  const handleSaveGoal = () => {
+    localStorage.setItem(`moneya_goalSavingsRate_${currentUserId}`, goalSavingsRate.toString());
+    setShowGoalModal(false);
+  };
+
   const getBudgetItems = () => {
     const livingRate = budgetLiving > 0 ? Math.round((actualLivingExpense / budgetLiving) * 100) : 0;
     const actualLivingForDisplay = actualLivingExpense > 0 ? Math.round(actualLivingExpense / 10000) : budgetLiving;
@@ -209,12 +223,12 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
       messages.push('지금까지 총 ' + Math.round(cumulativeNetSavings / 10000) + '만원을 저축하셨어요!');
     }
 
-    if (savingsRate >= 30) {
-      messages.push('저축률 ' + savingsRate + '%는 매우 우수해요! 이 페이스 유지하세요. 🎯');
-    } else if (savingsRate >= 20) {
-      messages.push('저축률 ' + savingsRate + '%로 양호해요. 조금만 더 노력하면 30% 달성! 💰');
+    if (savingsRate >= goalSavingsRate) {
+      messages.push('저축률 ' + savingsRate + '%로 목표(' + goalSavingsRate + '%)를 달성했어요! 🎯');
+    } else if (savingsRate >= goalSavingsRate * 0.7) {
+      messages.push('저축률 ' + savingsRate + '%로 목표(' + goalSavingsRate + '%)에 거의 도달! 💰');
     } else {
-      messages.push('저축률을 높이면 순자산 증가 속도가 빨라져요. 📈');
+      messages.push('목표 저축률 ' + goalSavingsRate + '%까지 ' + (goalSavingsRate - savingsRate) + '%p 남았어요. 📈');
     }
 
     if (peerStats && savingsRate > peerStats.avgSavingsRate) {
@@ -274,6 +288,69 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
             >
               확인
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 목표 수정 모달 */}
+      {showGoalModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">🎯</span>
+              </div>
+              <span className="font-bold text-gray-800">목표 저축률 수정</span>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-500 mb-3">목표 저축률을 설정하세요</p>
+              <div className="flex items-center justify-center gap-4">
+                <button 
+                  onClick={() => setGoalSavingsRate(Math.max(5, goalSavingsRate - 5))}
+                  className="w-12 h-12 bg-gray-100 rounded-full text-2xl font-bold text-gray-600"
+                >
+                  -
+                </button>
+                <div className="text-center">
+                  <p className="text-4xl font-extrabold text-green-600">{goalSavingsRate}%</p>
+                  <p className="text-xs text-gray-400 mt-1">현재 {savingsRate}%</p>
+                </div>
+                <button 
+                  onClick={() => setGoalSavingsRate(Math.min(80, goalSavingsRate + 5))}
+                  className="w-12 h-12 bg-gray-100 rounded-full text-2xl font-bold text-gray-600"
+                >
+                  +
+                </button>
+              </div>
+              
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {[20, 30, 40, 50].map(rate => (
+                  <button
+                    key={rate}
+                    onClick={() => setGoalSavingsRate(rate)}
+                    className={'py-2 rounded-lg text-sm font-semibold ' + (goalSavingsRate === rate ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600')}
+                  >
+                    {rate}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setShowGoalModal(false)}
+                className="flex-1 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveGoal}
+                className="flex-1 py-3 bg-green-600 text-white font-semibold rounded-xl"
+              >
+                저장
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -449,22 +526,28 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">🎯 저축률 분석</span>
+            <button 
+              onClick={() => setShowGoalModal(true)}
+              className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold"
+            >
+              목표 {goalSavingsRate}%
+            </button>
           </div>
           <div className="text-center mb-4">
             <p className="text-xs text-gray-400 mb-1">현재 저축률</p>
-            <p className={'text-4xl font-extrabold ' + (savingsRate >= 30 ? 'text-green-600' : savingsRate >= 20 ? 'text-amber-500' : 'text-red-500')}>
+            <p className={'text-4xl font-extrabold ' + (savingsRate >= goalSavingsRate ? 'text-green-600' : savingsRate >= goalSavingsRate * 0.7 ? 'text-amber-500' : 'text-red-500')}>
               {savingsRate}%
             </p>
           </div>
           <div className="h-4 bg-gray-200 rounded-full overflow-hidden mb-2 relative">
             <div 
-              className={'h-full rounded-full ' + (savingsRate >= 30 ? 'bg-green-500' : savingsRate >= 20 ? 'bg-amber-500' : 'bg-red-500')}
-              style={{ width: Math.min((savingsRate / 30) * 100, 100) + '%' }}
+              className={'h-full rounded-full ' + (savingsRate >= goalSavingsRate ? 'bg-green-500' : savingsRate >= goalSavingsRate * 0.7 ? 'bg-amber-500' : 'bg-red-500')}
+              style={{ width: Math.min((savingsRate / goalSavingsRate) * 100, 100) + '%' }}
             ></div>
           </div>
           <div className="flex justify-between text-xs text-gray-400 mb-4">
             <span>0%</span>
-            <span>목표 30%</span>
+            <span>목표 {goalSavingsRate}%</span>
           </div>
           <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
             <div className="bg-gray-50 rounded-xl p-3 text-center">
@@ -535,7 +618,10 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
             >
               절약 팁 보기
             </button>
-            <button className="flex-1 py-2.5 bg-white text-purple-600 font-semibold rounded-xl text-sm border border-purple-300">
+            <button 
+              onClick={() => setShowGoalModal(true)}
+              className="flex-1 py-2.5 bg-white text-purple-600 font-semibold rounded-xl text-sm border border-purple-300"
+            >
               목표 수정
             </button>
           </div>
