@@ -1,8 +1,9 @@
 // src/pages/spend/SpendTimeline.tsx
-// 지출 타임라인 - A+B 방식 (내부 스크롤 + 전체보기) + 자동 펼침
+// 지출 타임라인 - A+B 방식 (내부 스크롤 + 전체보기) + 자동 펼침 + 카테고리 아이콘/색상
 
 import { useState, useEffect } from 'react';
 import { useSpend } from '../../context/SpendContext';
+import { inferCategory, getCategoryInfo, getEmotionColor } from '../../utils/categoryUtils';
 
 interface SpendTimelineProps {
   autoExpand?: boolean;
@@ -77,19 +78,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
     }
   };
 
-  const getEmotionStyle = (emotionType?: string) => {
-    switch (emotionType) {
-      case '충동':
-        return 'bg-red-50 text-red-600';
-      case '선택':
-        return 'bg-amber-50 text-amber-600';
-      case '필수':
-        return 'bg-green-50 text-green-600';
-      default:
-        return 'bg-gray-50 text-gray-600';
-    }
-  };
-
   const handleDelete = (id: string, memo: string) => {
     if (window.confirm(`"${memo}" 기록을 삭제하시겠습니까?`)) {
       deleteSpendItem(id);
@@ -111,6 +99,59 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
       groups[dateKey].push(item);
     });
     return groups;
+  };
+
+  // 아이템 렌더링 컴포넌트
+  const renderItem = (item: typeof spendItems[0], isNew: boolean = false) => {
+    const style = getTypeStyle(item.type);
+    // 자동 카테고리 추론
+    const category = inferCategory(item.memo, item.category);
+    const categoryInfo = getCategoryInfo(category);
+    const emotionColor = item.emotionType ? getEmotionColor(item.emotionType) : null;
+
+    return (
+      <div
+        key={item.id}
+        className={`flex items-center gap-3 py-2 px-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg transition-colors group ${isNew ? 'bg-blue-50 animate-pulse' : ''}`}
+      >
+        {/* 카테고리 아이콘 + 색상 배경 */}
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${categoryInfo.bgColor}`}>
+          <span className="text-lg">{categoryInfo.icon}</span>
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800 text-sm truncate">{item.memo}</p>
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
+            <span>{formatTime(new Date(item.timestamp))}</span>
+            <span>·</span>
+            {/* 감정유형 태그 (색상 통일) */}
+            {emotionColor ? (
+              <span className={`px-1.5 py-0.5 rounded font-medium ${emotionColor.bg} ${emotionColor.text}`}>
+                {item.emotionType}
+              </span>
+            ) : (
+              <span className={`px-1.5 py-0.5 rounded font-medium ${categoryInfo.bgColor} ${categoryInfo.textColor}`}>
+                {category}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <span className={`font-bold text-sm whitespace-nowrap ${style.text}`}>
+          {style.sign}₩{item.amount.toLocaleString()}
+        </span>
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(item.id, item.memo);
+          }}
+          className="opacity-0 group-hover:opacity-100 w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-xs hover:bg-red-200 transition-all"
+        >
+          ✕
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -152,40 +193,7 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
               </div>
             ) : (
               <>
-                {displayItems.map((item, index) => {
-                  const style = getTypeStyle(item.type);
-                  const isNew = index === 0 && autoExpand;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`flex items-center gap-3 py-2 px-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg transition-colors group ${isNew ? 'bg-blue-50 animate-pulse' : ''}`}
-                    >
-                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.dot}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{item.memo}</p>
-                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
-                          <span>{formatTime(new Date(item.timestamp))}</span>
-                          <span>·</span>
-                          <span className={`px-1.5 py-0.5 rounded font-medium ${getEmotionStyle(item.emotionType)}`}>
-                            {item.emotionType || item.category}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`font-bold text-sm whitespace-nowrap ${style.text}`}>
-                        {style.sign}₩{item.amount.toLocaleString()}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(item.id, item.memo);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-xs hover:bg-red-200 transition-all"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  );
-                })}
+                {displayItems.map((item, index) => renderItem(item, index === 0 && autoExpand))}
                 
                 {/* 전체 내역 보기 버튼 */}
                 {(hasMoreToday || weekItems.length > 0) && (
@@ -245,25 +253,41 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
                     <div className="space-y-2">
                       {items.map((item) => {
                         const style = getTypeStyle(item.type);
+                        const category = inferCategory(item.memo, item.category);
+                        const categoryInfo = getCategoryInfo(category);
+                        const emotionColor = item.emotionType ? getEmotionColor(item.emotionType) : null;
+                        
                         return (
                           <div
                             key={item.id}
                             className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-xl"
                           >
-                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${style.dot}`} />
+                            {/* 카테고리 아이콘 */}
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${categoryInfo.bgColor}`}>
+                              <span className="text-lg">{categoryInfo.icon}</span>
+                            </div>
+                            
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-gray-800 text-sm truncate">{item.memo}</p>
                               <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
                                 <span>{formatTime(new Date(item.timestamp))}</span>
                                 <span>·</span>
-                                <span className={`px-1.5 py-0.5 rounded font-medium ${getEmotionStyle(item.emotionType)}`}>
-                                  {item.emotionType || item.category}
-                                </span>
+                                {emotionColor ? (
+                                  <span className={`px-1.5 py-0.5 rounded font-medium ${emotionColor.bg} ${emotionColor.text}`}>
+                                    {item.emotionType}
+                                  </span>
+                                ) : (
+                                  <span className={`px-1.5 py-0.5 rounded font-medium ${categoryInfo.bgColor} ${categoryInfo.textColor}`}>
+                                    {category}
+                                  </span>
+                                )}
                               </div>
                             </div>
+                            
                             <span className={`font-bold text-sm whitespace-nowrap ${style.text}`}>
                               {style.sign}₩{item.amount.toLocaleString()}
                             </span>
+                            
                             <button
                               onClick={() => handleDelete(item.id, item.memo)}
                               className="w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-xs"
