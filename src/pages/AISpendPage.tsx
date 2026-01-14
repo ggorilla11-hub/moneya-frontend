@@ -58,15 +58,15 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
         todayInvestment={todayInvestment}
         remainingBudget={remainingBudget}
         onFAQMore={onFAQMore}
-      />
-
-      {/* 지출 타임라인 컴포넌트 */}
-      <SpendTimeline
-        spendItems={spendItems}
-        todaySpent={todaySpent}
-        todaySaved={todaySaved}
-        todayInvestment={todayInvestment}
-      />
+      >
+        {/* 지출 타임라인 컴포넌트 - 헤더 바로 아래 */}
+        <SpendTimeline
+          spendItems={spendItems}
+          todaySpent={todaySpent}
+          todaySaved={todaySaved}
+          todayInvestment={todayInvestment}
+        />
+      </AIConversation>
 
       {/* + 버튼 (지출 입력) */}
       <div className="fixed bottom-24 left-4">
