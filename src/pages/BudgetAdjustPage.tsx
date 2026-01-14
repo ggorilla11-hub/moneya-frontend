@@ -6,6 +6,7 @@ interface BudgetAdjustPageProps {
   incomeExpenseData: IncomeExpenseData;
   onConfirm: (adjustedBudget: AdjustedBudget) => void;
   onBack: () => void;
+  isFromHome?: boolean;
 }
 
 export interface AdjustedBudget {
@@ -20,7 +21,7 @@ export interface AdjustedBudget {
 
 type BudgetField = 'livingExpense' | 'savings' | 'pension' | 'insurance' | 'loanPayment';
 
-function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjustPageProps) {
+function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = false }: BudgetAdjustPageProps) {
   const { income, familySize } = incomeExpenseData;
   
   const recommendedRatios = BUDGET_RATIOS[Math.min(familySize, 5)] || BUDGET_RATIOS[2];
@@ -42,11 +43,11 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
   });
 
   const [confirmed, setConfirmed] = useState({
-    livingExpense: false,
-    savings: false,
-    pension: false,
-    insurance: false,
-    loanPayment: false,
+    livingExpense: isFromHome,
+    savings: isFromHome,
+    pension: isFromHome,
+    insurance: isFromHome,
+    loanPayment: isFromHome,
   });
 
   const [activeSlider, setActiveSlider] = useState<string | null>(null);
@@ -106,41 +107,49 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-lg font-bold text-gray-800">📋 예산 조정</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 rounded-full" style={{ width: '83%' }}></div>
+        <h1 className="text-lg font-bold text-gray-800">
+          {isFromHome ? '📈 예산 분석 결과' : '📋 예산 조정'}
+        </h1>
+        {!isFromHome && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-600 rounded-full" style={{ width: '83%' }}></div>
+            </div>
+            <span className="text-xs font-semibold text-gray-400">5/6</span>
           </div>
-          <span className="text-xs font-semibold text-gray-400">5/6</span>
-        </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-40">
         
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 mb-4 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
-              </svg>
+        {!isFromHome && (
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 mb-4 text-white shadow-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+                </svg>
+              </div>
+              <span className="font-bold text-base">AI 머니야 권장안 📊</span>
             </div>
-            <span className="font-bold text-base">AI 머니야 권장안 📊</span>
+            <p className="text-sm leading-relaxed opacity-95">
+              {familySize}인 가구 기준으로 예산을 추천해드려요.<br/>
+              <span className="bg-white/20 px-2 py-0.5 rounded font-bold">각 항목을 조정한 후 [확정/조정] 버튼</span>을 눌러주세요!
+            </p>
           </div>
-          <p className="text-sm leading-relaxed opacity-95">
-            {familySize}인 가구 기준으로 예산을 추천해드려요.<br/>
-            <span className="bg-white/20 px-2 py-0.5 rounded font-bold">각 항목을 조정한 후 [확정/조정] 버튼</span>을 눌러주세요!
-          </p>
-        </div>
+        )}
 
-        <div className="bg-white rounded-xl p-3 mb-4 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">확정 진행률</span>
-            <span className="text-sm font-bold text-blue-600">{confirmedCount}/5 항목 확정</span>
+        {!isFromHome && (
+          <div className="bg-white rounded-xl p-3 mb-4 border border-gray-100">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">확정 진행률</span>
+              <span className="text-sm font-bold text-blue-600">{confirmedCount}/5 항목 확정</span>
+            </div>
+            <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${(confirmedCount / 5) * 100}%` }}></div>
+            </div>
           </div>
-          <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${(confirmedCount / 5) * 100}%` }}></div>
-          </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className={`bg-white rounded-xl p-3 text-center border ${parseFloat(wealthIndex) >= 1 ? 'border-green-200' : parseFloat(wealthIndex) >= 0.5 ? 'border-amber-200' : 'border-red-200'}`}>
@@ -164,7 +173,9 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-gray-800">🎯 예산 조정 (월 기준)</h2>
-              <p className="text-xs text-gray-400 mt-0.5">슬라이더 조정 후 [확정/조정] 버튼을 눌러주세요</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {isFromHome ? '수정하려면 확정을 해제하고 조정하세요' : '슬라이더 조정 후 [확정/조정] 버튼을 눌러주세요'}
+              </p>
             </div>
             <div className="text-right">
               <div className="text-xs text-gray-400">총 수입</div>
@@ -196,31 +207,33 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4">
-          <h3 className="font-bold text-green-700 mb-3">✨ 조정 효과 요약</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-xl p-4 text-center shadow-sm">
-              <div className={`text-2xl font-extrabold ${monthlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{monthlySavingsIncrease >= 0 ? '+' : ''}{monthlySavingsIncrease}만원</div>
-              <div className="text-xs text-gray-500 mt-1">월 저축 변화</div>
-            </div>
-            <div className="bg-white rounded-xl p-4 text-center shadow-sm">
-              <div className={`text-2xl font-extrabold ${yearlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{yearlySavingsIncrease >= 0 ? '+' : ''}{yearlySavingsIncrease}만원</div>
-              <div className="text-xs text-gray-500 mt-1">연간 저축 변화</div>
+        {!isFromHome && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4">
+            <h3 className="font-bold text-green-700 mb-3">✨ 조정 효과 요약</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-xl p-4 text-center shadow-sm">
+                <div className={`text-2xl font-extrabold ${monthlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{monthlySavingsIncrease >= 0 ? '+' : ''}{monthlySavingsIncrease}만원</div>
+                <div className="text-xs text-gray-500 mt-1">월 저축 변화</div>
+              </div>
+              <div className="bg-white rounded-xl p-4 text-center shadow-sm">
+                <div className={`text-2xl font-extrabold ${yearlySavingsIncrease >= 0 ? 'text-green-600' : 'text-red-500'}`}>{yearlySavingsIncrease >= 0 ? '+' : ''}{yearlySavingsIncrease}만원</div>
+                <div className="text-xs text-gray-500 mt-1">연간 저축 변화</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pt-6">
-        {!allConfirmed && (
+        {!isFromHome && !allConfirmed && (
           <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3">
             <p className="text-center text-base text-amber-700 font-bold">
               ⚠️ 모든 항목을 확정해주세요 ({confirmedCount}/5)
             </p>
           </div>
         )}
-        {allConfirmed && !isValidBudget && (
+        {!isFromHome && allConfirmed && !isValidBudget && (
           <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-3">
             <p className="text-center text-xl text-red-600 font-extrabold">
               🚫 예산이 {formatWon(Math.abs(surplus))} 초과!
@@ -230,10 +243,33 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack }: BudgetAdjust
             </p>
           </div>
         )}
-        <button onClick={handleConfirm} disabled={!canStart} className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl transition-all ${canStart ? 'bg-gradient-to-r from-green-500 to-green-600 text-white active:scale-95' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-          {canStart ? '이 예산으로 시작하기' : '모든 항목을 확정해주세요'}
-          {canStart && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
-        </button>
+        
+        {isFromHome ? (
+          <div className="space-y-2">
+            <button 
+              onClick={handleConfirm} 
+              disabled={!isValidBudget}
+              className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl transition-all ${isValidBudget ? 'bg-gradient-to-r from-green-500 to-green-600 text-white active:scale-95' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+            >
+              ✓ 이 예산으로 저장하기
+            </button>
+            <button 
+              onClick={onBack}
+              className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+            >
+              🔄 다시 분석하기
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={handleConfirm} 
+            disabled={!canStart} 
+            className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl transition-all ${canStart ? 'bg-gradient-to-r from-green-500 to-green-600 text-white active:scale-95' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+          >
+            {canStart ? '이 예산으로 시작하기' : '모든 항목을 확정해주세요'}
+            {canStart && <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+          </button>
+        )}
       </div>
 
     </div>
