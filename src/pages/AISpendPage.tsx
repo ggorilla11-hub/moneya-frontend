@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import AIConversation from './spend/AIConversation';
-import SpendTimeline from './spend/SpendTimeline';
 import SpendInput from './spend/SpendInput';
-import type { SpendItem } from './spend/SpendTimeline';
 
 interface FinancialResult {
   name: string;
@@ -16,6 +14,16 @@ interface FinancialResult {
   houseName: string;
   houseImage: string;
   message: string;
+}
+
+interface SpendItem {
+  id: string;
+  name: string;
+  amount: number;
+  type: 'spent' | 'saved' | 'investment';
+  category: string;
+  time: string;
+  tag: string;
 }
 
 interface AISpendPageProps {
@@ -59,26 +67,6 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
         remainingBudget={remainingBudget}
         onFAQMore={onFAQMore}
       />
-
-      {/* 지출 타임라인 컴포넌트 */}
-      <SpendTimeline
-        spendItems={spendItems}
-        todaySpent={todaySpent}
-        todaySaved={todaySaved}
-        todayInvestment={todayInvestment}
-      />
-
-      {/* + 버튼 (지출 입력) */}
-      <div className="fixed bottom-24 left-4">
-        <button 
-          onClick={() => setIsInputMethodOpen(true)} 
-          className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg"
-        >
-          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </svg>
-        </button>
-      </div>
 
       {/* 지출 입력 모달 컴포넌트 */}
       <SpendInput
