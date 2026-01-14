@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import { useSpend } from '../context/SpendContext';
 import { inferCategory, getCategoryInfo } from '../utils/categoryUtils';
@@ -27,6 +27,14 @@ interface HomePageProps {
 
 function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onReDiagnosis, onReAnalysis }: HomePageProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  
+  // 예산 시작일 (월급날) - localStorage에서 불러오기
+  const [payday, setPayday] = useState(() => {
+    const saved = localStorage.getItem('moneya_payday');
+    return saved ? parseInt(saved) : 1;
+  });
+  const [tempPayday, setTempPayday] = useState(payday);
   
   // SpendContext에서 실제 데이터 가져오기
   const { spendItems, todaySpent, todaySaved } = useSpend();
@@ -38,10 +46,42 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
   const dayName = dayNames[today.getDay()];
 
+  // 예산 주기 계산
+  const getBudgetPeriod = () => {
+    const startDay = payday;
+    let periodStart: Date;
+    let periodEnd: Date;
+    
+    if (date >= startDay) {
+      // 이번 달 시작
+      periodStart = new Date(year, month - 1, startDay);
+      periodEnd = new Date(year, month, startDay - 1);
+    } else {
+      // 지난 달 시작
+      periodStart = new Date(year, month - 2, startDay);
+      periodEnd = new Date(year, month - 1, startDay - 1);
+    }
+    
+    const diffTime = periodEnd.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const elapsedDays = totalDays - diffDays;
+    
+    return {
+      start: periodStart,
+      end: periodEnd,
+      daysLeft: diffDays,
+      elapsedDays: elapsedDays,
+      totalDays: totalDays
+    };
+  };
+
+  const budgetPeriod = getBudgetPeriod();
+
   // 표시용 이름
   const displayName = financialResult?.name || userName.split('(')[0].trim();
 
-  // 월수입: adjustedBudget.totalIncome 우선 사용 (재무분석에서 수정된 값)
+  // 월수입
   const monthlyIncome = adjustedBudget?.totalIncome || financialResult?.income || 0;
 
   // 부자지수 계산
@@ -100,19 +140,17 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     .filter(item => item.type === 'spent' && item.emotionType === '필수')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 카테고리별 지출 계산 (자동 매핑 적용)
+  // 카테고리별 지출 계산
   const allSpentItems = spendItems.filter(item => item.type === 'spent');
   const categoryTotals: { [key: string]: number } = {};
   
   allSpentItems.forEach(item => {
-    // 1순위: 고객 선택 카테고리, 2순위: 자동 매핑
     const category = inferCategory(item.memo, item.category);
     categoryTotals[category] = (categoryTotals[category] || 0) + item.amount;
   });
 
   const totalCategorySpending = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
 
-  // 카테고리 정보와 함께 표시
   const categoryList = ['식비', '카페', '교통', '쇼핑', '여가', '의료', '기타'];
   const categorySpending = categoryList.map(cat => {
     const info = getCategoryInfo(cat);
@@ -149,6 +187,76 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     setCurrentSlide(prev => (prev === budgetCards.length - 1 ? 0 : prev + 1));
   };
 
+  // 예산일 저장
+  const handleSavePayday = () => {
+    setPayday(tempPayday);
+    localStorage.setItem('moneya_payday', tempPayday.toString());
+    setShowCalendarModal(false);
+  };
+
+  // 캘린더 생성
+  const generateCalendar = () => {
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const lastDate = new Date(year, month, 0).getDate();
+    const days = [];
+    
+    // 빈 칸 채우기
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+    
+    // 날짜 채우기
+    for (let i = 1; i <= lastDate; i++) {
+      days.push(i);
+    }
+    
+    return days;
+  };
+
+  const calendarDays = generateCalendar();
+
+  // 출석 체크 (지출 기록이 있는 날)
+  const getAttendanceDays = () => {
+    const attendanceDays = new Set<string>();
+    spendItems.forEach(item => {
+      const itemDate = new Date(item.timestamp);
+      const dateStr = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}-${itemDate.getDate()}`;
+      attendanceDays.add(dateStr);
+    });
+    return attendanceDays;
+  };
+
+  const attendanceDays = getAttendanceDays();
+  const isAttendanceDay = (day: number) => {
+    const dateStr = `${year}-${month}-${day}`;
+    return attendanceDays.has(dateStr);
+  };
+
+  // 이번 달 출석 일수
+  const thisMonthAttendance = Array.from(attendanceDays).filter(dateStr => {
+    const [y, m] = dateStr.split('-').map(Number);
+    return y === year && m === month;
+  }).length;
+
+  // 연속 출석 계산
+  const getConsecutiveDays = () => {
+    let count = 0;
+    const checkDate = new Date();
+    
+    while (true) {
+      const dateStr = `${checkDate.getFullYear()}-${checkDate.getMonth() + 1}-${checkDate.getDate()}`;
+      if (attendanceDays.has(dateStr)) {
+        count++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return count;
+  };
+
+  const consecutiveDays = getConsecutiveDays();
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       
@@ -168,7 +276,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
       {/* 스크롤 영역 */}
       <div className="px-4 py-4 space-y-4">
 
-        {/* 오늘 날짜 카드 */}
+        {/* 오늘 날짜 카드 + 더보기 */}
         <div className="bg-white rounded-xl p-4 flex items-center justify-between border border-gray-200 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -176,10 +284,16 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             </div>
             <div>
               <p className="font-bold text-gray-800">{year}년 {month}월 {date}일 {dayName}요일</p>
-              <p className="text-xs text-blue-600">예산 주기 <span className="font-bold text-blue-700">D+0</span> ({month}/1~{month}/{new Date(year, month, 0).getDate()})</p>
+              <p className="text-xs text-blue-600">
+                예산 주기 <span className="font-bold text-blue-700">D+{budgetPeriod.elapsedDays}</span> 
+                ({budgetPeriod.start.getMonth() + 1}/{budgetPeriod.start.getDate()}~{budgetPeriod.end.getMonth() + 1}/{budgetPeriod.end.getDate()})
+              </p>
             </div>
           </div>
-          <button className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
+          <button 
+            onClick={() => setShowCalendarModal(true)}
+            className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold"
+          >
             더보기
           </button>
         </div>
@@ -227,7 +341,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
                         <span>{remaining >= 0 ? `${formatWon(remaining)} 남음` : `${formatWon(Math.abs(remaining))} 초과`}</span>
                       </div>
                       {!isLiving && (
-                        <p className="text-xs opacity-70 mt-1">납입일: 25일</p>
+                        <p className="text-xs opacity-70 mt-1">납입일: {payday}일</p>
                       )}
                     </div>
                   );
@@ -250,24 +364,24 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           </div>
         )}
 
-        {/* 출석체크 카드 */}
+        {/* 출석체크 카드 - 실제 데이터 */}
         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <h3 className="font-bold text-gray-800 mb-3">🔥 출석 현황</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-xl p-4 text-center border border-amber-200">
               <span className="text-3xl">🔥</span>
-              <p className="text-2xl font-extrabold text-gray-800 mt-1">7일</p>
+              <p className="text-2xl font-extrabold text-gray-800 mt-1">{consecutiveDays}일</p>
               <p className="text-xs text-gray-500">연속 출석</p>
             </div>
             <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-4 text-center border border-blue-200">
               <span className="text-3xl">📅</span>
-              <p className="text-2xl font-extrabold text-gray-800 mt-1">15일</p>
+              <p className="text-2xl font-extrabold text-gray-800 mt-1">{thisMonthAttendance}일</p>
               <p className="text-xs text-gray-500">이번 달 출석</p>
             </div>
           </div>
         </div>
 
-        {/* ⭐ 1차 재무진단 결과 */}
+        {/* 1차 재무진단 결과 */}
         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-800">📊 1차 재무진단 결과</h3>
@@ -302,7 +416,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           </div>
         </div>
 
-        {/* ⭐ 2차 재무분석 결과 */}
+        {/* 2차 재무분석 결과 */}
         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-800">📈 2차 재무분석 결과</h3>
@@ -337,7 +451,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           </div>
         </div>
 
-        {/* 👥 동년배 비교 */}
+        {/* 동년배 비교 */}
         <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-800">👥 동년배 비교</h3>
@@ -364,12 +478,14 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           </div>
         </div>
 
-        {/* D+0 준비기간 분석 - 실제 데이터 연동 */}
+        {/* D+N 분석 */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-4 border border-green-200">
           <div className="flex items-center gap-2 mb-3">
-            <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-lg">D+0</span>
-            <span className="font-bold text-green-800">준비기간 분석</span>
-            <span className="text-xs text-green-600 ml-auto">{month}/1 ~ {month}/{new Date(year, month, 0).getDate()}</span>
+            <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-lg">D+{budgetPeriod.elapsedDays}</span>
+            <span className="font-bold text-green-800">예산주기 분석</span>
+            <span className="text-xs text-green-600 ml-auto">
+              {budgetPeriod.start.getMonth() + 1}/{budgetPeriod.start.getDate()} ~ {budgetPeriod.end.getMonth() + 1}/{budgetPeriod.end.getDate()}
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-2 mb-3">
             <div className="bg-white rounded-xl p-3 text-center">
@@ -402,7 +518,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             </div>
           </div>
 
-          {/* 생활비 카테고리별 소비 - 자동 매핑 적용 */}
+          {/* 카테고리별 소비 */}
           <div className="bg-white rounded-xl p-3">
             <p className="text-sm font-bold text-gray-700 mb-2">📊 생활비 카테고리별 소비</p>
             <div className="space-y-2">
@@ -445,6 +561,127 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
         </div>
 
       </div>
+
+      {/* 캘린더 + 예산일 설정 모달 */}
+      {showCalendarModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowCalendarModal(false)}>
+          <div 
+            className="bg-white w-full rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">📅 {year}년 {month}월</h2>
+              <button 
+                onClick={() => setShowCalendarModal(false)}
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
+              >
+                <span className="text-gray-500">✕</span>
+              </button>
+            </div>
+
+            {/* 캘린더 */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              {/* 요일 헤더 */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
+                  <div key={day} className={`text-center text-xs font-bold py-1 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-500'}`}>
+                    {day}
+                  </div>
+                ))}
+              </div>
+              
+              {/* 날짜 그리드 */}
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day, index) => (
+                  <div 
+                    key={index} 
+                    className={`aspect-square flex items-center justify-center text-sm relative
+                      ${day === null ? '' : day === date ? 'bg-blue-500 text-white rounded-full font-bold' : 'text-gray-700'}
+                      ${day !== null && index % 7 === 0 ? 'text-red-500' : ''}
+                      ${day !== null && index % 7 === 6 ? 'text-blue-500' : ''}
+                    `}
+                  >
+                    {day}
+                    {/* 출석 표시 (동그라미) */}
+                    {day !== null && isAttendanceDay(day) && day !== date && (
+                      <div className="absolute bottom-0.5 w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                    )}
+                    {/* 월급날 표시 */}
+                    {day === payday && (
+                      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full"></div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* 범례 */}
+              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-200">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-gray-500">출석</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
+                  <span className="text-xs text-gray-500">월급날</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 출석 현황 */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 mb-4 border border-green-200">
+              <h3 className="font-bold text-green-800 mb-2">🔥 이번 달 출석 현황</h3>
+              <div className="flex items-center justify-between">
+                <div className="text-center">
+                  <p className="text-2xl font-black text-green-600">{consecutiveDays}일</p>
+                  <p className="text-xs text-gray-500">연속 출석</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-black text-blue-600">{thisMonthAttendance}일</p>
+                  <p className="text-xs text-gray-500">이번 달 출석</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-black text-purple-600">{new Date(year, month, 0).getDate()}일</p>
+                  <p className="text-xs text-gray-500">이번 달 전체</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 예산 시작일 (월급날) 설정 */}
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
+              <h3 className="font-bold text-gray-800 mb-2">💰 예산 시작일 설정</h3>
+              <p className="text-xs text-gray-500 mb-3">월급날을 설정하면 예산 주기가 자동 계산됩니다</p>
+              
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm text-gray-600">매월</span>
+                <select 
+                  value={tempPayday}
+                  onChange={(e) => setTempPayday(parseInt(e.target.value))}
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-700 font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>{day}일</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={handleSavePayday}
+                  className="px-4 py-3 bg-green-500 text-white font-bold rounded-xl"
+                >
+                  저장
+                </button>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-xs text-blue-700">
+                  <span className="font-bold">현재 설정:</span> 매월 {payday}일 ~ 다음달 {payday - 1 || 말}일
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
