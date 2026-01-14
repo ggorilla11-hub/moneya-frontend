@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
+import { useSpend } from '../context/SpendContext';
 
 interface FinancialResult {
   name: string;
@@ -25,6 +26,9 @@ interface HomePageProps {
 
 function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onReDiagnosis, onReAnalysis }: HomePageProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // SpendContext에서 실제 데이터 가져오기
+  const { spendItems, todaySpent, todaySaved } = useSpend();
 
   const today = new Date();
   const year = today.getFullYear();
@@ -60,8 +64,54 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     return '주의';
   };
 
+  // 실제 지출 데이터 계산 (감정유형별)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  
+  const todayItems = spendItems.filter(item => {
+    const itemDate = new Date(item.timestamp);
+    itemDate.setHours(0, 0, 0, 0);
+    return itemDate.getTime() === todayStart.getTime();
+  });
+
+  // 감정유형별 지출 합계
+  const impulseSpending = todayItems
+    .filter(item => item.type === 'spent' && item.emotionType === '충동')
+    .reduce((sum, item) => sum + item.amount, 0);
+  
+  const choiceSpending = todayItems
+    .filter(item => item.type === 'spent' && item.emotionType === '선택')
+    .reduce((sum, item) => sum + item.amount, 0);
+  
+  const necessarySpending = todayItems
+    .filter(item => item.type === 'spent' && item.emotionType === '필수')
+    .reduce((sum, item) => sum + item.amount, 0);
+
+  // 카테고리별 지출 계산
+  const categoryTotals: { [key: string]: number } = {};
+  todayItems
+    .filter(item => item.type === 'spent')
+    .forEach(item => {
+      categoryTotals[item.category] = (categoryTotals[item.category] || 0) + item.amount;
+    });
+
+  const totalCategorySpending = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
+
+  const categorySpending = [
+    { label: '식비', icon: '🍽️', amount: categoryTotals['식비'] || 0, color: 'bg-orange-500' },
+    { label: '카페', icon: '☕', amount: categoryTotals['카페'] || 0, color: 'bg-purple-500' },
+    { label: '교통', icon: '🚌', amount: categoryTotals['교통'] || 0, color: 'bg-blue-500' },
+    { label: '쇼핑', icon: '🛒', amount: categoryTotals['쇼핑'] || 0, color: 'bg-pink-500' },
+    { label: '여가', icon: '🎮', amount: categoryTotals['여가'] || 0, color: 'bg-green-500' },
+    { label: '의료', icon: '💊', amount: categoryTotals['의료'] || 0, color: 'bg-red-500' },
+    { label: '기타', icon: '📦', amount: categoryTotals['기타'] || 0, color: 'bg-gray-500' },
+  ].map(cat => ({
+    ...cat,
+    percent: totalCategorySpending > 0 ? Math.round((cat.amount / totalCategorySpending) * 100) : 0
+  })).filter(cat => cat.amount > 0 || cat.label === '식비'); // 0원인 카테고리는 숨김 (식비는 항상 표시)
+
   const budgetCards = adjustedBudget ? [
-    { id: 'living', label: '생활비', icon: '🛒', amount: adjustedBudget.livingExpense, spent: Math.round(adjustedBudget.livingExpense * 0.45), color: 'from-blue-500 to-blue-700' },
+    { id: 'living', label: '생활비', icon: '🛒', amount: adjustedBudget.livingExpense, spent: todaySpent, color: 'from-blue-500 to-blue-700' },
     { id: 'saving', label: '저축/투자', icon: '💰', amount: adjustedBudget.savings, spent: adjustedBudget.savings, color: 'from-green-500 to-green-700' },
     { id: 'pension', label: '노후연금', icon: '🏦', amount: adjustedBudget.pension, spent: adjustedBudget.pension, color: 'from-purple-500 to-purple-700' },
     { id: 'insurance', label: '보장성보험', icon: '🛡️', amount: adjustedBudget.insurance, spent: adjustedBudget.insurance, color: 'from-sky-500 to-sky-700' },
@@ -78,22 +128,6 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   const handleNextSlide = () => {
     setCurrentSlide(prev => (prev === budgetCards.length - 1 ? 0 : prev + 1));
   };
-
-  // 임시 지출 데이터 (나중에 SpendContext 연동)
-  const todaySpending = {
-    impulse: 0,
-    choice: 0,
-    necessary: 8000,
-    emotionSaved: 0
-  };
-
-  const categorySpending = [
-    { label: '식비', icon: '🍽️', percent: 60, color: 'bg-orange-500' },
-    { label: '카페', icon: '☕', percent: 0, color: 'bg-purple-500' },
-    { label: '교통', icon: '🚌', percent: 20, color: 'bg-blue-500' },
-    { label: '쇼핑', icon: '🛒', percent: 15, color: 'bg-pink-500' },
-    { label: '기타', icon: '📦', percent: 5, color: 'bg-gray-500' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -325,7 +359,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           </div>
         </div>
 
-        {/* D+0 준비기간 분석 */}
+        {/* D+0 준비기간 분석 - 실제 데이터 연동 */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-4 border border-green-200">
           <div className="flex items-center gap-2 mb-3">
             <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-lg">D+0</span>
@@ -335,48 +369,52 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           <div className="grid grid-cols-2 gap-2 mb-3">
             <div className="bg-white rounded-xl p-3 text-center">
               <span className="text-2xl">🔥</span>
-              <p className={`text-xl font-black ${todaySpending.impulse > 0 ? 'text-red-500' : 'text-gray-800'}`}>
-                ₩{todaySpending.impulse.toLocaleString()}
+              <p className={`text-xl font-black ${impulseSpending > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                ₩{impulseSpending.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">충동지출</p>
             </div>
             <div className="bg-white rounded-xl p-3 text-center">
               <span className="text-2xl">🤔</span>
-              <p className={`text-xl font-black ${todaySpending.choice > 0 ? 'text-amber-500' : 'text-gray-800'}`}>
-                ₩{todaySpending.choice.toLocaleString()}
+              <p className={`text-xl font-black ${choiceSpending > 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+                ₩{choiceSpending.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">선택지출</p>
             </div>
             <div className="bg-white rounded-xl p-3 text-center">
               <span className="text-2xl">✅</span>
-              <p className="text-xl font-black text-green-600">
-                ₩{todaySpending.necessary.toLocaleString()}
+              <p className={`text-xl font-black ${necessarySpending > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                ₩{necessarySpending.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">필수지출</p>
             </div>
             <div className="bg-white rounded-xl p-3 text-center">
               <span className="text-2xl">🎯</span>
-              <p className={`text-xl font-black ${todaySpending.emotionSaved > 0 ? 'text-purple-600' : 'text-gray-800'}`}>
-                ₩{todaySpending.emotionSaved.toLocaleString()}
+              <p className={`text-xl font-black ${todaySaved > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
+                ₩{todaySaved.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">감정저축</p>
             </div>
           </div>
 
-          {/* 생활비 카테고리별 소비 */}
+          {/* 생활비 카테고리별 소비 - 실제 데이터 */}
           <div className="bg-white rounded-xl p-3">
             <p className="text-sm font-bold text-gray-700 mb-2">📊 생활비 카테고리별 소비</p>
-            <div className="space-y-2">
-              {categorySpending.map((cat) => (
-                <div key={cat.label} className="flex items-center gap-2">
-                  <span className="text-sm w-16">{cat.icon} {cat.label}</span>
-                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.percent}%` }} />
+            {categorySpending.length > 0 ? (
+              <div className="space-y-2">
+                {categorySpending.map((cat) => (
+                  <div key={cat.label} className="flex items-center gap-2">
+                    <span className="text-sm w-16">{cat.icon} {cat.label}</span>
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.percent}%` }} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-600 w-10 text-right">{cat.percent}%</span>
                   </div>
-                  <span className="text-xs font-bold text-gray-600 w-10 text-right">{cat.percent}%</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-400 text-sm py-2">아직 지출 기록이 없어요</p>
+            )}
           </div>
         </div>
 
