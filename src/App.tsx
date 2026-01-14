@@ -42,7 +42,9 @@ type AppStep =
   | 'budget-confirm'
   | 'main'
   | 'detail-report'
-  | 'faq-more';
+  | 'faq-more'
+  | 're-diagnosis'
+  | 're-analysis';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -70,6 +72,10 @@ function App() {
           const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
           if (savedBudget) {
             setAdjustedBudget(JSON.parse(savedBudget));
+          }
+          const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
+          if (savedIncomeExpense) {
+            setIncomeExpenseData(JSON.parse(savedIncomeExpense));
           }
           setCurrentStep('main');
           setCurrentTab('home');
@@ -114,6 +120,9 @@ function App() {
 
   const handleIncomeExpenseComplete = (data: IncomeExpenseData) => {
     setIncomeExpenseData(data);
+    if (user) {
+      localStorage.setItem(`incomeExpenseData_${user.uid}`, JSON.stringify(data));
+    }
     setCurrentStep('income-expense-result');
   };
 
@@ -174,12 +183,29 @@ function App() {
     console.log('Selected question:', question);
   };
 
+  // 재무진단 다시하기
+  const handleReDiagnosis = () => {
+    setCurrentStep('re-diagnosis');
+  };
+
+  // 재무분석 다시하기
+  const handleReAnalysis = () => {
+    setCurrentStep('re-analysis');
+  };
+
+  // 재진단/재분석에서 홈으로 돌아가기
+  const handleBackToHome = () => {
+    setCurrentStep('main');
+    setCurrentTab('home');
+  };
+
   const handleRestart = async () => {
     if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 데이터가 초기화됩니다.')) {
       localStorage.removeItem(`onboarding_${user.uid}`);
       localStorage.removeItem(`financial_${user.uid}`);
       localStorage.removeItem(`financialData_${user.uid}`);
       localStorage.removeItem(`incomeExpense_${user.uid}`);
+      localStorage.removeItem(`incomeExpenseData_${user.uid}`);
       localStorage.removeItem(`adjustedBudget_${user.uid}`);
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       localStorage.removeItem(`moneya_spend_${user.uid}`);
@@ -284,6 +310,36 @@ function App() {
     );
   }
 
+  // 재무진단 다시하기 화면
+  if (currentStep === 're-diagnosis' && financialResult) {
+    return (
+      <FinancialResultPage
+        result={financialResult}
+        onRetry={handleFinancialRetry}
+        onNext={handleBackToHome}
+        isFromHome={true}
+      />
+    );
+  }
+
+  // 재무분석 다시하기 화면
+  if (currentStep === 're-analysis' && adjustedBudget) {
+    return (
+      <BudgetAdjustPage
+        incomeExpenseData={incomeExpenseData!}
+        onConfirm={(budget) => {
+          setAdjustedBudget(budget);
+          if (user) {
+            localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
+          }
+          handleBackToHome();
+        }}
+        onBack={handleBackToHome}
+        isFromHome={true}
+      />
+    );
+  }
+
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
@@ -292,7 +348,10 @@ function App() {
             <HomePage 
               userName={user.displayName || '사용자'} 
               adjustedBudget={adjustedBudget}
+              financialResult={financialResult}
               onMoreDetail={handleMoreDetail}
+              onReDiagnosis={handleReDiagnosis}
+              onReAnalysis={handleReAnalysis}
             />
           )}
           {currentTab === 'ai-spend' && (
