@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import { useSpend } from '../context/SpendContext';
+import { inferCategory, getCategoryInfo } from '../utils/categoryUtils';
 
 interface FinancialResult {
   name: string;
@@ -87,30 +88,30 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     .filter(item => item.type === 'spent' && item.emotionType === '필수')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 카테고리별 지출 계산 (모든 지출 항목 대상)
+  // 카테고리별 지출 계산 (자동 매핑 적용)
   const allSpentItems = spendItems.filter(item => item.type === 'spent');
   const categoryTotals: { [key: string]: number } = {};
   
   allSpentItems.forEach(item => {
-    const cat = item.category || '기타';
-    categoryTotals[cat] = (categoryTotals[cat] || 0) + item.amount;
+    // 내용(memo)을 기반으로 카테고리 자동 추론
+    const category = inferCategory(item.memo, item.category);
+    categoryTotals[category] = (categoryTotals[category] || 0) + item.amount;
   });
 
   const totalCategorySpending = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
 
-  // 모든 카테고리 표시 (0원이어도 표시)
-  const categorySpending = [
-    { label: '식비', icon: '🍽️', amount: categoryTotals['식비'] || 0, color: 'bg-orange-500' },
-    { label: '카페', icon: '☕', amount: categoryTotals['카페'] || 0, color: 'bg-amber-600' },
-    { label: '교통', icon: '🚌', amount: categoryTotals['교통'] || 0, color: 'bg-blue-500' },
-    { label: '쇼핑', icon: '🛒', amount: categoryTotals['쇼핑'] || 0, color: 'bg-pink-500' },
-    { label: '여가', icon: '🎮', amount: categoryTotals['여가'] || 0, color: 'bg-green-500' },
-    { label: '의료', icon: '💊', amount: categoryTotals['의료'] || 0, color: 'bg-red-500' },
-    { label: '기타', icon: '📦', amount: categoryTotals['기타'] || 0, color: 'bg-gray-500' },
-  ].map(cat => ({
-    ...cat,
-    percent: totalCategorySpending > 0 ? Math.round((cat.amount / totalCategorySpending) * 100) : 0
-  }));
+  // 카테고리 정보와 함께 표시
+  const categoryList = ['식비', '카페', '교통', '쇼핑', '여가', '의료', '기타'];
+  const categorySpending = categoryList.map(cat => {
+    const info = getCategoryInfo(cat);
+    return {
+      label: cat,
+      icon: info.icon,
+      amount: categoryTotals[cat] || 0,
+      color: info.color,
+      percent: totalCategorySpending > 0 ? Math.round(((categoryTotals[cat] || 0) / totalCategorySpending) * 100) : 0
+    };
+  });
 
   const budgetCards = adjustedBudget ? [
     { id: 'living', label: '생활비', icon: '🛒', amount: adjustedBudget.livingExpense, spent: todaySpent, color: 'from-blue-500 to-blue-700' },
@@ -399,7 +400,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             </div>
           </div>
 
-          {/* 생활비 카테고리별 소비 - 실제 데이터 */}
+          {/* 생활비 카테고리별 소비 - 자동 매핑 적용 */}
           <div className="bg-white rounded-xl p-3">
             <p className="text-sm font-bold text-gray-700 mb-2">📊 생활비 카테고리별 소비</p>
             <div className="space-y-2">
