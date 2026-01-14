@@ -35,11 +35,9 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const [myRanks, setMyRanks] = useState({ savingsRate: 15, wealthIndex: 15 });
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
 
-  // 가입일 및 D+N 계산
-  const odId = userId visitorId || 'guest';
-  const daysSinceJoin = getDaysSinceJoin(odId visitorId);
+  const currentUserId = userId || 'guest';
+  const daysSinceJoin = getDaysSinceJoin(currentUserId);
 
-  // 기본 데이터
   const totalIncome = adjustedBudget?.totalIncome || financialResult?.income || 500;
   const totalAssets = financialResult?.assets || 28000;
   const totalDebt = financialResult?.debt || 15600;
@@ -47,55 +45,43 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const age = financialResult?.age || 44;
   const wealthIndex = financialResult?.wealthIndex || 95;
 
-  // 실제 지출 계산 (SpendContext에서)
   const actualLivingExpense = spendItems
     .filter(item => item.type === 'spent')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 실제 저축 계산 (저축투자 + 노후연금 입력된 것)
   const actualSavings = spendItems
     .filter(item => item.type === 'saved' || item.category === '저축투자' || item.category === '노후연금')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 예산 데이터
   const budgetLiving = adjustedBudget?.livingExpense || 500;
   const budgetSavings = adjustedBudget?.savings || 100;
   const budgetPension = adjustedBudget?.pension || 50;
   const budgetInsurance = adjustedBudget?.insurance || 30;
   const budgetLoan = adjustedBudget?.loanPayment || 80;
 
-  // 총 지출 및 저축
   const totalExpense = actualLivingExpense > 0 ? actualLivingExpense : (budgetLiving + budgetInsurance + budgetLoan);
   const totalSaving = actualSavings > 0 ? actualSavings : (budgetSavings + budgetPension);
 
-  // 저축률 계산
   const savingsRate = totalIncome > 0 ? Math.round(((budgetSavings + budgetPension) / totalIncome) * 100) : 0;
-
-  // 부채비율 계산
   const debtRatio = totalAssets > 0 ? Math.round((totalDebt / totalAssets) * 100) : 0;
 
-  // 누적 순저축 계산
   const cumulativeNetSavings = spendItems
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 초기화 및 데이터 로드
   useEffect(() => {
-    saveJoinDate(odId visitorId);
+    saveJoinDate(currentUserId);
     
-    // 오늘 스냅샷 저장
     const today = new Date().toISOString().split('T')[0];
-    saveDailySnapshot(odId visitorId, {
+    saveDailySnapshot(currentUserId, {
       date: today,
-      daysSinceJoin,
+      daysSinceJoin: daysSinceJoin,
       netSavings: cumulativeNetSavings,
       netAssets: netAssets,
     });
 
-    // 스냅샷 로드
-    setSnapshots(getSnapshots(odId visitorId));
+    setSnapshots(getSnapshots(currentUserId));
 
-    // 동년배 통계 로드
     const loadPeerStats = async () => {
       const ageGroup = getAgeGroup(age);
       const stats = await getPeerStats(ageGroup);
@@ -107,9 +93,8 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     };
 
     loadPeerStats();
-  }, [odId visitorId, daysSinceJoin, cumulativeNetSavings, netAssets, age, savingsRate, wealthIndex]);
+  }, [currentUserId, daysSinceJoin, cumulativeNetSavings, netAssets, age, savingsRate, wealthIndex]);
 
-  // 기간 라벨 동적 생성
   const getPeriodLabel = () => {
     if (daysSinceJoin < 30) return `가입 후 ${daysSinceJoin}일간`;
     if (daysSinceJoin < 60) return '지난 30일 대비';
@@ -117,7 +102,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     return '3개월 전 대비';
   };
 
-  // 변화량 계산
   const getChangeFromStart = () => {
     if (snapshots.length < 2) return { netSavings: 0, netAssets: 0 };
     const first = snapshots[0];
@@ -130,7 +114,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
 
   const changes = getChangeFromStart();
 
-  // 예산 실행율 계산
   const getBudgetItems = () => {
     const livingRate = budgetLiving > 0 ? Math.round((actualLivingExpense / budgetLiving) * 100) : 0;
     const actualLivingForDisplay = actualLivingExpense > 0 ? Math.round(actualLivingExpense / 10000) : budgetLiving;
@@ -184,38 +167,36 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const normalCount = budgetItems.filter(i => i.status === 'normal').length;
   const badCount = budgetItems.filter(i => i.status === 'bad').length;
 
-  // AI 인사이트 메시지 생성
   const getAIInsight = () => {
     const messages = [];
     
     if (daysSinceJoin === 0) {
-      messages.push(`환영합니다! 오늘부터 재무 여정을 시작하셨네요. 🎉`);
+      messages.push('환영합니다! 오늘부터 재무 여정을 시작하셨네요. 🎉');
     } else if (daysSinceJoin < 7) {
-      messages.push(`가입 ${daysSinceJoin}일차! 좋은 시작이에요. 꾸준히 기록해보세요. 💪`);
+      messages.push('가입 ' + daysSinceJoin + '일차! 좋은 시작이에요. 꾸준히 기록해보세요. 💪');
     } else {
-      messages.push(`${daysSinceJoin}일간 꾸준히 관리하고 계시네요! 👏`);
+      messages.push(daysSinceJoin + '일간 꾸준히 관리하고 계시네요! 👏');
     }
 
     if (cumulativeNetSavings > 0) {
-      messages.push(`지금까지 총 ${Math.round(cumulativeNetSavings / 10000)}만원을 저축하셨어요!`);
+      messages.push('지금까지 총 ' + Math.round(cumulativeNetSavings / 10000) + '만원을 저축하셨어요!');
     }
 
     if (savingsRate >= 30) {
-      messages.push(`저축률 ${savingsRate}%는 매우 우수해요! 이 페이스 유지하세요. 🎯`);
+      messages.push('저축률 ' + savingsRate + '%는 매우 우수해요! 이 페이스 유지하세요. 🎯');
     } else if (savingsRate >= 20) {
-      messages.push(`저축률 ${savingsRate}%로 양호해요. 조금만 더 노력하면 30% 달성! 💰`);
+      messages.push('저축률 ' + savingsRate + '%로 양호해요. 조금만 더 노력하면 30% 달성! 💰');
     } else {
-      messages.push(`저축률을 높이면 순자산 증가 속도가 빨라져요. 📈`);
+      messages.push('저축률을 높이면 순자산 증가 속도가 빨라져요. 📈');
     }
 
     if (peerStats && savingsRate > peerStats.avgSavingsRate) {
-      messages.push(`동년배 평균(${peerStats.avgSavingsRate}%)보다 ${savingsRate - peerStats.avgSavingsRate}%p 높아요!`);
+      messages.push('동년배 평균(' + peerStats.avgSavingsRate + '%)보다 ' + (savingsRate - peerStats.avgSavingsRate) + '%p 높아요!');
     }
 
     return messages.join('\n\n');
   };
 
-  // 순저축 그래프 데이터
   const getGraphPoints = () => {
     if (snapshots.length === 0) return [];
     
@@ -230,16 +211,14 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
 
   const graphPoints = getGraphPoints();
 
-  // 금액 포맷
   const formatMoney = (amount: number) => {
-    if (amount >= 10000) return `${(amount / 10000).toFixed(2)}억`;
-    return `${amount}만`;
+    if (amount >= 10000) return (amount / 10000).toFixed(2) + '억';
+    return amount + '만';
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       
-      {/* 헤더 */}
       <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-200">
         <button 
           onClick={onBack}
@@ -255,10 +234,8 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         </span>
       </div>
 
-      {/* 스크롤 영역 */}
       <div className="p-4 space-y-4 pb-8">
 
-        {/* 자산 요약 카드 */}
         <div className="bg-gradient-to-br from-slate-700 to-blue-600 rounded-2xl p-5 text-white">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm opacity-80">💎 자산 요약</p>
@@ -268,7 +245,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
             <p className="text-xs opacity-70 mb-1">순자산</p>
             <p className="text-4xl font-extrabold">₩{formatMoney(netAssets)}</p>
             {changes.netAssets !== 0 && (
-              <p className={`text-sm mt-2 ${changes.netAssets > 0 ? 'text-green-300' : 'text-red-300'}`}>
+              <p className={'text-sm mt-2 ' + (changes.netAssets > 0 ? 'text-green-300' : 'text-red-300')}>
                 {changes.netAssets > 0 ? '▲' : '▼'} {changes.netAssets > 0 ? '+' : ''}₩{formatMoney(Math.abs(changes.netAssets))} {getPeriodLabel()}
               </p>
             )}
@@ -285,23 +262,20 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 순저축 추이 차트 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">📈 순저축 추이</span>
-            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-              cumulativeNetSavings > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
-            }`}>
-              {cumulativeNetSavings > 0 ? `+${Math.round(cumulativeNetSavings / 10000)}만` : '시작'}
+            <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (cumulativeNetSavings > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500')}>
+              {cumulativeNetSavings > 0 ? '+' + Math.round(cumulativeNetSavings / 10000) + '만' : '시작'}
             </span>
           </div>
           
           {snapshots.length > 1 ? (
-            <>
+            <div>
               <div className="h-24 bg-gradient-to-b from-green-50 to-transparent rounded-xl relative mb-2">
                 <svg className="w-full h-full" viewBox="0 0 300 80" preserveAspectRatio="none">
                   <path 
-                    d={`M${graphPoints.map(p => `${p.x},${p.y}`).join(' L')}`} 
+                    d={'M' + graphPoints.map(p => p.x + ',' + p.y).join(' L')} 
                     fill="none" 
                     stroke="#10B981" 
                     strokeWidth="3"
@@ -315,7 +289,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
                 <span>D+0</span>
                 <span>D+{daysSinceJoin}</span>
               </div>
-            </>
+            </div>
           ) : (
             <div className="h-24 bg-gray-50 rounded-xl flex items-center justify-center">
               <p className="text-gray-400 text-sm">저축 기록이 쌓이면 그래프가 표시됩니다</p>
@@ -329,7 +303,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 수입/지출 분석 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">💰 이번 달 수입/지출</span>
@@ -354,7 +327,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 예산 실행율 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-gray-800">📋 예산 실행율</span>
@@ -363,35 +335,40 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           <p className="text-xs text-gray-400 mb-3">예산 대비 실제 지출/저축 현황입니다</p>
           
           <div className="space-y-2">
-            {budgetItems.map((item, index) => (
-              <div 
-                key={index} 
-                className={`flex items-center justify-between p-3 bg-gray-50 rounded-xl border-l-4 ${
-                  item.status === 'good' ? 'border-green-500' : 
-                  item.status === 'bad' ? 'border-red-500' : 'border-amber-500'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{item.icon}</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">{item.name}</p>
-                    <p className="text-xs text-gray-400">예산 ₩{item.budget}만 → 실제 ₩{item.actual}만</p>
+            {budgetItems.map((item, index) => {
+              let borderColor = 'border-amber-500';
+              let textColor = 'text-amber-500';
+              let statusText = '● 적정';
+              
+              if (item.status === 'good') {
+                borderColor = 'border-green-500';
+                textColor = 'text-green-600';
+                statusText = '✓ 절약';
+              } else if (item.status === 'bad') {
+                borderColor = 'border-red-500';
+                textColor = 'text-red-500';
+                statusText = '⚠ 부족';
+              }
+              
+              return (
+                <div 
+                  key={index} 
+                  className={'flex items-center justify-between p-3 bg-gray-50 rounded-xl border-l-4 ' + borderColor}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{item.icon}</span>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{item.name}</p>
+                      <p className="text-xs text-gray-400">예산 ₩{item.budget}만 → 실제 ₩{item.actual}만</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={'font-bold text-lg ' + textColor}>{item.rate}%</p>
+                    <p className={'text-xs font-semibold ' + textColor}>{statusText}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-bold text-lg ${
-                    item.status === 'good' ? 'text-green-600' : 
-                    item.status === 'bad' ? 'text-red-500' : 'text-amber-500'
-                  }`}>{item.rate}%</p>
-                  <p className={`text-xs font-semibold ${
-                    item.status === 'good' ? 'text-green-600' : 
-                    item.status === 'bad' ? 'text-red-500' : 'text-amber-500'
-                  }`}>
-                    {item.status === 'good' ? '✓ 절약' : item.status === 'bad' ? '⚠ 부족' : '● 적정'}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-100">
@@ -410,21 +387,20 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 저축률 분석 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">🎯 저축률 분석</span>
           </div>
           <div className="text-center mb-4">
             <p className="text-xs text-gray-400 mb-1">현재 저축률</p>
-            <p className={`text-4xl font-extrabold ${savingsRate >= 30 ? 'text-green-600' : savingsRate >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+            <p className={'text-4xl font-extrabold ' + (savingsRate >= 30 ? 'text-green-600' : savingsRate >= 20 ? 'text-amber-500' : 'text-red-500')}>
               {savingsRate}%
             </p>
           </div>
           <div className="h-4 bg-gray-200 rounded-full overflow-hidden mb-2 relative">
             <div 
-              className={`h-full rounded-full ${savingsRate >= 30 ? 'bg-green-500' : savingsRate >= 20 ? 'bg-amber-500' : 'bg-red-500'}`} 
-              style={{ width: `${Math.min((savingsRate / 30) * 100, 100)}%` }}
+              className={'h-full rounded-full ' + (savingsRate >= 30 ? 'bg-green-500' : savingsRate >= 20 ? 'bg-amber-500' : 'bg-red-500')}
+              style={{ width: Math.min((savingsRate / 30) * 100, 100) + '%' }}
             ></div>
           </div>
           <div className="flex justify-between text-xs text-gray-400 mb-4">
@@ -443,7 +419,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 동년배 비교 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-2">
             <span className="font-bold text-gray-800">👥 동년배 비교</span>
@@ -464,9 +439,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
                   <p className="text-xs text-gray-400">내 {savingsRate}% vs 평균 {peerStats?.avgSavingsRate || 18}%</p>
                 </div>
               </div>
-              <div className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
-                savingsRate > (peerStats?.avgSavingsRate || 18) ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'
-              }`}>
+              <div className={'px-3 py-1.5 rounded-lg font-bold text-sm ' + (savingsRate > (peerStats?.avgSavingsRate || 18) ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600')}>
                 상위 {myRanks.savingsRate}%
               </div>
             </div>
@@ -479,16 +452,13 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
                   <p className="text-xs text-gray-400">내 {wealthIndex}점 vs 평균 {peerStats?.avgWealthIndex || 142}점</p>
                 </div>
               </div>
-              <div className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
-                wealthIndex > (peerStats?.avgWealthIndex || 142) ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'
-              }`}>
+              <div className={'px-3 py-1.5 rounded-lg font-bold text-sm ' + (wealthIndex > (peerStats?.avgWealthIndex || 142) ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600')}>
                 상위 {myRanks.wealthIndex}%
               </div>
             </div>
           </div>
         </div>
 
-        {/* AI 인사이트 */}
         <div className="bg-gradient-to-r from-purple-100 to-indigo-100 rounded-2xl p-4 border border-purple-200">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
