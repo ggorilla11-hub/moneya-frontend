@@ -1,6 +1,57 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AdjustedBudget } from '../BudgetAdjustPage';
 
+// 한글 금액 → 숫자 변환 함수
+const koreanNumbers: { [key: string]: number } = {
+  '영': 0, '일': 1, '이': 2, '삼': 3, '사': 4,
+  '오': 5, '육': 6, '칠': 7, '팔': 8, '구': 9
+};
+
+const koreanToNumber = (koreanStr: string): number => {
+  koreanStr = koreanStr.replace('원', '');
+  
+  let result = 0;
+  let temp = 0;
+  let bigUnit = 0;
+  
+  for (let i = 0; i < koreanStr.length; i++) {
+    const char = koreanStr[i];
+    
+    if (koreanNumbers[char] !== undefined) {
+      temp = koreanNumbers[char];
+    } else if (char === '십' || char === '백' || char === '천') {
+      if (temp === 0) temp = 1;
+      const units: { [key: string]: number } = { '십': 10, '백': 100, '천': 1000 };
+      temp *= units[char];
+      bigUnit += temp;
+      temp = 0;
+    } else if (char === '만') {
+      if (temp === 0 && bigUnit === 0) bigUnit = 1;
+      bigUnit += temp;
+      result += bigUnit * 10000;
+      bigUnit = 0;
+      temp = 0;
+    } else if (char === '억') {
+      if (temp === 0 && bigUnit === 0) bigUnit = 1;
+      bigUnit += temp;
+      result += bigUnit * 100000000;
+      bigUnit = 0;
+      temp = 0;
+    }
+  }
+  
+  result += bigUnit + temp;
+  return result;
+};
+
+const convertKoreanAmountInText = (text: string): string => {
+  const koreanAmountPattern = /([일이삼사오육칠팔구십백천만억]+원)/g;
+  return text.replace(koreanAmountPattern, (match) => {
+    const number = koreanToNumber(match);
+    return number.toLocaleString() + '원';
+  });
+};
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -458,7 +509,7 @@ function AIConversation({
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
               </div>
             )}
-            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${message.type === 'ai' ? 'bg-white border border-gray-100 text-gray-800' : 'bg-blue-600 text-white'}`}>{message.text}</div>
+            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${message.type === 'ai' ? 'bg-white border border-gray-100 text-gray-800' : 'bg-blue-600 text-white'}`}>{message.type === 'ai' ? convertKoreanAmountInText(message.text) : message.text}</div>
           </div>
         ))}
         {isLoading && (
