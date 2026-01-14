@@ -1,7 +1,7 @@
 // src/pages/AISpendPage.tsx
-// AI지출 페이지 - Context 연동, 실제 데이터 사용
+// AI지출 페이지 - Context 연동 + 저장 후 타임라인 자동 펼침
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import AIConversation from './spend/AIConversation';
 import SpendTimeline from './spend/SpendTimeline';
@@ -30,9 +30,24 @@ interface AISpendPageProps {
 
 function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: AISpendPageProps) {
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
+  const [autoExpandTimeline, setAutoExpandTimeline] = useState(false);
 
   // Context에서 실제 데이터 가져오기
-  const { todaySpent, todaySaved, todayInvestment } = useSpend();
+  const { todaySpent, todaySaved, todayInvestment, spendItems } = useSpend();
+
+  // 지출 항목이 추가되면 타임라인 자동 펼침
+  useEffect(() => {
+    if (spendItems.length > 0) {
+      setAutoExpandTimeline(true);
+    }
+  }, [spendItems.length]);
+
+  // 자동 펼침 완료 후 상태 초기화
+  const handleExpandComplete = () => {
+    setTimeout(() => {
+      setAutoExpandTimeline(false);
+    }, 2000);
+  };
 
   // 예산 계산
   const dailyBudget = adjustedBudget ? Math.round(adjustedBudget.livingExpense / 30) : 66667;
@@ -56,8 +71,11 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
         onFAQMore={onFAQMore}
         onPlusClick={() => setIsInputMethodOpen(true)}
       >
-        {/* 지출 타임라인 */}
-        <SpendTimeline />
+        {/* 지출 타임라인 - 자동 펼침 연동 */}
+        <SpendTimeline 
+          autoExpand={autoExpandTimeline} 
+          onExpandComplete={handleExpandComplete}
+        />
       </AIConversation>
 
       {/* 지출 입력 모달 */}
