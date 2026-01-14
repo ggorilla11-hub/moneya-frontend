@@ -41,10 +41,22 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   // 표시용 이름
   const displayName = financialResult?.name || userName.split('(')[0].trim();
 
+  // 월수입: adjustedBudget.totalIncome 우선 사용 (재무분석에서 수정된 값)
+  const monthlyIncome = adjustedBudget?.totalIncome || financialResult?.income || 0;
+
   // 부자지수 계산
   const wealthIndex = financialResult?.wealthIndex || 0;
-  const debtRatio = financialResult ? Math.round((financialResult.debt / financialResult.assets) * 100) : 0;
-  const savingsRate = adjustedBudget ? Math.round(((adjustedBudget.savings + adjustedBudget.pension) / (adjustedBudget.livingExpense + adjustedBudget.savings + adjustedBudget.pension + adjustedBudget.insurance + adjustedBudget.loanPayment)) * 100) : 0;
+  const debtRatio = financialResult && financialResult.assets > 0 
+    ? Math.round((financialResult.debt / financialResult.assets) * 100) 
+    : 0;
+  
+  // 저축률 계산
+  const totalBudget = adjustedBudget 
+    ? (adjustedBudget.livingExpense + adjustedBudget.savings + adjustedBudget.pension + adjustedBudget.insurance + adjustedBudget.loanPayment)
+    : 0;
+  const savingsRate = totalBudget > 0 
+    ? Math.round(((adjustedBudget!.savings + adjustedBudget!.pension) / totalBudget) * 100) 
+    : 0;
 
   // 상태별 색상
   const getWealthColor = (value: number) => {
@@ -93,7 +105,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   const categoryTotals: { [key: string]: number } = {};
   
   allSpentItems.forEach(item => {
-    // 내용(memo)을 기반으로 카테고리 자동 추론
+    // 1순위: 고객 선택 카테고리, 2순위: 자동 매핑
     const category = inferCategory(item.memo, item.category);
     categoryTotals[category] = (categoryTotals[category] || 0) + item.amount;
   });
@@ -122,7 +134,12 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   ] : [];
 
   const formatWon = (amount: number) => `₩${amount.toLocaleString()}`;
-  const formatMan = (amount: number) => `${Math.round(amount / 10000)}만`;
+  const formatMan = (amount: number) => {
+    if (amount >= 10000) {
+      return `${Math.round(amount / 10000)}만`;
+    }
+    return `${amount.toLocaleString()}원`;
+  };
 
   const handlePrevSlide = () => {
     setCurrentSlide(prev => (prev === 0 ? budgetCards.length - 1 : prev - 1));
@@ -151,21 +168,6 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
       {/* 스크롤 영역 */}
       <div className="px-4 py-4 space-y-4">
 
-        {/* 예산 기준일 카드 */}
-        <div className="bg-gradient-to-r from-amber-100 to-amber-200 rounded-xl p-4 flex items-center justify-between border border-amber-300">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">💰</span>
-            <div>
-              <p className="text-xs text-amber-700">예산 기준일 (월급날)</p>
-              <p className="font-bold text-amber-900">매월 <span className="text-amber-600 text-lg">25</span>일</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">D-17</span>
-            <span className="text-amber-600">›</span>
-          </div>
-        </div>
-
         {/* 오늘 날짜 카드 */}
         <div className="bg-white rounded-xl p-4 flex items-center justify-between border border-gray-200 shadow-sm">
           <div className="flex items-center gap-3">
@@ -174,7 +176,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             </div>
             <div>
               <p className="font-bold text-gray-800">{year}년 {month}월 {date}일 {dayName}요일</p>
-              <p className="text-xs text-blue-600">예산 주기 <span className="font-bold text-blue-700">D+0</span> (1/14~1/31)</p>
+              <p className="text-xs text-blue-600">예산 주기 <span className="font-bold text-blue-700">D+0</span> ({month}/1~{month}/{new Date(year, month, 0).getDate()})</p>
             </div>
           </div>
           <button className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
@@ -314,7 +316,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">월수입</p>
-              <p className="text-xl font-black text-gray-800">{financialResult ? formatMan(financialResult.income) : '0만'}</p>
+              <p className="text-xl font-black text-gray-800">{formatMan(monthlyIncome)}</p>
               <p className="text-[10px] text-gray-400">세후 기준</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3 text-center">
@@ -367,7 +369,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           <div className="flex items-center gap-2 mb-3">
             <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-lg">D+0</span>
             <span className="font-bold text-green-800">준비기간 분석</span>
-            <span className="text-xs text-green-600 ml-auto">1/14 ~ 1/31</span>
+            <span className="text-xs text-green-600 ml-auto">{month}/1 ~ {month}/{new Date(year, month, 0).getDate()}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 mb-3">
             <div className="bg-white rounded-xl p-3 text-center">
@@ -433,12 +435,12 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             </div>
             <div>
               <p className="font-bold text-gray-800">상세리포트</p>
-              <p className="text-xs text-gray-500">2개월 이상 데이터 필요</p>
+              <p className="text-xs text-gray-500">나의 재무현황 분석</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg">
-            <span className="text-sm">🔒</span>
-            <span className="text-xs font-bold text-gray-500">D+2 이후</span>
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600 font-bold text-sm">보기</span>
+            <span className="text-blue-600">›</span>
           </div>
         </div>
 
