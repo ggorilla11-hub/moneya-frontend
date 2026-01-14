@@ -77,16 +77,35 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 월별 순저축 집계 (SpendContext에서)
+  // 월별 순저축 집계 (SpendContext에서) - 실제 입력된 데이터만
   const getMonthlySavingsData = () => {
     const monthLabels = getRecentMonthLabels(4);
     
+    // 저축 관련 항목만 필터링
+    const savingsItems = spendItems.filter(item => 
+      item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved'
+    );
+    
     return monthLabels.map(label => {
-      const monthItems = spendItems.filter(item => {
-        const itemDate = new Date(item.createdAt);
+      const monthItems = savingsItems.filter(item => {
+        // timestamp 사용 (Date 객체 또는 문자열)
+        let itemDate: Date;
+        if (item.timestamp instanceof Date) {
+          itemDate = item.timestamp;
+        } else if (typeof item.timestamp === 'string') {
+          itemDate = new Date(item.timestamp);
+        } else if (item.createdAt instanceof Date) {
+          itemDate = item.createdAt;
+        } else if (typeof item.createdAt === 'string') {
+          itemDate = new Date(item.createdAt);
+        } else {
+          return false;
+        }
+        
+        if (isNaN(itemDate.getTime())) return false;
+        
         return itemDate.getFullYear() === label.year && 
-               (itemDate.getMonth() + 1) === label.monthNum &&
-               (item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved');
+               (itemDate.getMonth() + 1) === label.monthNum;
       });
       
       const monthTotal = monthItems.reduce((sum, item) => sum + item.amount, 0);
@@ -115,7 +134,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         year: label.year,
         monthNum: label.monthNum,
         netAssets: snapshot?.netAssets || 0,
-        hasData: !!snapshot,
       };
     });
   };
@@ -287,29 +305,50 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     return messages.join('\n\n');
   };
 
-  // 월별 그래프 포인트 계산
+  // 월별 그래프 포인트 계산 - 데이터 있는 월만 표시
   const getMonthlyGraphPoints = () => {
     const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
     const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
     
-    // 데이터가 모두 0인 경우
-    const hasData = values.some(v => v > 0);
-    if (!hasData) {
-      return { points: [], hasData: false };
+    // 데이터가 있는 월 확인
+    const hasAnyData = values.some(v => v > 0);
+    
+    if (!hasAnyData) {
+      // 데이터가 전혀 없으면 빈 배열 반환
+      return { 
+        points: data.map((d, i) => ({
+          x: 40 + (i * 80),
+          y: 90,
+          value: 0,
+          month: d.month,
+          hasData: false,
+        })), 
+        hasData: false 
+      };
     }
     
-    const maxValue = Math.max(...values, 1);
-    const minValue = Math.min(...values.filter(v => v > 0), 0);
-    const range = maxValue - minValue || 1;
+    // 0보다 큰 값만 추출하여 스케일 계산
+    const positiveValues = values.filter(v => v > 0);
+    const maxValue = Math.max(...positiveValues);
+    const minValue = Math.min(...positiveValues);
+    const range = maxValue - minValue || maxValue || 1;
     
     const points = data.map((d, i) => {
       const value = graphType === 'netAssets' ? d.netAssets : d.netSavings;
+      const hasData = value > 0;
+      
+      // 데이터가 있는 경우만 y 좌표 계산
+      let y = 90;
+      if (hasData) {
+        y = 85 - ((value - minValue) / range) * 60;
+      }
+      
       return {
         x: 40 + (i * 80),
-        y: value > 0 ? (90 - ((value - minValue) / range) * 70) : 90,
+        y: y,
         value: value,
         month: d.month,
-        hasData: value > 0,
+        hasData: hasData,
       };
     });
     
@@ -319,8 +358,11 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const graphResult = getMonthlyGraphPoints();
   const graphPoints = graphResult.points;
   const hasGraphData = graphResult.hasData;
+  
+  // 데이터가 있는 포인트만 필터링
+  const dataPoints = graphPoints.filter(p => p.hasData);
 
-  // 변화율 계산
+  // 변화율 계산 - 실제 데이터 있는 월만
   const getChangePercent = () => {
     const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
     const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings).filter(v => v > 0);
@@ -485,7 +527,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">📈 그래프 변화추이</span>
-            {hasGraphData && (
+            {dataPoints.length >= 2 && (
               <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (changePercent > 0 ? 'bg-green-100 text-green-600' : changePercent < 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500')}>
                 {changePercent > 0 ? '▲' : changePercent < 0 ? '▼' : ''} {Math.abs(changePercent)}%
               </span>
@@ -494,24 +536,24 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           
           {/* 월별 그래프 */}
           <div className="h-32 bg-gradient-to-b from-green-50 to-transparent rounded-xl relative mb-2">
-            {hasGraphData ? (
+            {dataPoints.length > 0 ? (
               <svg className="w-full h-full" viewBox="0 0 360 120" preserveAspectRatio="none">
                 {/* 점선 목표선 */}
-                <line x1="30" y1="30" x2="330" y2="30" stroke="#3B82F6" strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                <line x1="30" y1="30" x2="330" y2="30" stroke="#3B82F6" strokeWidth="1" strokeDasharray="4,4" opacity="0.3" />
                 
-                {/* 그래프 영역 (채우기) */}
-                {graphPoints.filter(p => p.hasData).length > 1 && (
+                {/* 그래프 영역 (채우기) - 데이터 있는 포인트만 */}
+                {dataPoints.length > 1 && (
                   <path 
-                    d={`M${graphPoints.filter(p => p.hasData)[0]?.x || 40},${graphPoints.filter(p => p.hasData)[0]?.y || 90} ${graphPoints.filter(p => p.hasData).map(p => `L${p.x},${p.y}`).join(' ')} L${graphPoints.filter(p => p.hasData)[graphPoints.filter(p => p.hasData).length - 1]?.x || 280},100 L${graphPoints.filter(p => p.hasData)[0]?.x || 40},100 Z`}
+                    d={`M${dataPoints[0].x},${dataPoints[0].y} ${dataPoints.slice(1).map(p => `L${p.x},${p.y}`).join(' ')} L${dataPoints[dataPoints.length - 1].x},100 L${dataPoints[0].x},100 Z`}
                     fill="url(#greenGradient)"
                     opacity="0.3"
                   />
                 )}
                 
-                {/* 그래프 선 */}
-                {graphPoints.filter(p => p.hasData).length > 1 && (
+                {/* 그래프 선 - 데이터 있는 포인트만 연결 */}
+                {dataPoints.length > 1 && (
                   <path 
-                    d={`M${graphPoints.filter(p => p.hasData).map(p => `${p.x},${p.y}`).join(' L')}`}
+                    d={`M${dataPoints.map(p => `${p.x},${p.y}`).join(' L')}`}
                     fill="none" 
                     stroke="#10B981" 
                     strokeWidth="3"
@@ -520,12 +562,12 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
                   />
                 )}
                 
-                {/* 포인트 */}
+                {/* 모든 월 표시 - 데이터 없는 월은 회색 점 */}
                 {graphPoints.map((p, i) => (
                   p.hasData ? (
-                    <circle key={i} cx={p.x} cy={p.y} r="5" fill="#10B981" stroke="white" strokeWidth="2" />
+                    <circle key={i} cx={p.x} cy={p.y} r="6" fill="#10B981" stroke="white" strokeWidth="2" />
                   ) : (
-                    <circle key={i} cx={p.x} cy={90} r="3" fill="#D1D5DB" />
+                    <circle key={i} cx={p.x} cy={90} r="4" fill="#D1D5DB" opacity="0.5" />
                   )
                 ))}
                 
@@ -539,8 +581,10 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
               </svg>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-400 text-sm">
-                  {graphType === 'netAssets' ? '재무진단을 입력하면 순자산 추이가 표시됩니다' : '저축을 기록하면 순저축 추이가 표시됩니다'}
+                <p className="text-gray-400 text-sm text-center px-4">
+                  {graphType === 'netAssets' 
+                    ? '재무진단을 입력하면 순자산 추이가 표시됩니다' 
+                    : '저축을 기록하면 순저축 추이가 표시됩니다'}
                 </p>
               </div>
             )}
@@ -548,8 +592,8 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           
           {/* 월 라벨 */}
           <div className="flex justify-between text-xs text-gray-400 px-6 mb-3">
-            {(graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData).map((d, i) => (
-              <span key={i}>{d.month}</span>
+            {graphPoints.map((p, i) => (
+              <span key={i} className={p.hasData ? 'text-gray-600 font-medium' : ''}>{p.month}</span>
             ))}
           </div>
           
