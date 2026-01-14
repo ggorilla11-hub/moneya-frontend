@@ -474,30 +474,6 @@ function AIConversation({
         </div>
       </div>
 
-      {/* 지출 타임라인 */}
-      <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 p-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-gray-700">오늘</span>
-          <div className="flex gap-4">
-            <div className="text-center">
-              <p className="text-xs text-gray-400">지출 -</p>
-              <p className="text-sm font-bold text-red-500">₩{todaySpent.toLocaleString()}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-400">참음 +</p>
-              <p className="text-sm font-bold text-green-500">₩{todaySaved.toLocaleString()}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-400">저축 +</p>
-              <p className="text-sm font-bold text-blue-500">₩{todayInvestment.toLocaleString()}</p>
-            </div>
-          </div>
-          <button className="text-gray-400">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
-          </button>
-        </div>
-      </div>
-
       {/* 음성 모드 표시 */}
       {isVoiceMode && (
         <div className="mx-4 mt-3 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
@@ -555,9 +531,6 @@ function AIConversation({
       {/* 입력 영역 */}
       <div className="bg-white border-t border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
-          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 border border-gray-200">
-            <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-          </button>
           <button onClick={toggleVoiceMode} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isVoiceMode ? 'bg-red-500 animate-pulse scale-110' : 'bg-amber-400'}`}>
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
           </button>
