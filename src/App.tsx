@@ -210,6 +210,8 @@ function App() {
       localStorage.removeItem(`adjustedBudget_${user.uid}`);
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       localStorage.removeItem(`moneya_spend_${user.uid}`);
+      localStorage.removeItem(`moneya_snapshots_${user.uid}`);
+      localStorage.removeItem(`moneya_joinDate_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -295,10 +297,14 @@ function App() {
 
   if (currentStep === 'detail-report') {
     return (
-      <DetailReportPage
-        adjustedBudget={adjustedBudget}
-        onBack={handleDetailReportBack}
-      />
+      <SpendProvider userId={user.uid}>
+        <DetailReportPage
+          adjustedBudget={adjustedBudget}
+          financialResult={financialResult}
+          userId={user.uid}
+          onBack={handleDetailReportBack}
+        />
+      </SpendProvider>
     );
   }
 
@@ -323,7 +329,7 @@ function App() {
     );
   }
 
-  // 재무분석 다시하기 → 예산조정화면 (첨부1)
+  // 재무분석 다시하기 → 예산조정화면
   if (currentStep === 're-analysis' && incomeExpenseData) {
     return (
       <BudgetAdjustPage
@@ -342,7 +348,7 @@ function App() {
     );
   }
 
-  // 다시 분석하기 → 정보입력화면 (첨부2)
+  // 다시 분석하기 → 정보입력화면
   if (currentStep === 're-analysis-input') {
     return (
       <IncomeExpenseInputPage
