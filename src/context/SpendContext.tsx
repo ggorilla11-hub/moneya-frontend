@@ -1,8 +1,8 @@
 // src/context/SpendContext.tsx
 // 지출 데이터 전역 상태 관리 (공용 서랍장)
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { SpendItem, SpendType } from '../types/spend';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { SpendItem } from '../types/spend';
 
 interface SpendContextType {
   spendItems: SpendItem[];
@@ -19,7 +19,7 @@ interface SpendContextType {
 const SpendContext = createContext<SpendContextType | undefined>(undefined);
 
 interface SpendProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
   userId?: string;
 }
 
@@ -33,7 +33,7 @@ export function SpendProvider({ children, userId = 'default' }: SpendProviderPro
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        const items = parsed.map((item: any) => ({
+        const items = parsed.map((item: SpendItem) => ({
           ...item,
           timestamp: new Date(item.timestamp),
           createdAt: new Date(item.createdAt),
