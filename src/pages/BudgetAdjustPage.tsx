@@ -7,6 +7,7 @@ interface BudgetAdjustPageProps {
   onConfirm: (adjustedBudget: AdjustedBudget) => void;
   onBack: () => void;
   isFromHome?: boolean;
+  onReAnalysis?: () => void;
 }
 
 export interface AdjustedBudget {
@@ -21,7 +22,7 @@ export interface AdjustedBudget {
 
 type BudgetField = 'livingExpense' | 'savings' | 'pension' | 'insurance' | 'loanPayment';
 
-function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = false }: BudgetAdjustPageProps) {
+function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = false, onReAnalysis }: BudgetAdjustPageProps) {
   const { income, familySize } = incomeExpenseData;
   
   const recommendedRatios = BUDGET_RATIOS[Math.min(familySize, 5)] || BUDGET_RATIOS[2];
@@ -51,6 +52,12 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   });
 
   const [activeSlider, setActiveSlider] = useState<string | null>(null);
+  
+  // 예산 시작일 설정
+  const [budgetStartDate, setBudgetStartDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  });
 
   const usedBudget = budget.livingExpense + budget.savings + budget.pension + budget.insurance + budget.loanPayment;
   const surplus = income - usedBudget;
@@ -207,6 +214,25 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
           </div>
         </div>
 
+        {/* 예산 시작일 설정 (isFromHome일 때만 표시) */}
+        {isFromHome && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-4">
+            <h3 className="font-bold text-gray-800 mb-2">📅 예산 시작일 설정</h3>
+            <p className="text-xs text-gray-500 mb-3">월예산을 새로 적용할 시작 날짜를 선택하세요</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={budgetStartDate}
+                onChange={(e) => setBudgetStartDate(e.target.value)}
+                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button className="px-4 py-3 bg-green-500 text-white font-bold rounded-xl">
+                적용
+              </button>
+            </div>
+          </div>
+        )}
+
         {!isFromHome && (
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4">
             <h3 className="font-bold text-green-700 mb-3">✨ 조정 효과 요약</h3>
@@ -251,10 +277,10 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
               disabled={!isValidBudget}
               className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl transition-all ${isValidBudget ? 'bg-gradient-to-r from-green-500 to-green-600 text-white active:scale-95' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
             >
-              ✓ 이 예산으로 저장하기
+              ✓ 이 예산으로 시작하기
             </button>
             <button 
-              onClick={onBack}
+              onClick={onReAnalysis}
               className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
             >
               🔄 다시 분석하기
