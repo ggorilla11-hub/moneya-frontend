@@ -9,6 +9,8 @@ import {
   getSnapshots,
   getDaysSinceJoin,
   saveJoinDate,
+  getNetAssetsSnapshots,
+  getRecentMonthLabels,
   type PeerStats,
   type DailySnapshot
 } from '../services/statsService';
@@ -75,31 +77,51 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 월별 데이터 생성 (최근 4개월)
-  const getMonthlyData = () => {
-    const months = [];
-    const now = new Date();
+  // 월별 순저축 집계 (SpendContext에서)
+  const getMonthlySavingsData = () => {
+    const monthLabels = getRecentMonthLabels(4);
     
-    for (let i = 3; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthLabel = (date.getMonth() + 1) + '월';
-      
-      // 시뮬레이션 데이터 (실제로는 Firebase에서 가져와야 함)
-      const baseNetAssets = netAssets - (i * 200); // 월별 순자산 증가 시뮬레이션
-      const baseNetSavings = cumulativeNetSavings > 0 
-        ? Math.round(cumulativeNetSavings * ((4 - i) / 4)) 
-        : (budgetSavings + budgetPension) * (4 - i);
-      
-      months.push({
-        month: monthLabel,
-        netAssets: Math.max(baseNetAssets, netAssets * 0.85),
-        netSavings: baseNetSavings,
+    return monthLabels.map(label => {
+      const monthItems = spendItems.filter(item => {
+        const itemDate = new Date(item.createdAt);
+        return itemDate.getFullYear() === label.year && 
+               (itemDate.getMonth() + 1) === label.monthNum &&
+               (item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved');
       });
-    }
-    return months;
+      
+      const monthTotal = monthItems.reduce((sum, item) => sum + item.amount, 0);
+      
+      return {
+        month: label.month,
+        year: label.year,
+        monthNum: label.monthNum,
+        netSavings: monthTotal,
+      };
+    });
   };
 
-  const monthlyData = getMonthlyData();
+  // 월별 순자산 데이터 (재무진단 입력 기록)
+  const getMonthlyNetAssetsData = () => {
+    const monthLabels = getRecentMonthLabels(4);
+    const netAssetsSnapshots = getNetAssetsSnapshots(currentUserId);
+    
+    return monthLabels.map(label => {
+      const snapshot = netAssetsSnapshots.find(
+        s => s.year === label.year && s.month === label.monthNum
+      );
+      
+      return {
+        month: label.month,
+        year: label.year,
+        monthNum: label.monthNum,
+        netAssets: snapshot?.netAssets || 0,
+        hasData: !!snapshot,
+      };
+    });
+  };
+
+  const monthlySavingsData = getMonthlySavingsData();
+  const monthlyNetAssetsData = getMonthlyNetAssetsData();
 
   useEffect(() => {
     const savedGoal = localStorage.getItem(`moneya_goalSavingsRate_${currentUserId}`);
@@ -267,29 +289,46 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
 
   // 월별 그래프 포인트 계산
   const getMonthlyGraphPoints = () => {
-    const data = monthlyData.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
-    const maxValue = Math.max(...data, 1);
-    const minValue = Math.min(...data, 0);
+    const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
+    const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
+    
+    // 데이터가 모두 0인 경우
+    const hasData = values.some(v => v > 0);
+    if (!hasData) {
+      return { points: [], hasData: false };
+    }
+    
+    const maxValue = Math.max(...values, 1);
+    const minValue = Math.min(...values.filter(v => v > 0), 0);
     const range = maxValue - minValue || 1;
     
-    return monthlyData.map((d, i) => {
+    const points = data.map((d, i) => {
       const value = graphType === 'netAssets' ? d.netAssets : d.netSavings;
       return {
         x: 40 + (i * 80),
-        y: 90 - ((value - minValue) / range) * 70,
+        y: value > 0 ? (90 - ((value - minValue) / range) * 70) : 90,
         value: value,
         month: d.month,
+        hasData: value > 0,
       };
     });
+    
+    return { points, hasData: true };
   };
 
-  const graphPoints = getMonthlyGraphPoints();
+  const graphResult = getMonthlyGraphPoints();
+  const graphPoints = graphResult.points;
+  const hasGraphData = graphResult.hasData;
 
   // 변화율 계산
   const getChangePercent = () => {
-    if (monthlyData.length < 2) return 0;
-    const first = graphType === 'netAssets' ? monthlyData[0].netAssets : monthlyData[0].netSavings;
-    const last = graphType === 'netAssets' ? monthlyData[monthlyData.length - 1].netAssets : monthlyData[monthlyData.length - 1].netSavings;
+    const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
+    const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings).filter(v => v > 0);
+    
+    if (values.length < 2) return 0;
+    
+    const first = values[0];
+    const last = values[values.length - 1];
     if (first === 0) return 0;
     return Math.round(((last - first) / first) * 100 * 10) / 10;
   };
@@ -446,52 +485,70 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">📈 그래프 변화추이</span>
-            <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (changePercent > 0 ? 'bg-green-100 text-green-600' : changePercent < 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500')}>
-              {changePercent > 0 ? '▲' : changePercent < 0 ? '▼' : ''} {Math.abs(changePercent)}%
-            </span>
+            {hasGraphData && (
+              <span className={'text-xs px-2 py-1 rounded-full font-semibold ' + (changePercent > 0 ? 'bg-green-100 text-green-600' : changePercent < 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500')}>
+                {changePercent > 0 ? '▲' : changePercent < 0 ? '▼' : ''} {Math.abs(changePercent)}%
+              </span>
+            )}
           </div>
           
           {/* 월별 그래프 */}
           <div className="h-32 bg-gradient-to-b from-green-50 to-transparent rounded-xl relative mb-2">
-            <svg className="w-full h-full" viewBox="0 0 360 120" preserveAspectRatio="none">
-              {/* 점선 목표선 */}
-              <line x1="30" y1="30" x2="330" y2="30" stroke="#3B82F6" strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
-              
-              {/* 그래프 영역 (채우기) */}
-              <path 
-                d={`M${graphPoints[0]?.x || 40},${graphPoints[0]?.y || 90} ${graphPoints.map(p => `L${p.x},${p.y}`).join(' ')} L${graphPoints[graphPoints.length - 1]?.x || 280},100 L${graphPoints[0]?.x || 40},100 Z`}
-                fill="url(#greenGradient)"
-                opacity="0.3"
-              />
-              
-              {/* 그래프 선 */}
-              <path 
-                d={`M${graphPoints.map(p => `${p.x},${p.y}`).join(' L')}`}
-                fill="none" 
-                stroke="#10B981" 
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              
-              {/* 포인트 */}
-              {graphPoints.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r="5" fill="#10B981" stroke="white" strokeWidth="2" />
-              ))}
-              
-              {/* 그라데이션 정의 */}
-              <defs>
-                <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#10B981" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            </svg>
+            {hasGraphData ? (
+              <svg className="w-full h-full" viewBox="0 0 360 120" preserveAspectRatio="none">
+                {/* 점선 목표선 */}
+                <line x1="30" y1="30" x2="330" y2="30" stroke="#3B82F6" strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                
+                {/* 그래프 영역 (채우기) */}
+                {graphPoints.filter(p => p.hasData).length > 1 && (
+                  <path 
+                    d={`M${graphPoints.filter(p => p.hasData)[0]?.x || 40},${graphPoints.filter(p => p.hasData)[0]?.y || 90} ${graphPoints.filter(p => p.hasData).map(p => `L${p.x},${p.y}`).join(' ')} L${graphPoints.filter(p => p.hasData)[graphPoints.filter(p => p.hasData).length - 1]?.x || 280},100 L${graphPoints.filter(p => p.hasData)[0]?.x || 40},100 Z`}
+                    fill="url(#greenGradient)"
+                    opacity="0.3"
+                  />
+                )}
+                
+                {/* 그래프 선 */}
+                {graphPoints.filter(p => p.hasData).length > 1 && (
+                  <path 
+                    d={`M${graphPoints.filter(p => p.hasData).map(p => `${p.x},${p.y}`).join(' L')}`}
+                    fill="none" 
+                    stroke="#10B981" 
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+                
+                {/* 포인트 */}
+                {graphPoints.map((p, i) => (
+                  p.hasData ? (
+                    <circle key={i} cx={p.x} cy={p.y} r="5" fill="#10B981" stroke="white" strokeWidth="2" />
+                  ) : (
+                    <circle key={i} cx={p.x} cy={90} r="3" fill="#D1D5DB" />
+                  )
+                ))}
+                
+                {/* 그라데이션 정의 */}
+                <defs>
+                  <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#10B981" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-400 text-sm">
+                  {graphType === 'netAssets' ? '재무진단을 입력하면 순자산 추이가 표시됩니다' : '저축을 기록하면 순저축 추이가 표시됩니다'}
+                </p>
+              </div>
+            )}
           </div>
           
           {/* 월 라벨 */}
           <div className="flex justify-between text-xs text-gray-400 px-6 mb-3">
-            {monthlyData.map((d, i) => (
+            {(graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData).map((d, i) => (
               <span key={i}>{d.month}</span>
             ))}
           </div>
