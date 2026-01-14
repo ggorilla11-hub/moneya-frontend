@@ -1,19 +1,8 @@
-import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { auth } from '../config/firebase';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+const db = getFirestore();
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// 연령대 계산
 export const getAgeGroup = (age: number): string => {
   if (age < 20) return '10대';
   if (age < 30) return '20대';
@@ -23,7 +12,6 @@ export const getAgeGroup = (age: number): string => {
   return '60대 이상';
 };
 
-// 소득 구간 계산
 export const getIncomeRange = (income: number): string => {
   if (income < 200) return '0-200';
   if (income < 300) return '200-300';
@@ -34,9 +22,8 @@ export const getIncomeRange = (income: number): string => {
   return '1000+';
 };
 
-// 익명 통계 저장
 export interface UserStats {
-visitorId: string;
+  odId visitorId visitorId visitorId: string;
   ageGroup: string;
   incomeRange: string;
   familySize: number;
@@ -49,7 +36,7 @@ visitorId: string;
 }
 
 export const saveUserStats = async (
-  odId: string,
+  odId visitorId visitorId visitorId: string,
   age: number,
   income: number,
   familySize: number,
@@ -59,17 +46,17 @@ export const saveUserStats = async (
   netAssets: number
 ): Promise<void> => {
   try {
-    const statsRef = doc(db, 'userStats', odId visitorId);
+    const statsRef = doc(db, 'userStats', odId visitorId visitorId visitorId);
     const now = Timestamp.now();
     
     await setDoc(statsRef, {
-      odId: odId visitorId,
+      odId visitorId visitorId visitorId: odId visitorId visitorId visitorId,
       ageGroup: getAgeGroup(age),
       incomeRange: getIncomeRange(income),
       familySize,
       savingsRate,
       wealthIndex,
-      debtRatio,
+visitorId      debtRatio,
       netAssets,
       createdAt: now,
       updatedAt: now,
@@ -81,7 +68,6 @@ export const saveUserStats = async (
   }
 };
 
-// 동년배 평균 조회
 export interface PeerStats {
   avgSavingsRate: number;
   avgWealthIndex: number;
@@ -112,8 +98,8 @@ export const getPeerStats = async (ageGroup: string): Promise<PeerStats> => {
     let totalNetAssets = 0;
     let count = 0;
     
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       totalSavingsRate += data.savingsRate || 0;
       totalWealthIndex += data.wealthIndex || 0;
       totalDebtRatio += data.debtRatio || 0;
@@ -140,7 +126,6 @@ export const getPeerStats = async (ageGroup: string): Promise<PeerStats> => {
   }
 };
 
-// 내 순위 계산
 export const getMyRank = async (ageGroup: string, myValue: number, field: string): Promise<number> => {
   try {
     const statsRef = collection(db, 'userStats');
@@ -150,8 +135,8 @@ export const getMyRank = async (ageGroup: string, myValue: number, field: string
     if (snapshot.empty) return 15;
     
     const values: number[] = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       values.push(data[field] || 0);
     });
     
@@ -166,7 +151,6 @@ export const getMyRank = async (ageGroup: string, myValue: number, field: string
   }
 };
 
-// 스냅샷 저장 (순저축 그래프용)
 export interface DailySnapshot {
   date: string;
   daysSinceJoin: number;
@@ -174,8 +158,8 @@ export interface DailySnapshot {
   netAssets: number;
 }
 
-export const saveDailySnapshot = (odId visitorId: string, snapshot: DailySnapshot): void => {
-  const key = `moneya_snapshots_${odId visitorId}`;
+export const saveDailySnapshot = (userId: string, snapshot: DailySnapshot): void => {
+  const key = `moneya_snapshots_${userId}`;
   const existing = localStorage.getItem(key);
   const snapshots: DailySnapshot[] = existing ? JSON.parse(existing) : [];
   
@@ -189,28 +173,27 @@ export const saveDailySnapshot = (odId visitorId: string, snapshot: DailySnapsho
   localStorage.setItem(key, JSON.stringify(snapshots));
 };
 
-export const getSnapshots = (odId visitorId: string): DailySnapshot[] => {
-  const key = `moneya_snapshots_${odId visitorId}`;
+export const getSnapshots = (userId: string): DailySnapshot[] => {
+  const key = `moneya_snapshots_${userId}`;
   const existing = localStorage.getItem(key);
   return existing ? JSON.parse(existing) : [];
 };
 
-// 가입일 저장/조회
-export const saveJoinDate = (odId visitorId: string): void => {
-  const key = `moneya_joinDate_${odId visitorId}`;
+export const saveJoinDate = (userId: string): void => {
+  const key = `moneya_joinDate_${userId}`;
   if (!localStorage.getItem(key)) {
     localStorage.setItem(key, new Date().toISOString());
   }
 };
 
-export const getJoinDate = (odId visitorId: string): Date => {
-  const key = `moneya_joinDate_${odId visitorId}`;
+export const getJoinDate = (userId: string): Date => {
+  const key = `moneya_joinDate_${userId}`;
   const saved = localStorage.getItem(key);
   return saved ? new Date(saved) : new Date();
 };
 
-export const getDaysSinceJoin = (odId visitorId: string): number => {
-  const joinDate = getJoinDate(odId visitorId);
+export const getDaysSinceJoin = (userId: string): number => {
+  const joinDate = getJoinDate(userId);
   const today = new Date();
   const diffTime = today.getTime() - joinDate.getTime();
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
