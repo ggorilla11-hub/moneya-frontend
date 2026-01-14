@@ -89,7 +89,7 @@ const API_URL = 'https://moneya-server.onrender.com';
 const WS_URL = 'wss://moneya-server.onrender.com';
 
 function AIConversation({
-  userName,
+  userName: _userName,
   displayName,
   adjustedBudget,
   financialResult,
