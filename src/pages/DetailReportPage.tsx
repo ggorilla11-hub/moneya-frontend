@@ -383,7 +383,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   return (
     <div className="min-h-screen bg-gray-50">
       
-      {/* AI 모달 */}
       {showAIModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
@@ -415,7 +414,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         </div>
       )}
 
-      {/* 목표 수정 모달 */}
       {showGoalModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
@@ -521,7 +519,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
           </div>
         </div>
 
-        {/* 그래프 변화추이 */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-gray-800">📈 그래프 변화추이</span>
