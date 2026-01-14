@@ -1,5 +1,5 @@
 // src/pages/spend/ManualInputModal.tsx
-// 수동 입력 모달 - 지출/감정저축 직접 입력
+// 수동 입력 모달 - 지출/감정저축 직접 입력 + 고정지출 추가
 
 import { useState } from 'react';
 import { useSpend } from '../../context/SpendContext';
@@ -17,11 +17,17 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [category, setCategory] = useState('food');
+  const [isFixedCategory, setIsFixedCategory] = useState(false);
   const [emotionType, setEmotionType] = useState<EmotionType>('선택');
   const [savedReason, setSavedReason] = useState('충동 억제');
   const [urgency, setUrgency] = useState('오늘중으로');
 
   if (!isOpen) return null;
+
+  const handleCategorySelect = (catId: string, isFixed: boolean) => {
+    setCategory(catId);
+    setIsFixedCategory(isFixed);
+  };
 
   const handleSubmit = () => {
     const numAmount = parseInt(amount.replace(/,/g, ''), 10);
@@ -34,12 +40,28 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
       return;
     }
 
+    // 고정지출이면 investment, 감정저축이면 saved, 그 외는 spent
+    let spendType: SpendType = activeTab as SpendType;
+    if (activeTab === 'spent' && isFixedCategory) {
+      spendType = 'investment';
+    }
+
+    // 카테고리 이름 찾기
+    let categoryName = category;
+    if (isFixedCategory) {
+      const fixedCat = SPEND_CATEGORIES.fixed.find(c => c.id === category);
+      categoryName = fixedCat?.name || category;
+    } else {
+      const varCat = SPEND_CATEGORIES.variable.find(c => c.id === category);
+      categoryName = varCat?.name || category;
+    }
+
     addSpendItem({
       userId: 'default',
       amount: numAmount,
-      type: activeTab as SpendType,
-      category: activeTab === 'spent' ? category : 'saved',
-      emotionType: activeTab === 'spent' ? emotionType : undefined,
+      type: spendType,
+      category: categoryName,
+      emotionType: activeTab === 'spent' && !isFixedCategory ? emotionType : undefined,
       memo: memo.trim(),
       tag: activeTab === 'saved' ? savedReason : undefined,
       inputMethod: 'manual',
@@ -49,9 +71,17 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
     setAmount('');
     setMemo('');
     setCategory('food');
+    setIsFixedCategory(false);
     setEmotionType('선택');
     onClose();
-    alert(activeTab === 'spent' ? '지출이 기록되었습니다!' : '감정저축이 기록되었습니다! 💪');
+    
+    if (activeTab === 'saved') {
+      alert('감정저축이 기록되었습니다! 💪');
+    } else if (isFixedCategory) {
+      alert('고정지출이 기록되었습니다! 🏦');
+    } else {
+      alert('지출이 기록되었습니다!');
+    }
   };
 
   const formatAmount = (value: string) => {
@@ -64,11 +94,11 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
       <div 
         className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] z-[101]"
         onClick={(e) => e.stopPropagation()}
-        style={{ height: '65vh' }}
+        style={{ height: '75vh' }}
       >
         {/* 헤더 */}
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800">✏️ 직접 입력</h2>
+          <h2 className="text-lg font-bold text-gray-800">✏️ 수동 입력</h2>
           <button onClick={onClose} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
             <span className="text-gray-500 text-lg">✕</span>
           </button>
@@ -91,7 +121,7 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
         </div>
 
         {/* 스크롤 영역 */}
-        <div className="overflow-y-auto p-4 space-y-3" style={{ height: 'calc(65vh - 160px)' }}>
+        <div className="overflow-y-auto p-4 space-y-3" style={{ height: 'calc(75vh - 160px)' }}>
           {/* 내용 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">내용</label>
@@ -123,39 +153,79 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           {/* 지출일 때 */}
           {activeTab === 'spent' && (
             <>
+              {/* 카테고리 섹션 */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">카테고리</label>
-                <div className="grid grid-cols-4 gap-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">📁 카테고리</label>
+                
+                {/* 변동지출 (생활비) */}
+                <p className="text-xs text-gray-400 mb-1">변동지출 (생활비)</p>
+                <div className="grid grid-cols-4 gap-1 mb-3">
                   {SPEND_CATEGORIES.variable.map((cat) => (
                     <button
                       key={cat.id}
-                      onClick={() => setCategory(cat.id)}
-                      className={`py-1.5 rounded-lg text-[11px] font-medium ${category === cat.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+                      onClick={() => handleCategorySelect(cat.id, false)}
+                      className={`py-2 rounded-xl text-[11px] font-medium flex flex-col items-center gap-0.5 ${
+                        category === cat.id && !isFixedCategory 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
                     >
-                      {cat.emoji} {cat.name}
+                      <span className="text-base">{cat.emoji}</span>
+                      <span>{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* 고정지출 (저축) */}
+                <p className="text-xs text-gray-400 mb-1">고정지출 (저축)</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {SPEND_CATEGORIES.fixed.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleCategorySelect(cat.id, true)}
+                      className={`py-2 rounded-xl text-[11px] font-medium flex flex-col items-center gap-0.5 ${
+                        category === cat.id && isFixedCategory 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-blue-50 text-blue-600 border border-blue-200'
+                      }`}
+                    >
+                      <span className="text-base">{cat.emoji}</span>
+                      <span>{cat.name}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">감정지출</label>
-                <div className="flex gap-2">
-                  {(['충동', '선택', '필수'] as EmotionType[]).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setEmotionType(type)}
-                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium ${
-                        emotionType === type
-                          ? type === '충동' ? 'bg-red-500 text-white' : type === '선택' ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {type === '충동' ? '🔥' : type === '선택' ? '🤔' : '✅'} {type}
-                    </button>
-                  ))}
+              {/* 감정지출 - 변동지출일 때만 표시 */}
+              {!isFixedCategory && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">🧠 이 지출은 어떤 소비인가요?</label>
+                  <p className="text-xs text-gray-400 mb-2">(리포트에 반영돼요)</p>
+                  <div className="flex gap-2">
+                    {(['충동', '선택', '필수'] as EmotionType[]).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setEmotionType(type)}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium ${
+                          emotionType === type
+                            ? type === '충동' ? 'bg-red-500 text-white' : type === '선택' ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {type === '충동' ? '🔥' : type === '선택' ? '🤔' : '✅'} {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* 고정지출 안내 */}
+              {isFixedCategory && (
+                <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                  <p className="text-sm text-blue-700 font-medium">💡 고정지출은 순저축에 반영됩니다</p>
+                  <p className="text-xs text-blue-500 mt-1">저축투자, 노후연금은 자산 증가로, 보험/대출은 고정비용으로 기록됩니다.</p>
+                </div>
+              )}
             </>
           )}
 
@@ -195,13 +265,15 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           )}
         </div>
 
-        {/* 저장 버튼 - 파란색 */}
+        {/* 저장 버튼 */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
           <button
             onClick={handleSubmit}
-            className="w-full py-3 rounded-xl text-white font-bold text-base bg-blue-500"
+            className={`w-full py-3 rounded-xl text-white font-bold text-base ${
+              isFixedCategory ? 'bg-green-500' : 'bg-blue-500'
+            }`}
           >
-            저장하기
+            {isFixedCategory ? '💰 고정지출 저장하기' : '저장하기'}
           </button>
         </div>
       </div>
