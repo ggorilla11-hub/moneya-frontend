@@ -12,6 +12,16 @@ export interface DailySnapshot {
   netAssets: number;
 }
 
+// 순자산 스냅샷 (재무진단 입력 시 저장)
+export interface NetAssetsSnapshot {
+  date: string;
+  year: number;
+  month: number;
+  netAssets: number;
+  totalAssets: number;
+  totalDebt: number;
+}
+
 export const getAgeGroup = (age: number): string => {
   if (age < 30) return '20대';
   if (age < 40) return '30대';
@@ -89,4 +99,72 @@ export const getSnapshots = (userId: string): DailySnapshot[] => {
   const key = `moneya_snapshots_${userId}`;
   const existing = localStorage.getItem(key);
   return existing ? JSON.parse(existing) : [];
+};
+
+// 순자산 스냅샷 저장 (재무진단 입력 시 호출)
+export const saveNetAssetsSnapshot = (userId: string, totalAssets: number, totalDebt: number): void => {
+  const key = `moneya_netAssets_${userId}`;
+  const existing = localStorage.getItem(key);
+  let snapshots: NetAssetsSnapshot[] = existing ? JSON.parse(existing) : [];
+  
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const date = now.toISOString().split('T')[0];
+  
+  const newSnapshot: NetAssetsSnapshot = {
+    date,
+    year,
+    month,
+    netAssets: totalAssets - totalDebt,
+    totalAssets,
+    totalDebt,
+  };
+  
+  // 같은 월에 이미 데이터가 있으면 업데이트, 없으면 추가
+  const existingIndex = snapshots.findIndex(s => s.year === year && s.month === month);
+  if (existingIndex >= 0) {
+    snapshots[existingIndex] = newSnapshot;
+  } else {
+    snapshots.push(newSnapshot);
+  }
+  
+  // 최근 12개월만 유지
+  snapshots = snapshots
+    .sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    })
+    .slice(-12);
+  
+  localStorage.setItem(key, JSON.stringify(snapshots));
+};
+
+// 순자산 스냅샷 조회
+export const getNetAssetsSnapshots = (userId: string): NetAssetsSnapshot[] => {
+  const key = `moneya_netAssets_${userId}`;
+  const existing = localStorage.getItem(key);
+  const snapshots: NetAssetsSnapshot[] = existing ? JSON.parse(existing) : [];
+  
+  return snapshots.sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return a.month - b.month;
+  });
+};
+
+// 최근 N개월 라벨 생성
+export const getRecentMonthLabels = (months: number = 4): { month: string; year: number; monthNum: number }[] => {
+  const result = [];
+  const now = new Date();
+  
+  for (let i = months - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    result.push({
+      month: (date.getMonth() + 1) + '월',
+      year: date.getFullYear(),
+      monthNum: date.getMonth() + 1,
+    });
+  }
+  
+  return result;
 };
