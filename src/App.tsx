@@ -194,7 +194,7 @@ function App() {
     setCurrentStep('re-analysis');
   };
 
-  // 재진단/재분석에서 홈으로 돌아가기
+  // 홈으로 돌아가기
   const handleBackToHome = () => {
     setCurrentStep('main');
     setCurrentTab('home');
@@ -323,7 +323,7 @@ function App() {
     );
   }
 
-  // 재무분석 다시하기 → 예산조정화면
+  // 재무분석 다시하기 → 예산조정화면 (첨부1)
   if (currentStep === 're-analysis' && incomeExpenseData) {
     return (
       <BudgetAdjustPage
@@ -342,7 +342,7 @@ function App() {
     );
   }
 
-  // 재분석 - 정보입력화면 (다시 분석하기 클릭 시)
+  // 다시 분석하기 → 정보입력화면 (첨부2)
   if (currentStep === 're-analysis-input') {
     return (
       <IncomeExpenseInputPage
@@ -352,7 +352,7 @@ function App() {
           if (user) {
             localStorage.setItem(`incomeExpenseData_${user.uid}`, JSON.stringify(data));
           }
-          setCurrentStep('re-analysis');
+          setCurrentStep('income-expense-result');
         }}
         onBack={() => setCurrentStep('re-analysis')}
       />
@@ -371,12 +371,6 @@ function App() {
               onMoreDetail={handleMoreDetail}
               onReDiagnosis={handleReDiagnosis}
               onReAnalysis={handleReAnalysis}
-              onBudgetUpdate={(budget) => {
-                setAdjustedBudget(budget);
-                if (user) {
-                  localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
-                }
-              }}
             />
           )}
           {currentTab === 'ai-spend' && (
