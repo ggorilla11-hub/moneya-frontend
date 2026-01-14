@@ -87,19 +87,21 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     .filter(item => item.type === 'spent' && item.emotionType === '필수')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 카테고리별 지출 계산
+  // 카테고리별 지출 계산 (모든 지출 항목 대상)
+  const allSpentItems = spendItems.filter(item => item.type === 'spent');
   const categoryTotals: { [key: string]: number } = {};
-  todayItems
-    .filter(item => item.type === 'spent')
-    .forEach(item => {
-      categoryTotals[item.category] = (categoryTotals[item.category] || 0) + item.amount;
-    });
+  
+  allSpentItems.forEach(item => {
+    const cat = item.category || '기타';
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + item.amount;
+  });
 
   const totalCategorySpending = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
 
+  // 모든 카테고리 표시 (0원이어도 표시)
   const categorySpending = [
     { label: '식비', icon: '🍽️', amount: categoryTotals['식비'] || 0, color: 'bg-orange-500' },
-    { label: '카페', icon: '☕', amount: categoryTotals['카페'] || 0, color: 'bg-purple-500' },
+    { label: '카페', icon: '☕', amount: categoryTotals['카페'] || 0, color: 'bg-amber-600' },
     { label: '교통', icon: '🚌', amount: categoryTotals['교통'] || 0, color: 'bg-blue-500' },
     { label: '쇼핑', icon: '🛒', amount: categoryTotals['쇼핑'] || 0, color: 'bg-pink-500' },
     { label: '여가', icon: '🎮', amount: categoryTotals['여가'] || 0, color: 'bg-green-500' },
@@ -108,7 +110,7 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   ].map(cat => ({
     ...cat,
     percent: totalCategorySpending > 0 ? Math.round((cat.amount / totalCategorySpending) * 100) : 0
-  })).filter(cat => cat.amount > 0 || cat.label === '식비'); // 0원인 카테고리는 숨김 (식비는 항상 표시)
+  }));
 
   const budgetCards = adjustedBudget ? [
     { id: 'living', label: '생활비', icon: '🛒', amount: adjustedBudget.livingExpense, spent: todaySpent, color: 'from-blue-500 to-blue-700' },
@@ -400,20 +402,21 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
           {/* 생활비 카테고리별 소비 - 실제 데이터 */}
           <div className="bg-white rounded-xl p-3">
             <p className="text-sm font-bold text-gray-700 mb-2">📊 생활비 카테고리별 소비</p>
-            {categorySpending.length > 0 ? (
-              <div className="space-y-2">
-                {categorySpending.map((cat) => (
-                  <div key={cat.label} className="flex items-center gap-2">
-                    <span className="text-sm w-16">{cat.icon} {cat.label}</span>
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.percent}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-gray-600 w-10 text-right">{cat.percent}%</span>
+            <div className="space-y-2">
+              {categorySpending.map((cat) => (
+                <div key={cat.label} className="flex items-center gap-2">
+                  <span className="text-sm w-14">{cat.icon} {cat.label}</span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full ${cat.color} rounded-full transition-all`} style={{ width: `${cat.percent}%` }} />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-400 text-sm py-2">아직 지출 기록이 없어요</p>
+                  <span className="text-xs font-bold text-gray-600 w-12 text-right">
+                    {cat.percent > 0 ? `${cat.percent}%` : '-'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {totalCategorySpending === 0 && (
+              <p className="text-center text-gray-400 text-xs mt-2">아직 지출 기록이 없어요</p>
             )}
           </div>
         </div>
