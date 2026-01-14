@@ -43,8 +43,7 @@ type AppStep =
   | 'main'
   | 'detail-report'
   | 'faq-more'
-  | 're-diagnosis'
-  | 're-analysis';
+  | 're-diagnosis';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -188,12 +187,12 @@ function App() {
     setCurrentStep('re-diagnosis');
   };
 
-  // 재무분석 다시하기
+  // 재무분석 다시하기 → 정보입력 화면으로 이동
   const handleReAnalysis = () => {
-    setCurrentStep('re-analysis');
+    setCurrentStep('income-expense-input');
   };
 
-  // 재진단/재분석에서 홈으로 돌아가기
+  // 재진단에서 홈으로 돌아가기
   const handleBackToHome = () => {
     setCurrentStep('main');
     setCurrentTab('home');
@@ -258,7 +257,7 @@ function App() {
       <IncomeExpenseInputPage
         initialIncome={financialResult?.income || 0}
         onComplete={handleIncomeExpenseComplete}
-        onBack={() => setCurrentStep('financial-result')}
+        onBack={() => setCurrentStep('main')}
       />
     );
   }
@@ -317,24 +316,6 @@ function App() {
         result={financialResult}
         onRetry={handleFinancialRetry}
         onNext={handleBackToHome}
-        isFromHome={true}
-      />
-    );
-  }
-
-  // 재무분석 다시하기 화면
-  if (currentStep === 're-analysis' && adjustedBudget) {
-    return (
-      <BudgetAdjustPage
-        incomeExpenseData={incomeExpenseData!}
-        onConfirm={(budget) => {
-          setAdjustedBudget(budget);
-          if (user) {
-            localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
-          }
-          handleBackToHome();
-        }}
-        onBack={handleBackToHome}
         isFromHome={true}
       />
     );
