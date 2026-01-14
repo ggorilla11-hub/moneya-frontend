@@ -60,14 +60,18 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose}>
+      {/* 모달 컨테이너 - 화면 하단에서 시작, 최대 높이 제한 */}
       <div 
-        className="w-full max-w-md bg-white rounded-t-[24px] flex flex-col"
+        className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] flex flex-col"
         onClick={(e) => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.3s ease-out', height: '75vh' }}
+        style={{ 
+          animation: 'slideUp 0.3s ease-out', 
+          maxHeight: '70vh',
+        }}
       >
         {/* 헤더 */}
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800">✏️ 직접 입력</h2>
           <button onClick={onClose} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
             <span className="text-gray-500 text-lg">✕</span>
@@ -75,38 +79,38 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
         </div>
 
         {/* 탭 */}
-        <div className="flex border-b border-gray-100 flex-shrink-0">
+        <div className="flex border-b border-gray-100">
           <button
             onClick={() => setActiveTab('spent')}
-            className={`flex-1 py-2.5 text-sm font-bold transition-all ${activeTab === 'spent' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-400'}`}
+            className={`flex-1 py-2 text-sm font-bold transition-all ${activeTab === 'spent' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-400'}`}
           >
             💸 지출
           </button>
           <button
             onClick={() => setActiveTab('saved')}
-            className={`flex-1 py-2.5 text-sm font-bold transition-all ${activeTab === 'saved' ? 'text-green-500 border-b-2 border-green-500' : 'text-gray-400'}`}
+            className={`flex-1 py-2 text-sm font-bold transition-all ${activeTab === 'saved' ? 'text-green-500 border-b-2 border-green-500' : 'text-gray-400'}`}
           >
             💪 감정저축
           </button>
         </div>
 
         {/* 스크롤 가능한 입력 영역 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* 내용 (순서 변경: 먼저) */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: 'calc(70vh - 180px)' }}>
+          {/* 내용 */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1.5">내용</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">내용</label>
             <input
               type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               placeholder={activeTab === 'spent' ? '예: 점심 김치찌개' : '예: 커피 참음'}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
             />
           </div>
 
-          {/* 금액 (순서 변경: 나중) */}
+          {/* 금액 */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1.5">금액</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">금액</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₩</span>
               <input
@@ -115,7 +119,7 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
                 value={amount}
                 onChange={(e) => setAmount(formatAmount(e.target.value))}
                 placeholder="0"
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-lg font-bold text-right focus:outline-none focus:border-blue-400"
+                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-lg font-bold text-right focus:outline-none focus:border-blue-400"
               />
             </div>
           </div>
@@ -124,13 +128,13 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           {activeTab === 'spent' && (
             <>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">카테고리</label>
-                <div className="grid grid-cols-4 gap-1.5">
+                <label className="block text-sm font-bold text-gray-700 mb-1">카테고리</label>
+                <div className="grid grid-cols-4 gap-1">
                   {SPEND_CATEGORIES.variable.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setCategory(cat.id)}
-                      className={`py-1.5 px-1 rounded-lg text-xs font-medium transition-all ${category === cat.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+                      className={`py-1.5 rounded-lg text-[11px] font-medium transition-all ${category === cat.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {cat.emoji} {cat.name}
                     </button>
@@ -139,13 +143,13 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">감정지출</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">감정지출</label>
                 <div className="flex gap-2">
                   {(['충동', '선택', '필수'] as EmotionType[]).map((type) => (
                     <button
                       key={type}
                       onClick={() => setEmotionType(type)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         emotionType === type
                           ? type === '충동' ? 'bg-red-500 text-white' : type === '선택' ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
                           : 'bg-gray-100 text-gray-600'
@@ -163,13 +167,13 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           {activeTab === 'saved' && (
             <>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">참은 이유</label>
-                <div className="flex flex-wrap gap-1.5">
+                <label className="block text-sm font-bold text-gray-700 mb-1">참은 이유</label>
+                <div className="flex flex-wrap gap-1">
                   {SAVED_REASONS.map((reason) => (
                     <button
                       key={reason}
                       onClick={() => setSavedReason(reason)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${savedReason === reason ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+                      className={`px-2 py-1 rounded-full text-[11px] font-medium transition-all ${savedReason === reason ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {reason}
                     </button>
@@ -178,13 +182,13 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">긴급도</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">긴급도</label>
                 <div className="flex gap-2">
                   {URGENCY_OPTIONS.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => setUrgency(opt)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${urgency === opt ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${urgency === opt ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {opt}
                     </button>
@@ -195,12 +199,12 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           )}
         </div>
 
-        {/* 저장 버튼 - 하단 고정 */}
-        <div className="p-4 border-t border-gray-100 flex-shrink-0">
+        {/* 저장 버튼 - 항상 보이는 하단 고정 */}
+        <div className="p-4 border-t border-gray-100 bg-white">
           <button
             onClick={handleSubmit}
-            className={`w-full py-3.5 rounded-xl text-white font-bold text-base transition-all ${
-              activeTab === 'spent' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+            className={`w-full py-3 rounded-xl text-white font-bold text-base ${
+              activeTab === 'spent' ? 'bg-red-500' : 'bg-green-500'
             }`}
           >
             {activeTab === 'spent' ? '💸 지출 기록하기' : '💪 감정저축 기록하기'}
