@@ -12,6 +12,7 @@ import {
   type PeerStats,
   type DailySnapshot
 } from '../services/statsService';
+import { getAIInsightAdvice } from '../services/aiService';
 
 interface FinancialResult {
   name: string;
@@ -34,6 +35,9 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const [peerStats, setPeerStats] = useState<PeerStats | null>(null);
   const [myRanks, setMyRanks] = useState({ savingsRate: 15, wealthIndex: 15 });
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
+  const [aiInsight, setAiInsight] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const currentUserId = userId || 'guest';
   const daysSinceJoin = getDaysSinceJoin(currentUserId);
@@ -63,7 +67,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const totalSaving = actualSavings > 0 ? actualSavings : (budgetSavings + budgetPension);
 
   const savingsRate = totalIncome > 0 ? Math.round(((budgetSavings + budgetPension) / totalIncome) * 100) : 0;
-  const debtRatio = totalAssets > 0 ? Math.round((totalDebt / totalAssets) * 100) : 0;
 
   const cumulativeNetSavings = spendItems
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved')
@@ -96,7 +99,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   }, [currentUserId, daysSinceJoin, cumulativeNetSavings, netAssets, age, savingsRate, wealthIndex]);
 
   const getPeriodLabel = () => {
-    if (daysSinceJoin < 30) return `가입 후 ${daysSinceJoin}일간`;
+    if (daysSinceJoin < 30) return '가입 후 ' + daysSinceJoin + '일간';
     if (daysSinceJoin < 60) return '지난 30일 대비';
     if (daysSinceJoin < 90) return '지난 60일 대비';
     return '3개월 전 대비';
@@ -113,6 +116,30 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   };
 
   const changes = getChangeFromStart();
+
+  const handleGetAIAdvice = async () => {
+    setIsLoadingAI(true);
+    setShowAIModal(true);
+    
+    try {
+      const advice = await getAIInsightAdvice({
+        name: financialResult?.name,
+        age: age,
+        income: totalIncome,
+        savingsRate: savingsRate,
+        wealthIndex: wealthIndex,
+        netAssets: netAssets,
+        totalDebt: totalDebt,
+        daysSinceJoin: daysSinceJoin,
+        cumulativeNetSavings: cumulativeNetSavings,
+      });
+      setAiInsight(advice);
+    } catch (error) {
+      setAiInsight('절약 팁을 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
 
   const getBudgetItems = () => {
     const livingRate = budgetLiving > 0 ? Math.round((actualLivingExpense / budgetLiving) * 100) : 0;
@@ -219,6 +246,38 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   return (
     <div className="min-h-screen bg-gray-50">
       
+      {/* AI 모달 */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
+                <span className="text-white text-lg">🤖</span>
+              </div>
+              <span className="font-bold text-gray-800">AI 머니야 절약 팁</span>
+            </div>
+            
+            {isLoadingAI ? (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-500">맞춤 절약 팁 분석 중...</p>
+              </div>
+            ) : (
+              <div className="bg-purple-50 rounded-xl p-4 mb-4">
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">{aiInsight}</p>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => setShowAIModal(false)}
+              className="w-full py-3 bg-purple-600 text-white font-semibold rounded-xl"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white px-4 py-3 flex items-center gap-3 border-b border-gray-200">
         <button 
           onClick={onBack}
@@ -470,7 +529,10 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
             {getAIInsight()}
           </p>
           <div className="flex gap-2">
-            <button className="flex-1 py-2.5 bg-purple-600 text-white font-semibold rounded-xl text-sm">
+            <button 
+              onClick={handleGetAIAdvice}
+              className="flex-1 py-2.5 bg-purple-600 text-white font-semibold rounded-xl text-sm"
+            >
               절약 팁 보기
             </button>
             <button className="flex-1 py-2.5 bg-white text-purple-600 font-semibold rounded-xl text-sm border border-purple-300">
