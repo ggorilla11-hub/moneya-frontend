@@ -15,6 +15,7 @@ import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
+import { saveNetAssetsSnapshot } from './services/statsService';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
@@ -103,6 +104,8 @@ function App() {
     setFinancialResult(result);
     if (user) {
       localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));
+      // 순자산 스냅샷 저장 (재무진단 입력 시점 기록)
+      saveNetAssetsSnapshot(user.uid, result.assets, result.debt);
     }
     setCurrentStep('financial-result');
   };
@@ -200,6 +203,17 @@ function App() {
     setCurrentTab('home');
   };
 
+  // 재무진단 다시하기 완료 후 저장
+  const handleReDiagnosisComplete = (result: FinancialResult) => {
+    setFinancialResult(result);
+    if (user) {
+      localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));
+      // 순자산 스냅샷 저장 (재진단 시에도 기록)
+      saveNetAssetsSnapshot(user.uid, result.assets, result.debt);
+    }
+    setCurrentStep('re-diagnosis');
+  };
+
   const handleRestart = async () => {
     if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 데이터가 초기화됩니다.')) {
       localStorage.removeItem(`onboarding_${user.uid}`);
@@ -212,6 +226,7 @@ function App() {
       localStorage.removeItem(`moneya_spend_${user.uid}`);
       localStorage.removeItem(`moneya_snapshots_${user.uid}`);
       localStorage.removeItem(`moneya_joinDate_${user.uid}`);
+      localStorage.removeItem(`moneya_netAssets_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -322,7 +337,10 @@ function App() {
     return (
       <FinancialResultPage
         result={financialResult}
-        onRetry={handleFinancialRetry}
+        onRetry={() => {
+          setFinancialResult(null);
+          setCurrentStep('financial-check');
+        }}
         onNext={handleBackToHome}
         isFromHome={true}
       />
