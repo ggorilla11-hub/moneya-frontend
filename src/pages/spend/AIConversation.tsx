@@ -413,21 +413,13 @@ function AIConversation({
   // 스크롤을 맨 아래로 이동하는 함수
   const scrollToBottom = () => {
     if (chatAreaRef.current) {
-      // 방법 1: scrollTop 설정
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
-      
-      // 방법 2: 마지막 메시지로 스크롤 (더 확실함)
-      const lastMessage = chatAreaRef.current.lastElementChild;
-      if (lastMessage) {
-        lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }
     }
   };
 
   // 메시지 변경 시 스크롤
   useEffect(() => {
     scrollToBottom();
-    // 약간의 딜레이 후 한번 더 스크롤 (렌더링 완료 후)
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages]);
@@ -507,8 +499,8 @@ function AIConversation({
         </div>
       </div>
 
-      {/* 채팅 영역 */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-[250px]" style={{ maxHeight: 'calc(100vh - 380px)' }}>
+      {/* 채팅 영역 - 하단 입력바 공간 확보 (pb-20) */}
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 pb-24 space-y-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-2.5 max-w-[90%] ${message.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
             {message.type === 'ai' && (
@@ -535,9 +527,9 @@ function AIConversation({
         )}
       </div>
 
-      {/* 입력 영역 */}
-      <div className="bg-white border-t border-gray-100 px-4 py-3">
-        <div className="flex items-center gap-2">
+      {/* 입력 영역 - 하단 고정 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
+        <div className="flex items-center gap-2 max-w-md mx-auto">
           <button onClick={onPlusClick} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
             <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </button>
