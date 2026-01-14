@@ -58,6 +58,7 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
         todayInvestment={todayInvestment}
         remainingBudget={remainingBudget}
         onFAQMore={onFAQMore}
+        onPlusClick={() => setIsInputMethodOpen(true)}
       >
         {/* 지출 타임라인 컴포넌트 - 헤더 바로 아래 */}
         <SpendTimeline
@@ -67,18 +68,6 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
           todayInvestment={todayInvestment}
         />
       </AIConversation>
-
-      {/* + 버튼 (지출 입력) */}
-      <div className="fixed bottom-24 left-4">
-        <button 
-          onClick={() => setIsInputMethodOpen(true)} 
-          className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg"
-        >
-          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </svg>
-        </button>
-      </div>
 
       {/* 지출 입력 모달 컴포넌트 */}
       <SpendInput
