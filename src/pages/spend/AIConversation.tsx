@@ -499,8 +499,12 @@ function AIConversation({
         </div>
       </div>
 
-      {/* 채팅 영역 - 하단 입력바+네비게이션 공간 확보 */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 pb-32 space-y-4">
+      {/* 채팅 영역 - 고정 높이, 내부 스크롤 */}
+      <div 
+        ref={chatAreaRef} 
+        className="mx-4 mt-3 overflow-y-auto space-y-4 bg-gray-50 rounded-xl p-3"
+        style={{ height: 'calc(100vh - 480px)', minHeight: '150px', maxHeight: '300px' }}
+      >
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-2.5 max-w-[90%] ${message.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
             {message.type === 'ai' && (
@@ -527,8 +531,8 @@ function AIConversation({
         )}
       </div>
 
-      {/* 입력 영역 - 하단 네비게이션 위에 고정 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
+      {/* 입력 영역 - 하단 네비게이션 위에 완전 고정 */}
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50">
         <div className="flex items-center gap-2 max-w-md mx-auto">
           <button onClick={onPlusClick} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
             <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
