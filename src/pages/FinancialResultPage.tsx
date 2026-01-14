@@ -15,16 +15,26 @@ interface FinancialResultPageProps {
   result: FinancialResult;
   onRetry: () => void;
   onNext: () => void;
+  isFromHome?: boolean;
 }
 
-function FinancialResultPage({ result, onRetry, onNext }: FinancialResultPageProps) {
+function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: FinancialResultPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-green-50 to-amber-50 p-5">
       {/* 헤더 */}
-      <div className="text-center mb-6">
-        <h1 className="text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
+      <div className="flex items-center mb-6">
+        {isFromHome && (
+          <button 
+            onClick={onNext}
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm mr-3"
+          >
+            <span className="text-gray-600 text-lg">‹</span>
+          </button>
+        )}
+        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2 flex-1 justify-center">
           🏠 나의 금융집
         </h1>
+        {isFromHome && <div className="w-10"></div>}
       </div>
 
       {/* 금융집 이미지 */}
@@ -101,22 +111,40 @@ function FinancialResultPage({ result, onRetry, onNext }: FinancialResultPagePro
 
       {/* 버튼들 */}
       <div className="space-y-3">
-        <button
-          onClick={onNext}
-          className="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
-        >
-          💰 예산 수립하러 가기
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-        
-        <button
-          onClick={onRetry}
-          className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
-        >
-          🔄 다시 진단하기
-        </button>
+        {isFromHome ? (
+          <>
+            <button
+              onClick={onNext}
+              className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
+            >
+              ✓ 홈으로 돌아가기
+            </button>
+            <button
+              onClick={onRetry}
+              className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+            >
+              🔄 다시 진단하기
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onNext}
+              className="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+            >
+              💰 예산 수립하러 가기
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={onRetry}
+              className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+            >
+              🔄 다시 진단하기
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
