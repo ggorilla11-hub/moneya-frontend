@@ -32,6 +32,14 @@ interface DetailReportPageProps {
   onBack: () => void;
 }
 
+// 원 단위 → 만원 단위 변환 함수
+const toManwon = (value: number): number => {
+  if (value >= 100000) {
+    return Math.round(value / 10000);
+  }
+  return value;
+};
+
 function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: DetailReportPageProps) {
   const { spendItems } = useSpend();
   const [peerStats, setPeerStats] = useState<PeerStats | null>(null);
@@ -47,10 +55,10 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
   const currentUserId = userId || 'guest';
   const daysSinceJoin = getDaysSinceJoin(currentUserId);
 
-  // 수입 (만원 단위)
-  const totalIncome = adjustedBudget?.totalIncome || financialResult?.income || 500;
-  const totalAssets = financialResult?.assets || 28000;
-  const totalDebt = financialResult?.debt || 15600;
+  // 모든 금액을 만원 단위로 변환
+  const totalIncome = toManwon(adjustedBudget?.totalIncome || financialResult?.income || 500);
+  const totalAssets = toManwon(financialResult?.assets || 28000);
+  const totalDebt = toManwon(financialResult?.debt || 15600);
   const netAssets = totalAssets - totalDebt;
   const age = financialResult?.age || 44;
   const wealthIndex = financialResult?.wealthIndex || 95;
@@ -64,15 +72,15 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     .filter(item => item.type === 'saved' || item.type === 'investment' || item.category === '저축투자' || item.category === '노후연금')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // 만원 단위로 변환 (입력이 원 단위일 경우)
-  const actualLivingExpense = actualLivingExpenseRaw > 10000 ? Math.round(actualLivingExpenseRaw / 10000) : actualLivingExpenseRaw;
-  const actualSavings = actualSavingsRaw > 10000 ? Math.round(actualSavingsRaw / 10000) : actualSavingsRaw;
+  const actualLivingExpense = toManwon(actualLivingExpenseRaw);
+  const actualSavings = toManwon(actualSavingsRaw);
 
-  const budgetLiving = adjustedBudget?.livingExpense || 500;
-  const budgetSavings = adjustedBudget?.savings || 100;
-  const budgetPension = adjustedBudget?.pension || 50;
-  const budgetInsurance = adjustedBudget?.insurance || 30;
-  const budgetLoan = adjustedBudget?.loanPayment || 80;
+  // 예산도 만원 단위로 변환
+  const budgetLiving = toManwon(adjustedBudget?.livingExpense || 500);
+  const budgetSavings = toManwon(adjustedBudget?.savings || 100);
+  const budgetPension = toManwon(adjustedBudget?.pension || 50);
+  const budgetInsurance = toManwon(adjustedBudget?.insurance || 30);
+  const budgetLoan = toManwon(adjustedBudget?.loanPayment || 80);
 
   const totalExpense = actualLivingExpense > 0 ? actualLivingExpense : budgetLiving;
   const totalSaving = actualSavings > 0 ? actualSavings : (budgetSavings + budgetPension);
@@ -83,7 +91,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     .filter(item => item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved' || item.type === 'investment')
     .reduce((sum, item) => sum + item.amount, 0);
   
-  const cumulativeNetSavings = cumulativeNetSavingsRaw > 10000 ? Math.round(cumulativeNetSavingsRaw / 10000) : cumulativeNetSavingsRaw;
+  const cumulativeNetSavings = toManwon(cumulativeNetSavingsRaw);
 
   // 월별 순저축 집계 - 현재 월만 데이터 있음
   const getMonthlySavingsData = () => {
@@ -92,27 +100,21 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
     
-    // 저축 관련 항목만 필터링
     const savingsItems = spendItems.filter(item => 
       item.category === '저축투자' || item.category === '노후연금' || item.type === 'saved' || item.type === 'investment'
     );
     
     return monthLabels.map(label => {
-      // 현재 월의 데이터만 계산
       let monthTotal = 0;
       
       if (label.year === currentYear && label.monthNum === currentMonth) {
-        // 현재 월: 실제 데이터 집계
         const monthItems = savingsItems.filter(item => {
           const itemDate = new Date(item.timestamp);
           return itemDate.getFullYear() === label.year && 
                  (itemDate.getMonth() + 1) === label.monthNum;
         });
         monthTotal = monthItems.reduce((sum, item) => sum + item.amount, 0);
-        // 만원 단위로 변환
-        if (monthTotal > 10000) {
-          monthTotal = Math.round(monthTotal / 10000);
-        }
+        monthTotal = toManwon(monthTotal);
       }
       
       return {
@@ -138,7 +140,7 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
         month: label.month,
         year: label.year,
         monthNum: label.monthNum,
-        netAssets: snapshot?.netAssets || 0,
+        netAssets: snapshot ? toManwon(snapshot.netAssets) : 0,
       };
     });
   };
@@ -314,7 +316,6 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
     const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
     
-    // 데이터가 있는 월 확인
     const hasAnyData = values.some(v => v > 0);
     
     if (!hasAnyData) {
