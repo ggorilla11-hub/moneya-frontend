@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage';
 import DetailReportPage from './pages/DetailReportPage';
 import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
+import ConsultingRequestPage from './pages/ConsultingRequestPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
 import { saveNetAssetsSnapshot } from './services/statsService';
@@ -46,7 +47,8 @@ type AppStep =
   | 'faq-more'
   | 're-diagnosis'
   | 're-analysis'
-  | 're-analysis-input';
+  | 're-analysis-input'
+  | 'consulting-request';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -332,6 +334,15 @@ function App() {
     );
   }
 
+  // 강의/상담 신청 화면
+  if (currentStep === 'consulting-request') {
+    return (
+      <ConsultingRequestPage
+        onBack={handleBackToHome}
+      />
+    );
+  }
+
   // 재무진단 다시하기 화면
   if (currentStep === 're-diagnosis' && financialResult) {
     return (
@@ -416,18 +427,117 @@ function App() {
           )}
           {currentTab === 'mypage' && (
             <div className="min-h-screen bg-gray-50 pb-24">
+              {/* 프로필 영역 */}
               <div className="bg-white p-6 border-b">
                 <div className="flex items-center gap-4">
-                  {user.photoURL && (
+                  {user.photoURL ? (
                     <img src={user.photoURL} alt="프로필" className="w-16 h-16 rounded-full" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-2xl font-bold">
+                      {(financialResult?.name || user.displayName || '사')[0]}
+                    </div>
                   )}
-                  <div>
-                    <p className="font-bold text-lg text-gray-800">{user.displayName}</p>
+                  <div className="flex-1">
+                    <p className="font-bold text-lg text-gray-800">{financialResult?.name || user.displayName}</p>
                     <p className="text-sm text-gray-500">{user.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+                        베이직 이용 중
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 금융집 + DESIRE 단계 */}
+                {financialResult && (
+                  <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">{financialResult.houseImage || '🏠'}</span>
+                      <div>
+                        <p className="font-bold text-gray-800">{financialResult.houseName}</p>
+                        <p className="text-xs text-gray-500">부자지수 {financialResult.wealthIndex}점</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ⭐ 오상열 CFP 강의/상담 배너 */}
+              <div 
+                onClick={() => setCurrentStep('consulting-request')}
+                className="mx-4 mt-4 bg-gradient-to-r from-amber-100 to-yellow-100 rounded-xl p-4 border border-amber-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-xl font-bold shadow-lg flex-shrink-0">
+                    오
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">오상열 대표</span>
+                      <span className="text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">CFP</span>
+                    </div>
+                    <p className="text-xs text-amber-700 font-semibold">금융집짓기® 창시자</p>
+                    <p className="text-xs text-gray-600 mt-0.5">1:1 맞춤 재무설계 상담 · 비대면 33만 / 대면 55만</p>
+                  </div>
+                  <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow">
+                    신청
                   </div>
                 </div>
               </div>
-              <div className="p-4 space-y-3">
+
+              {/* 성장 기록 */}
+              <div className="mx-4 mt-4 bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  📈 성장 기록
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">출석</span>
+                    <span className="font-bold text-teal-600">연속 출석 중 🔥</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">예산 달성</span>
+                    <span className="font-bold text-gray-800">진행 중</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm text-gray-600">이번 달 절약</span>
+                    <span className="font-bold text-green-600">+0원</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 메뉴 리스트 */}
+              <div className="mx-4 mt-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div 
+                  onClick={() => setCurrentStep('consulting-request')}
+                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center">
+                    <span>👨‍🏫</span>
+                  </div>
+                  <span className="flex-1 font-semibold text-gray-800">전문가 상담 · 강의 신청</span>
+                  <span className="text-gray-400">›</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 opacity-50">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
+                    <span>📊</span>
+                  </div>
+                  <span className="flex-1 font-semibold text-gray-800">월간 리포트</span>
+                  <span className="text-xs text-gray-400 mr-2">준비 중</span>
+                  <span className="text-gray-400">›</span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 opacity-50">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <span>⚙️</span>
+                  </div>
+                  <span className="flex-1 font-semibold text-gray-800">설정</span>
+                  <span className="text-xs text-gray-400 mr-2">준비 중</span>
+                  <span className="text-gray-400">›</span>
+                </div>
+              </div>
+
+              {/* 기타 메뉴 */}
+              <div className="mx-4 mt-4 space-y-2">
                 <button 
                   onClick={handleRestart}
                   className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
@@ -441,6 +551,9 @@ function App() {
                   로그아웃
                 </button>
               </div>
+
+              {/* 앱 버전 */}
+              <p className="text-center text-xs text-gray-400 mt-6">앱 버전 v1.0.0 (베이스캠프 5.0)</p>
             </div>
           )}
           
