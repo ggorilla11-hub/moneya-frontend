@@ -13,7 +13,10 @@ import HomePage from './pages/HomePage';
 import DetailReportPage from './pages/DetailReportPage';
 import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
-import ConsultingRequestPage from './pages/ConsultingRequestPage';
+// ⭐ 새로 추가된 import
+import ConsultingPage from './pages/ConsultingPage';
+import ConsultingApplyPage from './pages/ConsultingApplyPage';
+import type { ServiceItem } from './pages/ConsultingPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
 import { saveNetAssetsSnapshot } from './services/statsService';
@@ -48,7 +51,8 @@ type AppStep =
   | 're-diagnosis'
   | 're-analysis'
   | 're-analysis-input'
-  | 'consulting-request';
+  | 'consulting'        // ⭐ 추가
+  | 'consulting-apply'; // ⭐ 추가
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -60,6 +64,8 @@ function App() {
   const [financialResult, setFinancialResult] = useState<FinancialResult | null>(null);
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
   const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
+  // ⭐ 새로 추가된 state
+  const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -106,7 +112,6 @@ function App() {
     setFinancialResult(result);
     if (user) {
       localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));
-      // 순자산 스냅샷 저장 (재무진단 입력 시점 기록)
       saveNetAssetsSnapshot(user.uid, result.assets, result.debt);
     }
     setCurrentStep('financial-result');
@@ -189,29 +194,24 @@ function App() {
     console.log('Selected question:', question);
   };
 
-  // 재무진단 다시하기
   const handleReDiagnosis = () => {
     setCurrentStep('re-diagnosis');
   };
 
-  // 재무분석 다시하기 → 예산조정화면으로 이동
   const handleReAnalysis = () => {
     setCurrentStep('re-analysis');
   };
 
-  // 홈으로 돌아가기
   const handleBackToHome = () => {
     setCurrentStep('main');
     setCurrentTab('home');
   };
 
-  // 재무진단 다시하기 완료 후 저장 (향후 사용 예정)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _handleReDiagnosisComplete = (result: FinancialResult) => {
     setFinancialResult(result);
     if (user) {
       localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));
-      // 순자산 스냅샷 저장 (재진단 시에도 기록)
       saveNetAssetsSnapshot(user.uid, result.assets, result.debt);
     }
     setCurrentStep('re-diagnosis');
@@ -237,6 +237,26 @@ function App() {
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
+  };
+
+  // ⭐ 상담/강의 페이지 핸들러 추가
+  const handleConsultingOpen = () => {
+    setCurrentStep('consulting');
+  };
+
+  const handleConsultingBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('mypage');
+  };
+
+  const handleApplyService = (service: ServiceItem) => {
+    setSelectedService(service);
+    setCurrentStep('consulting-apply');
+  };
+
+  const handleApplyBack = () => {
+    setSelectedService(null);
+    setCurrentStep('consulting');
   };
 
   if (loading) {
@@ -335,11 +355,27 @@ function App() {
     );
   }
 
-  // 강의/상담 신청 화면
-  if (currentStep === 'consulting-request') {
+  // ⭐ 전문가 상담/강의 목록 페이지
+  if (currentStep === 'consulting') {
     return (
-      <ConsultingRequestPage
-        onBack={handleBackToHome}
+      <ConsultingPage
+        onBack={handleConsultingBack}
+        onApply={handleApplyService}
+      />
+    );
+  }
+
+  // ⭐ 상담/강의 신청 페이지
+  if (currentStep === 'consulting-apply' && selectedService) {
+    return (
+      <ConsultingApplyPage
+        service={selectedService}
+        onBack={handleApplyBack}
+        onComplete={() => {
+          setSelectedService(null);
+          setCurrentStep('main');
+          setCurrentTab('mypage');
+        }}
       />
     );
   }
@@ -463,10 +499,10 @@ function App() {
                 )}
               </div>
 
-              {/* ⭐ 오상열 CFP 강의/상담 배너 */}
+              {/* ⭐ 오상열 CFP 강의/상담 배너 - 수정됨 */}
               <div 
-                onClick={() => setCurrentStep('consulting-request')}
-                className="mx-4 mt-4 bg-gradient-to-r from-amber-100 to-yellow-100 rounded-xl p-4 border border-amber-200 shadow-sm cursor-pointer hover:shadow-md transition-all"
+                onClick={handleConsultingOpen}
+                className="mx-4 mt-4 bg-gradient-to-r from-amber-100 to-yellow-100 rounded-xl p-4 border border-amber-200 shadow-sm cursor-pointer hover:shadow-md transition-all active:scale-[0.98]"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-xl font-bold shadow-lg flex-shrink-0">
@@ -510,8 +546,8 @@ function App() {
               {/* 메뉴 리스트 */}
               <div className="mx-4 mt-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div 
-                  onClick={() => setCurrentStep('consulting-request')}
-                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50"
+                  onClick={handleConsultingOpen}
+                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 active:bg-gray-100"
                 >
                   <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center">
                     <span>👨‍🏫</span>
@@ -541,13 +577,13 @@ function App() {
               <div className="mx-4 mt-4 space-y-2">
                 <button 
                   onClick={handleRestart}
-                  className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
+                  className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl active:bg-blue-600"
                 >
                   🔄 처음부터 다시하기
                 </button>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
+                  className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl active:bg-gray-300"
                 >
                   로그아웃
                 </button>
