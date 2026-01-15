@@ -205,8 +205,9 @@ function App() {
     setCurrentTab('home');
   };
 
-  // 재무진단 다시하기 완료 후 저장
-  const handleReDiagnosisComplete = (result: FinancialResult) => {
+  // 재무진단 다시하기 완료 후 저장 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleReDiagnosisComplete = (result: FinancialResult) => {
     setFinancialResult(result);
     if (user) {
       localStorage.setItem(`financialData_${user.uid}`, JSON.stringify(result));

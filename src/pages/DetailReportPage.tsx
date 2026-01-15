@@ -313,8 +313,11 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
 
   // 월별 그래프 포인트 계산
   const getMonthlyGraphPoints = () => {
-    const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
-    const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings);
+    const isNetAssets = graphType === 'netAssets';
+    const data = isNetAssets ? monthlyNetAssetsData : monthlySavingsData;
+    const values = isNetAssets 
+      ? monthlyNetAssetsData.map(d => d.netAssets) 
+      : monthlySavingsData.map(d => d.netSavings);
     
     const hasAnyData = values.some(v => v > 0);
     
@@ -337,7 +340,9 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
     const range = maxValue - minValue || maxValue || 1;
     
     const points = data.map((d, i) => {
-      const value = graphType === 'netAssets' ? d.netAssets : d.netSavings;
+      const value = isNetAssets 
+        ? monthlyNetAssetsData[i].netAssets 
+        : monthlySavingsData[i].netSavings;
       const hasData = value > 0;
       
       let y = 90;
@@ -359,12 +364,15 @@ function DetailReportPage({ adjustedBudget, financialResult, userId, onBack }: D
 
   const graphResult = getMonthlyGraphPoints();
   const graphPoints = graphResult.points;
-  const hasGraphData = graphResult.hasData;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _hasGraphData = graphResult.hasData;
   const dataPoints = graphPoints.filter(p => p.hasData);
 
   const getChangePercent = () => {
-    const data = graphType === 'netAssets' ? monthlyNetAssetsData : monthlySavingsData;
-    const values = data.map(d => graphType === 'netAssets' ? d.netAssets : d.netSavings).filter(v => v > 0);
+    const isNetAssets = graphType === 'netAssets';
+    const values = isNetAssets 
+      ? monthlyNetAssetsData.map(d => d.netAssets).filter(v => v > 0)
+      : monthlySavingsData.map(d => d.netSavings).filter(v => v > 0);
     
     if (values.length < 2) return 0;
     
