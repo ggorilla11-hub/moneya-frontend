@@ -1,8 +1,9 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
+// 기존 데이터 자동 연동 (불러오기 버튼 없이 해당 필드에 자동 입력)
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
 
 // ============================================
@@ -12,8 +13,19 @@ interface FinancialHouseBasicProps {
   userName: string;
   onComplete: () => void;
   onBack: () => void;
+  // 1차 재무진단 데이터
   existingFinancialResult?: { name: string; age: number; income: number; assets: number; debt: number; } | null;
-  existingIncomeExpense?: { income: number; expense: number; saving: number; investment: number; } | null;
+  // 2차 재무분석 데이터 (IncomeExpenseData 타입)
+  existingIncomeExpense?: { 
+    familySize: number;
+    income: number;
+    loanPayment: number;
+    insurance: number;
+    pension: number;
+    savings: number;
+    surplus: number;
+    livingExpense: number;
+  } | null;
 }
 
 interface InputRowProps {
@@ -100,44 +112,60 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
 
-  // Step 1: 인적사항
+  // ============================================
+  // Step 1: 인적사항 (기존 데이터 자동 연동)
+  // ============================================
   const [name, setName] = useState(data.personalInfo.name || existingFinancialResult?.name || userName);
   const [age, setAge] = useState(data.personalInfo.age || existingFinancialResult?.age || 35);
   const [married, setMarried] = useState(data.personalInfo.married);
   const [job, setJob] = useState(data.personalInfo.job || '');
-  const [familyCount, setFamilyCount] = useState(data.personalInfo.familyCount || 1);
+  const [familyCount, setFamilyCount] = useState(existingIncomeExpense?.familySize || data.personalInfo.familyCount || 1);
   const [retireAge, setRetireAge] = useState(data.retirePlan.retireAge || 65);
   const [dualIncome, setDualIncome] = useState(data.personalInfo.dualIncome);
 
+  // ============================================
   // Step 2: 관심사/목표
+  // ============================================
   const [interests, setInterests] = useState<string[]>([]);
   const [goal, setGoal] = useState('');
 
-  // Step 3: 수입
-  const [myIncome, setMyIncome] = useState(existingFinancialResult?.income || 0);
+  // ============================================
+  // Step 3: 수입 (기존 데이터 자동 연동)
+  // - 월수입: existingFinancialResult?.income 또는 existingIncomeExpense?.income → 본인소득에 자동 입력
+  // ============================================
+  const [myIncome, setMyIncome] = useState(existingIncomeExpense?.income || existingFinancialResult?.income || 0);
   const [spouseIncome, setSpouseIncome] = useState(0);
   const [otherIncome, setOtherIncome] = useState(0);
   const [bonusIncome, setBonusIncome] = useState(0);
   const [incentiveIncome, setIncentiveIncome] = useState(0);
   const [otherIrregularIncome, setOtherIrregularIncome] = useState(0);
 
-  // 지출
+  // ============================================
+  // Step 3: 지출 (기존 데이터 자동 연동)
+  // - 저축(savings) → 적금
+  // - 연금(pension) → 개인연금
+  // - 보험(insurance) → 보장성보험료
+  // - 대출상환(loanPayment) → 대출원리금
+  // ============================================
   const [cmaAmount, setCmaAmount] = useState(0);
-  const [savingsAmount, setSavingsAmount] = useState(existingIncomeExpense?.saving || 0);
+  const [savingsAmount, setSavingsAmount] = useState(existingIncomeExpense?.savings || 0);
   const [fundAmount, setFundAmount] = useState(0);
   const [housingSubAmount, setHousingSubAmount] = useState(0);
   const [isaAmount, setIsaAmount] = useState(0);
-  const [pensionAmount, setPensionAmount] = useState(0);
+  const [pensionAmount, setPensionAmount] = useState(existingIncomeExpense?.pension || 0);
   const [taxFreePensionAmount, setTaxFreePensionAmount] = useState(0);
-  const [insuranceAmount, setInsuranceAmount] = useState(0);
-  const [loanPaymentAmount, setLoanPaymentAmount] = useState(0);
-  const [surplusAmount, setSurplusAmount] = useState(0);
+  const [insuranceAmount, setInsuranceAmount] = useState(existingIncomeExpense?.insurance || 0);
+  const [loanPaymentAmount, setLoanPaymentAmount] = useState(existingIncomeExpense?.loanPayment || 0);
+  const [surplusAmount, setSurplusAmount] = useState(existingIncomeExpense?.surplus || 0);
 
-  // Step 4: 자산
+  // ============================================
+  // Step 4: 자산 (기존 데이터 자동 연동)
+  // - 총자산(assets) → 예적금에 자동 입력
+  // ============================================
   const [cmaAsset, setCmaAsset] = useState(0);
   const [goldAsset, setGoldAsset] = useState(0);
   const [bondAsset, setBondAsset] = useState(0);
-  const [depositAsset, setDepositAsset] = useState(0);
+  const [depositAsset, setDepositAsset] = useState(existingFinancialResult?.assets || 0);
   const [pensionAsset, setPensionAsset] = useState(0);
   const [savingsAsset, setSavingsAsset] = useState(0);
   const [fundSavingsAsset, setFundSavingsAsset] = useState(0);
@@ -145,27 +173,19 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [stockAsset, setStockAsset] = useState(0);
   const [cryptoAsset, setCryptoAsset] = useState(0);
 
-  // Step 5: 부채
-  const [mortgageDebt, setMortgageDebt] = useState(0);
+  // ============================================
+  // Step 5: 부채 (기존 데이터 자동 연동)
+  // - 총부채(debt) → 담보대출에 자동 입력
+  // ============================================
+  const [mortgageDebt, setMortgageDebt] = useState(existingFinancialResult?.debt || 0);
   const [creditDebt, setCreditDebt] = useState(0);
   const [otherDebt, setOtherDebt] = useState(0);
   const [emergencyFund, setEmergencyFund] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
 
-  useEffect(() => {
-    if (existingFinancialResult) {
-      if (existingFinancialResult.assets > 0) {
-        const t = existingFinancialResult.assets;
-        setDepositAsset(Math.round(t * 0.4));
-        setStockAsset(Math.round(t * 0.3));
-        setEtfAsset(Math.round(t * 0.2));
-        setCmaAsset(Math.round(t * 0.1));
-      }
-      if (existingFinancialResult.debt > 0) setMortgageDebt(existingFinancialResult.debt);
-    }
-  }, [existingFinancialResult]);
-
+  // ============================================
   // 계산값
+  // ============================================
   const totalMonthlyIncome = myIncome + spouseIncome + otherIncome;
   const totalIrregularIncome = bonusIncome + incentiveIncome + otherIrregularIncome;
   const totalExpenseWithoutLiving = cmaAmount + savingsAmount + fundAmount + housingSubAmount + isaAmount + pensionAmount + taxFreePensionAmount + insuranceAmount + loanPaymentAmount + surplusAmount;
@@ -269,19 +289,14 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
 
-        {/* Step 3: 수입/지출 */}
+        {/* Step 3: 수입/지출 - 기존 데이터 자동 연동 (불러오기 버튼 없음) */}
         {currentStep === 3 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">수입과 지출</span> 입력! 생활비는 자동계산 💰</p></div></div>
             
             {/* 월수입 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">💵</div><div><h3 className="font-bold text-gray-900">월 수입</h3><p className="text-xs text-gray-400">세후 기준</p></div></div>
-                {existingFinancialResult && existingFinancialResult.income > 0 && (
-                  <button onClick={() => setMyIncome(existingFinancialResult.income)} className="px-3 py-1.5 bg-teal-50 text-teal-600 text-xs font-semibold rounded-lg border border-teal-200">📥 불러오기</button>
-                )}
-              </div>
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">💵</div><div><h3 className="font-bold text-gray-900">월 수입</h3><p className="text-xs text-gray-400">세후 기준</p></div></div>
               <InputRow label="본인 소득" value={myIncome} onChange={setMyIncome} icon="👨‍💼" />
               {(married && dualIncome) && <InputRow label="배우자 소득" value={spouseIncome} onChange={setSpouseIncome} icon="👩‍💼" />}
               <InputRow label="기타 소득" value={otherIncome} onChange={setOtherIncome} icon="💼" />
@@ -316,17 +331,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
 
-        {/* Step 4: 자산 */}
+        {/* Step 4: 자산 - 기존 데이터 자동 연동 (불러오기 버튼 없음) */}
         {currentStep === 4 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">현재 보유 <span className="text-teal-600 font-bold">자산</span> 입력! 💎</p></div></div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💎</div><div><h3 className="font-bold text-gray-900">자산</h3><p className="text-xs text-gray-400">현재 보유 자산</p></div></div>
-                {existingFinancialResult && existingFinancialResult.assets > 0 && (
-                  <button onClick={() => setDepositAsset(existingFinancialResult.assets)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-lg border border-indigo-200">📥 불러오기</button>
-                )}
-              </div>
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💎</div><div><h3 className="font-bold text-gray-900">자산</h3><p className="text-xs text-gray-400">현재 보유 자산</p></div></div>
               <InputRow label="CMA(현금)" value={cmaAsset} onChange={setCmaAsset} icon="💵" />
               <InputRow label="금(GOLD)" value={goldAsset} onChange={setGoldAsset} icon="🥇" />
               <InputRow label="채권" value={bondAsset} onChange={setBondAsset} icon="📜" />
@@ -342,19 +352,14 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
 
-        {/* Step 5: 부채/요약 */}
+        {/* Step 5: 부채/요약 - 기존 데이터 자동 연동 (불러오기 버튼 없음) */}
         {currentStep === 5 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">마지막 <span className="text-teal-600 font-bold">부채</span> 입력! 📋</p></div></div>
             
             {/* 부채 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
-                {existingFinancialResult && existingFinancialResult.debt > 0 && (
-                  <button onClick={() => setMortgageDebt(existingFinancialResult.debt)} className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg border border-red-200">📥 불러오기</button>
-                )}
-              </div>
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
               <InputRow label="담보대출" value={mortgageDebt} onChange={setMortgageDebt} icon="🏠" />
               <InputRow label="신용대출" value={creditDebt} onChange={setCreditDebt} icon="💳" />
               <InputRow label="기타부채" value={otherDebt} onChange={setOtherDebt} icon="📦" />
