@@ -1,19 +1,9 @@
 import { useState } from 'react';
+import type { AdjustedBudget } from './BudgetAdjustPage';
 
 interface MonthlyReportPageProps {
   onBack: () => void;
-  adjustedBudget?: {
-    totalIncome: number;
-    totalExpense: number;
-    categories: {
-      food: number;
-      transport: number;
-      shopping: number;
-      culture: number;
-      health: number;
-      etc: number;
-    };
-  } | null;
+  adjustedBudget?: AdjustedBudget | null;
 }
 
 export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyReportPageProps) {
@@ -37,7 +27,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
   };
 
   // 샘플 데이터 (실제로는 adjustedBudget에서 가져옴)
-  const totalExpense = adjustedBudget?.totalExpense || 2847000;
+  const totalExpense = adjustedBudget?.expenses?.total || 2847000;
   const budgetAmount = adjustedBudget?.totalIncome ? adjustedBudget.totalIncome * 0.7 : 2700000;
   const budgetDiff = totalExpense - budgetAmount;
   const lastMonthDiff = -203000;
