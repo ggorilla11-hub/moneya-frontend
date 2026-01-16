@@ -1,9 +1,13 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 
 import { useState, useEffect } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
 
+// ============================================
+// 인터페이스 정의
+// ============================================
 interface FinancialHouseBasicProps {
   userName: string;
   onComplete: () => void;
@@ -12,6 +16,63 @@ interface FinancialHouseBasicProps {
   existingIncomeExpense?: { income: number; expense: number; saving: number; investment: number; } | null;
 }
 
+interface InputRowProps {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  icon: string;
+}
+
+interface AutoCalcRowProps {
+  label: string;
+  value: number;
+  icon: string;
+}
+
+// ============================================
+// InputRow 컴포넌트 (외부 정의 - 재생성 방지)
+// ============================================
+const InputRow = ({ label, value, onChange, icon }: InputRowProps) => (
+  <div className="flex items-center gap-3 py-2">
+    <span className="text-sm text-gray-600 w-32 flex items-center gap-1">
+      <span>{icon}</span> {label}
+    </span>
+    <div className="flex-1 relative">
+      <input 
+        type="text" 
+        inputMode="numeric" 
+        pattern="[0-9]*"
+        value={value === 0 ? '' : String(value)} 
+        onChange={(e) => {
+          const val = e.target.value.replace(/[^0-9]/g, '');
+          onChange(val ? parseInt(val, 10) : 0);
+        }} 
+        placeholder="0" 
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-right pr-12 focus:outline-none focus:border-teal-500" 
+      />
+      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">만원</span>
+    </div>
+  </div>
+);
+
+// ============================================
+// AutoCalcRow 컴포넌트 (외부 정의 - 재생성 방지)
+// ============================================
+const AutoCalcRow = ({ label, value, icon }: AutoCalcRowProps) => (
+  <div className="flex items-center gap-3 py-2 bg-teal-50 rounded-lg px-2">
+    <span className="text-sm text-teal-700 w-32 flex items-center gap-1 font-semibold">
+      <span>{icon}</span> {label}
+    </span>
+    <div className="flex-1 text-right">
+      <span className="text-sm font-bold text-teal-600">{value.toLocaleString()}만원</span>
+      <span className="text-xs text-teal-500 ml-1">(자동)</span>
+    </div>
+  </div>
+);
+
+// ============================================
+// 옵션 데이터
+// ============================================
 const interestOptions = [
   { id: 'saving', label: '💰 돈 모으기' }, { id: 'house', label: '🏠 내집 마련' },
   { id: 'retire', label: '🏖️ 노후 준비' }, { id: 'education', label: '👶 자녀 교육비' },
@@ -31,6 +92,9 @@ const jobOptions = [
   { id: 'other', label: '기타', icon: '👤' },
 ];
 
+// ============================================
+// 메인 컴포넌트
+// ============================================
 export default function FinancialHouseBasic({ userName, onComplete, onBack, existingFinancialResult, existingIncomeExpense }: FinancialHouseBasicProps) {
   const { data, updatePersonalInfo, updateFinancialInfo } = useFinancialHouse();
   const [currentStep, setCurrentStep] = useState(1);
@@ -101,6 +165,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
     }
   }, [existingFinancialResult]);
 
+  // 계산값
   const totalMonthlyIncome = myIncome + spouseIncome + otherIncome;
   const totalIrregularIncome = bonusIncome + incentiveIncome + otherIrregularIncome;
   const totalExpenseWithoutLiving = cmaAmount + savingsAmount + fundAmount + housingSubAmount + isaAmount + pensionAmount + taxFreePensionAmount + insuranceAmount + loanPaymentAmount + surplusAmount;
@@ -135,7 +200,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   };
 
   const saveAllData = () => {
-    updatePersonalInfo({ name, age, married, job: job as any, familyCount, dualIncome });
+    updatePersonalInfo({ name, age, married, job: job as 'employee' | 'business' | 'freelancer' | 'public' | 'homemaker' | 'student' | 'other' | '', familyCount, dualIncome });
     updateFinancialInfo({ monthlyIncome: totalMonthlyIncome, irregularIncome: totalIrregularIncome, monthlyExpense: totalExpense, totalAssets: totalAsset, totalDebt });
     localStorage.setItem('financialHouseCompleted', 'true');
     localStorage.setItem('financialHouseData', JSON.stringify({
@@ -148,34 +213,6 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   };
 
   const stepLabels = ['인적사항 입력 중...', '경제적 관심사 선택 중...', '수입/지출 입력 중...', '자산 입력 중...', '부채/요약 확인 중...'];
-
-  const InputRow = ({ label, value, onChange, icon }: { label: string; value: number; onChange: (v: number) => void; icon: string }) => (
-    <div className="flex items-center gap-3 py-2">
-      <span className="text-sm text-gray-600 w-32 flex items-center gap-1"><span>{icon}</span> {label}</span>
-      <div className="flex-1 relative">
-        <input 
-          type="text" 
-          inputMode="numeric" 
-          pattern="[0-9]*"
-          value={value === 0 ? '' : value} 
-          onChange={(e) => {
-            const val = e.target.value.replace(/[^0-9]/g, '');
-            onChange(val ? parseInt(val, 10) : 0);
-          }} 
-          placeholder="0" 
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-right pr-12 focus:outline-none focus:border-teal-500" 
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">만원</span>
-      </div>
-    </div>
-  );
-
-  const AutoCalcRow = ({ label, value, icon }: { label: string; value: number; icon: string }) => (
-    <div className="flex items-center gap-3 py-2 bg-teal-50 rounded-lg px-2">
-      <span className="text-sm text-teal-700 w-32 flex items-center gap-1 font-semibold"><span>{icon}</span> {label}</span>
-      <div className="flex-1 text-right"><span className="text-sm font-bold text-teal-600">{value.toLocaleString()}만원</span><span className="text-xs text-teal-500 ml-1">(자동)</span></div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
@@ -192,6 +229,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
         {[1,2,3,4,5].map(s => <div key={s} className={`h-2 rounded-full transition-all ${s === currentStep ? 'w-6 bg-teal-500' : s < currentStep ? 'w-2 bg-emerald-500' : 'w-2 bg-gray-300'}`} />)}
       </div>
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Step 1: 인적사항 */}
         {currentStep === 1 && (
           <>
             <div className="flex gap-3 mb-4">
@@ -202,18 +240,20 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
               <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl">👤</div><div><h3 className="font-bold text-gray-900">인적사항</h3><p className="text-xs text-gray-400">기본 정보 입력</p></div></div>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div><label className="block text-xs font-semibold text-gray-500 mb-1">이름 <span className="text-red-500">*</span></label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500" /></div>
-                <div><label className="block text-xs font-semibold text-gray-500 mb-1">나이 <span className="text-red-500">*</span></label><div className="relative"><input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">세</span></div></div>
+                <div><label className="block text-xs font-semibold text-gray-500 mb-1">나이 <span className="text-red-500">*</span></label><div className="relative"><input type="text" inputMode="numeric" pattern="[0-9]*" value={age === 0 ? '' : String(age)} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setAge(val ? parseInt(val, 10) : 0); }} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">세</span></div></div>
               </div>
               <div className="mb-3"><label className="block text-xs font-semibold text-gray-500 mb-2">결혼 여부</label><div className="grid grid-cols-2 gap-2"><button onClick={() => setMarried(true)} className={`py-3 rounded-lg border-2 text-sm font-semibold ${married ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">💑</span>기혼</button><button onClick={() => { setMarried(false); setDualIncome(false); }} className={`py-3 rounded-lg border-2 text-sm font-semibold ${!married ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👤</span>미혼</button></div></div>
               <div className="mb-3"><label className="block text-xs font-semibold text-gray-500 mb-2">직업</label><div className="grid grid-cols-4 gap-2">{jobOptions.map(o => <button key={o.id} onClick={() => setJob(o.id)} className={`py-2 rounded-lg border-2 text-xs font-semibold ${job === o.id ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-base mb-0.5">{o.icon}</span>{o.label}</button>)}</div></div>
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div><label className="block text-xs font-semibold text-gray-500 mb-1">가족 수</label><div className="relative"><input type="number" value={familyCount} onChange={(e) => setFamilyCount(Number(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">명</span></div></div>
-                <div><label className="block text-xs font-semibold text-gray-500 mb-1">은퇴 예정 나이</label><div className="relative"><input type="number" value={retireAge} onChange={(e) => setRetireAge(Number(e.target.value))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">세</span></div></div>
+                <div><label className="block text-xs font-semibold text-gray-500 mb-1">가족 수</label><div className="relative"><input type="text" inputMode="numeric" pattern="[0-9]*" value={familyCount === 0 ? '' : String(familyCount)} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setFamilyCount(val ? parseInt(val, 10) : 0); }} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">명</span></div></div>
+                <div><label className="block text-xs font-semibold text-gray-500 mb-1">은퇴 예정 나이</label><div className="relative"><input type="text" inputMode="numeric" pattern="[0-9]*" value={retireAge === 0 ? '' : String(retireAge)} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setRetireAge(val ? parseInt(val, 10) : 0); }} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">세</span></div></div>
               </div>
               {married && <div><label className="block text-xs font-semibold text-gray-500 mb-2">맞벌이 여부</label><div className="grid grid-cols-2 gap-2"><button onClick={() => setDualIncome(true)} className={`py-3 rounded-lg border-2 text-sm font-semibold ${dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👫</span>맞벌이</button><button onClick={() => setDualIncome(false)} className={`py-3 rounded-lg border-2 text-sm font-semibold ${!dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👤</span>외벌이</button></div></div>}
             </div>
           </>
         )}
+
+        {/* Step 2: 관심사/목표 */}
         {currentStep === 2 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">관심사 1-2개</span>와 <span className="text-teal-600 font-bold">목표 1개</span>를 선택! 🎯</p></div></div>
@@ -228,9 +268,13 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
             </div>
           </>
         )}
+
+        {/* Step 3: 수입/지출 */}
         {currentStep === 3 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">수입과 지출</span> 입력! 생활비는 자동계산 💰</p></div></div>
+            
+            {/* 월수입 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">💵</div><div><h3 className="font-bold text-gray-900">월 수입</h3><p className="text-xs text-gray-400">세후 기준</p></div></div>
@@ -243,6 +287,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
               <InputRow label="기타 소득" value={otherIncome} onChange={setOtherIncome} icon="💼" />
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between"><span className="text-sm font-semibold text-gray-700">월 수입 합계</span><span className="text-lg font-bold text-emerald-600">{totalMonthlyIncome.toLocaleString()}만원</span></div>
             </div>
+            
+            {/* 비정기수입 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
               <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">🎁</div><div><h3 className="font-bold text-gray-900">비정기 수입</h3><p className="text-xs text-gray-400">연간 기준</p></div></div>
               <InputRow label="상여금" value={bonusIncome} onChange={setBonusIncome} icon="🎉" />
@@ -250,6 +296,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
               <InputRow label="기타" value={otherIrregularIncome} onChange={setOtherIrregularIncome} icon="📦" />
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between"><span className="text-sm font-semibold text-gray-700">비정기 수입 합계</span><span className="text-lg font-bold text-purple-600">{totalIrregularIncome.toLocaleString()}만원/년</span></div>
             </div>
+            
+            {/* 월지출 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💸</div><div><h3 className="font-bold text-gray-900">월 지출</h3><p className="text-xs text-gray-400">생활비 자동계산</p></div></div>
               <InputRow label="CMA(파킹통장)" value={cmaAmount} onChange={setCmaAmount} icon="🏦" />
@@ -267,6 +315,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
             </div>
           </>
         )}
+
+        {/* Step 4: 자산 */}
         {currentStep === 4 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">현재 보유 <span className="text-teal-600 font-bold">자산</span> 입력! 💎</p></div></div>
@@ -291,9 +341,13 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
             </div>
           </>
         )}
+
+        {/* Step 5: 부채/요약 */}
         {currentStep === 5 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">마지막 <span className="text-teal-600 font-bold">부채</span> 입력! 📋</p></div></div>
+            
+            {/* 부채 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
@@ -306,11 +360,15 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
               <InputRow label="기타부채" value={otherDebt} onChange={setOtherDebt} icon="📦" />
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between"><span className="text-sm font-semibold text-gray-700">총 부채</span><span className="text-lg font-bold text-red-500">{totalDebt.toLocaleString()}만원</span></div>
             </div>
+            
+            {/* 비상예비자금 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
               <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🆘</div><div><h3 className="font-bold text-gray-900">비상예비자금</h3><p className="text-xs text-gray-400">즉시 사용 가능 현금</p></div></div>
               <InputRow label="비상예비자금" value={emergencyFund} onChange={setEmergencyFund} icon="💵" />
               <div className="mt-2 p-3 bg-blue-50 rounded-lg"><p className="text-xs text-blue-700">💡 권장: 월소득 3~6배 ({(totalMonthlyIncome*3).toLocaleString()}~{(totalMonthlyIncome*6).toLocaleString()}만원)</p></div>
             </div>
+            
+            {/* 요약 카드 */}
             <div className={`transform transition-all duration-500 ${showSummary ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
               <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-2xl p-4 border border-teal-200">
                 <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center text-xl text-white">✓</div><div><h3 className="font-bold text-gray-900">📋 기본정보 요약</h3><p className="text-xs text-gray-400">입력 정보 확인</p></div></div>
@@ -328,6 +386,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
       </div>
+      
+      {/* 하단 버튼 */}
       <div className="p-4 bg-white border-t border-gray-200 flex gap-3">
         <button onClick={goPrev} className="flex-1 py-3.5 rounded-xl bg-gray-100 text-gray-600 font-semibold">이전</button>
         <button onClick={goNext} className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold shadow-lg shadow-teal-500/30">{currentStep === totalSteps ? '재무설계 시작 →' : '다음'}</button>
