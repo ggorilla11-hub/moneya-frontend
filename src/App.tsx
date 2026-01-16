@@ -16,6 +16,8 @@ import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingPage from './pages/ConsultingPage';
+import ConsultingApplyPage from './pages/ConsultingApplyPage';
+import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
@@ -50,7 +52,8 @@ type AppStep =
   | 're-analysis'
   | 're-analysis-input'
   | 'subscription'
-  | 'consulting';
+  | 'consulting'
+  | 'consulting-apply';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -62,6 +65,7 @@ function App() {
   const [financialResult, setFinancialResult] = useState<FinancialResult | null>(null);
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
   const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ConsultingProduct | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -229,6 +233,18 @@ function App() {
     setCurrentTab('mypage');
   };
 
+  // 상담 신청 페이지로 이동 (상품 정보 전달)
+  const handleConsultingApply = (product: ConsultingProduct) => {
+    setSelectedProduct(product);
+    setCurrentStep('consulting-apply');
+  };
+
+  // 신청 페이지에서 상담 페이지로 돌아가기
+  const handleConsultingApplyBack = () => {
+    setSelectedProduct(null);
+    setCurrentStep('consulting');
+  };
+
   // 로그아웃
   const handleLogout = () => {
     auth.signOut();
@@ -358,6 +374,16 @@ function App() {
     return (
       <ConsultingPage
         onBack={handleConsultingBack}
+        onApply={handleConsultingApply}
+      />
+    );
+  }
+
+  if (currentStep === 'consulting-apply' && selectedProduct) {
+    return (
+      <ConsultingApplyPage
+        product={selectedProduct}
+        onBack={handleConsultingApplyBack}
       />
     );
   }
