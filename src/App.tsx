@@ -17,6 +17,7 @@ import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingPage from './pages/ConsultingPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
+import MonthlyReportPage from './pages/MonthlyReportPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -53,7 +54,8 @@ type AppStep =
   | 're-analysis-input'
   | 'subscription'
   | 'consulting'
-  | 'consulting-apply';
+  | 'consulting-apply'
+  | 'monthly-report';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -215,9 +217,8 @@ function App() {
       setCurrentStep('subscription');
     } else if (page === 'consulting') {
       setCurrentStep('consulting');
-    } else {
-      // monthly-report는 다음 단계에서 개발
-      alert(`${page} 페이지는 다음 단계에서 개발됩니다.`);
+    } else if (page === 'monthly-report') {
+      setCurrentStep('monthly-report');
     }
   };
 
@@ -384,6 +385,18 @@ function App() {
       <ConsultingApplyPage
         product={selectedProduct}
         onBack={handleConsultingApplyBack}
+      />
+    );
+  }
+
+  if (currentStep === 'monthly-report') {
+    return (
+      <MonthlyReportPage
+        onBack={() => {
+          setCurrentStep('main');
+          setCurrentTab('mypage');
+        }}
+        adjustedBudget={adjustedBudget}
       />
     );
   }
