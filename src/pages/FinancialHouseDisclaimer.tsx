@@ -47,7 +47,7 @@ export default function FinancialHouseDisclaimer({
 
         {/* 타이틀 */}
         <h2 className="text-xl font-extrabold text-center text-gray-900 mb-2">
-          금융집짓기 서비스 안내
+          {userName}님, 금융집짓기 서비스 안내
         </h2>
         <p className="text-sm text-gray-500 text-center mb-6">
           시작하기 전 아래 내용을 확인해 주세요
