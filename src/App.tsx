@@ -389,15 +389,18 @@ function App() {
     );
   }
 
+  // ✅ 수정: SpendProvider로 감싸기
   if (currentStep === 'monthly-report') {
     return (
-      <MonthlyReportPage
-        onBack={() => {
-          setCurrentStep('main');
-          setCurrentTab('mypage');
-        }}
-        adjustedBudget={adjustedBudget}
-      />
+      <SpendProvider userId={user.uid}>
+        <MonthlyReportPage
+          onBack={() => {
+            setCurrentStep('main');
+            setCurrentTab('mypage');
+          }}
+          adjustedBudget={adjustedBudget}
+        />
+      </SpendProvider>
     );
   }
 
