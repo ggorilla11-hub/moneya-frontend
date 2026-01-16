@@ -25,6 +25,9 @@ export default function ConsultingApplyPage({ product, onBack }: ConsultingApply
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Google Apps Script 웹앱 URL
+  const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwuAJrGcScmqY1koSkg7E0s7COTB8-vfplrxfYkbLXKaCRwEj1Yej2qk84NVHh5HTHywQ/exec';
+
   // 입력값 변경 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -60,24 +63,35 @@ export default function ConsultingApplyPage({ product, onBack }: ConsultingApply
 
     setIsSubmitting(true);
 
-    // localStorage에 신청 정보 임시 저장 (페이플 웹훅 연동 전까지 백업용)
-    const applicationData = {
-      timestamp: new Date().toISOString(),
-      productId: product.id,
-      productName: product.name,
-      price: product.price,
-      name: formData.name.trim(),
-      phone: formData.phone.trim(),
-      email: formData.email.trim(),
-      inquiry: formData.inquiry.trim(),
-      status: '결제대기',
-    };
+    try {
+      // 구글시트에 데이터 저장
+      const sheetData = {
+        productId: product.id,
+        productName: product.name,
+        price: product.price,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
+      };
 
-    const localKey = `moneya_apply_${Date.now()}`;
-    localStorage.setItem(localKey, JSON.stringify(applicationData));
+      // Google Apps Script로 데이터 전송
+      await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sheetData),
+      });
 
-    // 페이플 결제 페이지로 이동
-    window.open(product.paypleUrl, '_blank');
+      // 페이플 결제 페이지로 이동
+      window.open(product.paypleUrl, '_blank');
+
+    } catch (err) {
+      console.error('신청 처리 중 오류:', err);
+      // 오류가 나도 결제 페이지로 이동
+      window.open(product.paypleUrl, '_blank');
+    }
 
     setIsSubmitting(false);
   };
