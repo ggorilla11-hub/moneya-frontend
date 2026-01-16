@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage';
 import DetailReportPage from './pages/DetailReportPage';
 import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
+import MyPage from './pages/MyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
@@ -200,8 +201,21 @@ function App() {
     setCurrentTab('home');
   };
 
-  const handleRestart = async () => {
-    if (user && window.confirm('처음부터 다시 시작하시겠습니까?\n모든 데이터가 초기화됩니다.')) {
+  // 마이페이지 하위 페이지 네비게이션 (추후 구현)
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
+    // Phase 2에서 각 페이지 연결 예정
+    console.log('Navigate to:', page);
+    alert(`${page} 페이지는 다음 단계에서 개발됩니다.`);
+  };
+
+  // 로그아웃
+  const handleLogout = () => {
+    auth.signOut();
+  };
+
+  // 처음부터 다시하기
+  const handleRestart = () => {
+    if (user) {
       localStorage.removeItem(`onboarding_${user.uid}`);
       localStorage.removeItem(`financial_${user.uid}`);
       localStorage.removeItem(`financialData_${user.uid}`);
@@ -391,33 +405,15 @@ function App() {
             </div>
           )}
           {currentTab === 'mypage' && (
-            <div className="min-h-screen bg-gray-50 pb-24">
-              <div className="bg-white p-6 border-b">
-                <div className="flex items-center gap-4">
-                  {user.photoURL && (
-                    <img src={user.photoURL} alt="프로필" className="w-16 h-16 rounded-full" />
-                  )}
-                  <div>
-                    <p className="font-bold text-lg text-gray-800">{user.displayName}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 space-y-3">
-                <button 
-                  onClick={handleRestart}
-                  className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl"
-                >
-                  🔄 처음부터 다시하기
-                </button>
-                <button 
-                  onClick={() => auth.signOut()}
-                  className="w-full py-4 bg-gray-200 text-gray-700 font-bold rounded-xl"
-                >
-                  로그아웃
-                </button>
-              </div>
-            </div>
+            <MyPage
+              userName={user.displayName || '사용자'}
+              userEmail={user.email || ''}
+              userPhoto={user.photoURL}
+              financialResult={financialResult}
+              onNavigate={handleMyPageNavigate}
+              onLogout={handleLogout}
+              onReset={handleRestart}
+            />
           )}
           
           <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
