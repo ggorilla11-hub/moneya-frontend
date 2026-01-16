@@ -27,7 +27,7 @@ export default function MyPage({
   userName,
   userEmail,
   userPhoto,
-  financialResult,
+  financialResult: _financialResult,
   onNavigate,
   onLogout,
   onReset
@@ -52,6 +52,9 @@ export default function MyPage({
   const handleResetCancel = () => {
     setShowResetConfirm(false);
   };
+
+  // 추후 financialResult 활용 예정
+  console.log('MyPage loaded, financialResult:', _financialResult);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -85,7 +88,7 @@ export default function MyPage({
           onClick={() => onNavigate('consulting')}
         >
           <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-lg flex-shrink-0 bg-gray-200">
-            <div className="w-full h-full flex items-center justify-content-center text-2xl bg-gradient-to-br from-yellow-300 to-yellow-400">
+            <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-yellow-300 to-yellow-400">
               👨‍💼
             </div>
           </div>
