@@ -1,22 +1,55 @@
+import type { ConsultingProduct } from './ConsultingApplyPage';
+
+// 상품 목록 (Payple 결제 URL 포함)
+export const CONSULTING_PRODUCTS: ConsultingProduct[] = [
+  {
+    id: 'consult-online',
+    name: '비대면 상담',
+    price: 330000,
+    priceLabel: '33만원',
+    description: '화상으로 진행되는 1:1 맞춤 재무상담 · 2회 진행',
+    paypleUrl: 'https://link.payple.kr/NzcxOjc2ODQ3NzU4NjYzMDE4',
+  },
+  {
+    id: 'consult-offline',
+    name: '대면 상담',
+    price: 550000,
+    priceLabel: '55만원',
+    description: '직접 만나서 진행하는 심층 재무상담 · 2회 진행',
+    paypleUrl: 'https://link.payple.kr/NzcxOjc2ODQ3NzU4NjYzMDE4',
+  },
+  {
+    id: 'consult-vip',
+    name: '자산가 상담',
+    price: 1100000,
+    priceLabel: '110만원',
+    description: '금융자산 10억원 초과 고객 전용 VIP 상담 · 3회 진행',
+    paypleUrl: 'https://link.payple.kr/NzcxOjc2ODQ3NzY3MzM3NjA0',
+  },
+  {
+    id: 'class-online',
+    name: '일반인 비대면 수업',
+    price: 550000,
+    priceLabel: '55만원',
+    description: '주 1회 · 매주 2시간 · 4주간 총 8시간',
+    paypleUrl: 'https://link.payple.kr/NzcxOjc2ODQ3NzcyMjc4MzY3',
+  },
+  {
+    id: 'class-pro',
+    name: '전문가 수업',
+    price: 1100000,
+    priceLabel: '110만원',
+    description: '대면 4주 + 비대면 1년 · 매주 토요일 오후 1-6시',
+    paypleUrl: 'https://link.payple.kr/NzcxOjc2MTU0NTgyMDA0MDQ4',
+  },
+];
+
 interface ConsultingPageProps {
   onBack: () => void;
+  onApply: (product: ConsultingProduct) => void;
 }
 
-// Payple 결제 URL
-const PAYPLE_URLS = {
-  consultOnline: 'https://link.payple.kr/NzcxOjc2ODQ3NzU4NjYzMDE4', // 비대면 상담 33만원
-  consultOffline: 'https://link.payple.kr/NzcxOjc2ODQ3NzU4NjYzMDE4', // 대면 상담 55만원 (동일 링크)
-  consultVIP: 'https://link.payple.kr/NzcxOjc2ODQ3NzY3MzM3NjA0', // 자산가 상담 110만원
-  classOnline: 'https://link.payple.kr/NzcxOjc2ODQ3NzcyMjc4MzY3', // 일반인 비대면 강의 55만원
-  classPro: 'https://link.payple.kr/NzcxOjc2MTU0NTgyMDA0MDQ4', // 전문가 대면 강의 110만원
-};
-
-export default function ConsultingPage({ onBack }: ConsultingPageProps) {
-  // 결제 페이지로 이동
-  const handlePayment = (url: string) => {
-    window.open(url, '_blank');
-  };
-
+export default function ConsultingPage({ onBack, onApply }: ConsultingPageProps) {
   // 전화 연결
   const handleCall = () => {
     window.location.href = 'tel:010-5424-5332';
@@ -25,6 +58,14 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
   // 이메일 연결
   const handleEmail = () => {
     window.location.href = 'mailto:ggorilla11@gmail.com?subject=[AI머니야] 상담/강의 문의';
+  };
+
+  // 상품별 신청하기 클릭
+  const handleApply = (productId: string) => {
+    const product = CONSULTING_PRODUCTS.find(p => p.id === productId);
+    if (product) {
+      onApply(product);
+    }
   };
 
   return (
@@ -77,7 +118,7 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-extrabold text-gray-900">33만원</span>
             <button 
-              onClick={() => handlePayment(PAYPLE_URLS.consultOnline)}
+              onClick={() => handleApply('consult-online')}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold rounded-xl text-sm"
             >
               신청하기
@@ -99,7 +140,7 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-extrabold text-gray-900">55만원</span>
             <button 
-              onClick={() => handlePayment(PAYPLE_URLS.consultOffline)}
+              onClick={() => handleApply('consult-offline')}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold rounded-xl text-sm"
             >
               신청하기
@@ -124,7 +165,7 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-extrabold text-gray-900">110만원</span>
             <button 
-              onClick={() => handlePayment(PAYPLE_URLS.consultVIP)}
+              onClick={() => handleApply('consult-vip')}
               className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold rounded-xl text-sm"
             >
               신청하기
@@ -151,7 +192,7 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-extrabold text-gray-900">55만원</span>
             <button 
-              onClick={() => handlePayment(PAYPLE_URLS.classOnline)}
+              onClick={() => handleApply('class-online')}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold rounded-xl text-sm"
             >
               신청하기
@@ -176,7 +217,7 @@ export default function ConsultingPage({ onBack }: ConsultingPageProps) {
           <div className="flex justify-between items-center">
             <span className="text-lg font-extrabold text-gray-900">110만원</span>
             <button 
-              onClick={() => handlePayment(PAYPLE_URLS.classPro)}
+              onClick={() => handleApply('class-pro')}
               className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold rounded-xl text-sm"
             >
               신청하기
