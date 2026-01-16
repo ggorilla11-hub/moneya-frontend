@@ -15,6 +15,7 @@ import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
+import ConsultingPage from './pages/ConsultingPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
@@ -48,7 +49,8 @@ type AppStep =
   | 're-diagnosis'
   | 're-analysis'
   | 're-analysis-input'
-  | 'subscription';
+  | 'subscription'
+  | 'consulting';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -207,14 +209,22 @@ function App() {
   const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
     if (page === 'subscription') {
       setCurrentStep('subscription');
+    } else if (page === 'consulting') {
+      setCurrentStep('consulting');
     } else {
-      // consulting, monthly-report는 다음 단계에서 개발
+      // monthly-report는 다음 단계에서 개발
       alert(`${page} 페이지는 다음 단계에서 개발됩니다.`);
     }
   };
 
   // 구독 페이지에서 마이페이지로 돌아가기
   const handleSubscriptionBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('mypage');
+  };
+
+  // 상담 페이지에서 마이페이지로 돌아가기
+  const handleConsultingBack = () => {
     setCurrentStep('main');
     setCurrentTab('mypage');
   };
@@ -340,6 +350,14 @@ function App() {
     return (
       <SubscriptionPage
         onBack={handleSubscriptionBack}
+      />
+    );
+  }
+
+  if (currentStep === 'consulting') {
+    return (
+      <ConsultingPage
+        onBack={handleConsultingBack}
       />
     );
   }
