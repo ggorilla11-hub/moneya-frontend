@@ -1,6 +1,6 @@
 // MonthlyReportPage.tsx
-// 월간 리포트 페이지 - 실제 데이터 연동 + PDF 다운로드 + 이메일 공유
-// 데이터 흐름: AI지출탭 → 지출타임라인 → 홈대시보드 → 월간리포트
+// 월간 리포트 페이지 - PDF oklch 색상 에러 수정
+// html2canvas가 oklch를 지원하지 않아 RGB 색상으로 직접 지정
 
 import { useState, useRef } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
@@ -11,7 +11,6 @@ interface MonthlyReportPageProps {
   adjustedBudget?: AdjustedBudget | null;
 }
 
-// 공유 채널 타입
 interface ShareChannel {
   id: string;
   name: string;
@@ -26,7 +25,6 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // 월 이동
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
   };
@@ -38,12 +36,10 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     }
   };
 
-  // 월 표시
   const formatMonth = (date: Date) => {
     return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
   };
 
-  // 현재 월 데이터 필터링
   const currentMonthItems = spendItems.filter(item => {
     const itemDate = new Date(item.timestamp);
     return (
@@ -52,7 +48,6 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     );
   });
 
-  // 지난 달 데이터 필터링
   const lastMonth = currentMonth.getMonth() === 0 ? 11 : currentMonth.getMonth() - 1;
   const lastMonthYear = currentMonth.getMonth() === 0 ? currentMonth.getFullYear() - 1 : currentMonth.getFullYear();
   const lastMonthItems = spendItems.filter(item => {
@@ -63,22 +58,18 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     );
   });
 
-  // 실제 지출 계산 (현재 월)
   const actualSpentItems = currentMonthItems.filter(item => item.type === 'spent');
   const actualSpentTotal = actualSpentItems.reduce((sum, item) => sum + item.amount, 0);
 
-  // 실제 저축 계산 (현재 월)
   const actualSavedItems = currentMonthItems.filter(
     item => item.type === 'saved' || item.category === '저축투자' || item.category === '노후연금'
   );
   const actualSavedTotal = actualSavedItems.reduce((sum, item) => sum + item.amount, 0);
 
-  // 지난 달 지출 계산
   const lastMonthSpentTotal = lastMonthItems
     .filter(item => item.type === 'spent')
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // AdjustedBudget에서 예산 데이터 가져오기
   const totalIncome = adjustedBudget?.totalIncome || 500;
   const budgetLivingExpense = adjustedBudget?.livingExpense || 250;
   const budgetSavings = adjustedBudget?.savings || 100;
@@ -87,7 +78,6 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
   const budgetLoanPayment = adjustedBudget?.loanPayment || 50;
   const surplus = adjustedBudget?.surplus || 15;
 
-  // 실제 vs 예산 데이터 (만원 단위 변환)
   const toManwon = (value: number): number => {
     if (value >= 10000) {
       return Math.round(value / 10000);
@@ -95,21 +85,18 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     return value;
   };
 
-  const displaySpent = actualSpentTotal > 0 ? toManwon(actualSpentTotal) : budgetLivingExpense + budgetInsurance + budgetLoanPayment;
-  const displaySaved = actualSavedTotal > 0 ? toManwon(actualSavedTotal) : budgetSavings + budgetPension;
-  const displayLastMonthSpent = lastMonthSpentTotal > 0 ? toManwon(lastMonthSpentTotal) : 0;
+  const actualSpentInManwon = toManwon(actualSpentTotal);
+  const actualSavedInManwon = toManwon(actualSavedTotal);
+  const lastMonthSpentInManwon = toManwon(lastMonthSpentTotal);
 
-  // 예산 대비 차이
+  const displaySpent = actualSpentTotal > 0 ? actualSpentInManwon : budgetLivingExpense + budgetInsurance + budgetLoanPayment;
+  const displaySaved = actualSavedTotal > 0 ? actualSavedInManwon : budgetSavings + budgetPension;
+
   const budgetTotal = budgetLivingExpense + budgetInsurance + budgetLoanPayment;
   const budgetDiff = displaySpent - budgetTotal;
-  
-  // 지난달 대비 차이
-  const lastMonthDiff = displayLastMonthSpent > 0 ? displaySpent - displayLastMonthSpent : 0;
-
-  // 예산 달성률
+  const lastMonthDiff = lastMonthSpentInManwon > 0 ? displaySpent - lastMonthSpentInManwon : 0;
   const budgetRate = budgetTotal > 0 ? Math.round((displaySpent / budgetTotal) * 100) : 0;
 
-  // 카테고리별 지출 계산 (실제 데이터)
   const categoryMap: Record<string, { amount: number; count: number }> = {};
   actualSpentItems.forEach(item => {
     const cat = item.category || '기타';
@@ -120,9 +107,9 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     categoryMap[cat].count += 1;
   });
 
-  // 카테고리 설정
   const categoryConfig: Record<string, { icon: string; color: string; bgColor: string }> = {
     '식비': { icon: '🍽️', color: '#EF4444', bgColor: '#FEE2E2' },
+    'food': { icon: '🍽️', color: '#EF4444', bgColor: '#FEE2E2' },
     '교통': { icon: '🚗', color: '#F59E0B', bgColor: '#FEF3C7' },
     '교통비': { icon: '🚗', color: '#F59E0B', bgColor: '#FEF3C7' },
     '쇼핑': { icon: '🛍️', color: '#3B82F6', bgColor: '#DBEAFE' },
@@ -132,9 +119,10 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     '건강의료': { icon: '💊', color: '#8B5CF6', bgColor: '#EDE9FE' },
     '기타': { icon: '📦', color: '#EC4899', bgColor: '#FCE7F3' },
     '생활비': { icon: '🏠', color: '#14B8A6', bgColor: '#CCFBF1' },
+    'cafe': { icon: '☕', color: '#D97706', bgColor: '#FEF3C7' },
+    'telecom': { icon: '📱', color: '#6366F1', bgColor: '#E0E7FF' },
   };
 
-  // 카테고리별 데이터 생성
   const categories = Object.entries(categoryMap)
     .map(([name, data]) => {
       const config = categoryConfig[name] || categoryConfig['기타'];
@@ -153,7 +141,6 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     })
     .sort((a, b) => b.amount - a.amount);
 
-  // 데이터가 없을 경우 샘플 카테고리
   const displayCategories = categories.length > 0 ? categories : [
     { id: 'food', name: '식비', icon: '🍽️', color: '#EF4444', bgColor: '#FEE2E2', amount: Math.round(budgetLivingExpense * 0.35), percent: 35, count: 0 },
     { id: 'transport', name: '교통', icon: '🚗', color: '#F59E0B', bgColor: '#FEF3C7', amount: Math.round(budgetLivingExpense * 0.15), percent: 15, count: 0 },
@@ -163,36 +150,31 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     { id: 'etc', name: '기타', icon: '📦', color: '#EC4899', bgColor: '#FCE7F3', amount: Math.round(budgetLivingExpense * 0.07), percent: 7, count: 0 },
   ];
 
-  // AI 코멘트 생성 (DetailReportPage의 getAIInsight 로직 활용)
   const getAIComment = (): string => {
     const messages: string[] = [];
 
-    // 지출 데이터가 있는 경우
     if (actualSpentItems.length > 0) {
       const topCategory = displayCategories[0];
       if (topCategory) {
         messages.push(`이번 달 ${topCategory.name} 비중이 ${topCategory.percent}%로 가장 높았어요.`);
       }
 
-      // 예산 대비 분석
       if (budgetDiff > 0) {
-        messages.push(`예산 대비 ${budgetDiff}만원 초과했어요. 다음 달에는 ${displayCategories[0]?.name || '지출'}을 줄여보는 건 어떨까요?`);
+        messages.push(`예산 대비 ${budgetDiff}만원 초과했어요. 다음 달에는 지출을 줄여보는 건 어떨까요?`);
       } else if (budgetDiff < 0) {
         messages.push(`예산 대비 ${Math.abs(budgetDiff)}만원 절약했어요! 훌륭해요! 🎉`);
       } else {
         messages.push('예산을 정확히 지켰어요! 대단해요! 👏');
       }
 
-      // 지난달 대비 분석
-      if (lastMonthDiff !== 0 && displayLastMonthSpent > 0) {
+      if (lastMonthDiff !== 0 && lastMonthSpentInManwon > 0) {
         if (lastMonthDiff > 0) {
-          messages.push(`지난달보다 ${lastMonthDiff}만원 더 썼어요. 소비 습관을 점검해보세요.`);
+          messages.push(`지난달보다 ${lastMonthDiff}만원 더 썼어요.`);
         } else {
-          messages.push(`지난달보다 ${Math.abs(lastMonthDiff)}만원 절약했어요! 잘하고 있어요! 💪`);
+          messages.push(`지난달보다 ${Math.abs(lastMonthDiff)}만원 절약했어요! 💪`);
         }
       }
     } else {
-      // 데이터가 없는 경우
       messages.push('아직 이번 달 지출 기록이 없어요.');
       messages.push('AI지출탭에서 지출을 기록하면 상세한 분석을 받을 수 있어요! 📝');
     }
@@ -200,36 +182,67 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     return messages.join(' ');
   };
 
-  // 금액 포맷 (만원 단위)
   const formatAmount = (amount: number) => {
     return amount.toLocaleString() + '만원';
   };
 
-  // PDF 다운로드 (html2canvas + jsPDF 방식)
+  // PDF 다운로드 - oklch 색상 문제 해결
   const handleDownloadPdf = async () => {
     setIsPdfLoading(true);
     
     try {
-      // 동적 import로 라이브러리 로드
-      const html2canvasModule = await import('html2canvas');
+      const [html2canvasModule, jsPDFModule] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
+      
       const html2canvas = html2canvasModule.default;
-      const jsPDFModule = await import('jspdf');
       const jsPDF = jsPDFModule.default;
 
       if (!reportRef.current) {
         alert('리포트를 찾을 수 없습니다.');
+        setIsPdfLoading(false);
         return;
       }
 
-      // 캔버스 생성
-      const canvas = await html2canvas(reportRef.current, {
+      // oklch 색상을 RGB로 변환하기 위해 클론 생성
+      const clonedElement = reportRef.current.cloneNode(true) as HTMLElement;
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.top = '0';
+      document.body.appendChild(clonedElement);
+
+      // 모든 요소의 computed style에서 oklch를 RGB로 변환
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        const computed = window.getComputedStyle(htmlEl);
+        
+        // 배경색 변환
+        if (computed.backgroundColor && computed.backgroundColor.includes('oklch')) {
+          htmlEl.style.backgroundColor = '#f9fafb';
+        }
+        // 텍스트 색상 변환
+        if (computed.color && computed.color.includes('oklch')) {
+          htmlEl.style.color = '#1f2937';
+        }
+        // 테두리 색상 변환
+        if (computed.borderColor && computed.borderColor.includes('oklch')) {
+          htmlEl.style.borderColor = '#e5e7eb';
+        }
+      });
+
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#f9fafb',
       });
 
-      // PDF 생성
+      // 클론 제거
+      document.body.removeChild(clonedElement);
+
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       
@@ -237,26 +250,52 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const ratio = Math.min((pdfWidth - 20) / imgWidth, (pdfHeight - 20) / imgHeight);
       const imgX = (pdfWidth - imgWidth * ratio) / 2;
       const imgY = 10;
 
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       
-      // 파일명 생성
       const fileName = `AI머니야_월간리포트_${currentMonth.getFullYear()}년${currentMonth.getMonth() + 1}월.pdf`;
       pdf.save(fileName);
 
       alert('PDF 다운로드가 완료되었습니다!');
     } catch (error) {
       console.error('PDF 생성 실패:', error);
-      alert('PDF 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      handleTextDownload();
     } finally {
       setIsPdfLoading(false);
     }
   };
 
-  // 공유 채널 목록
+  const handleTextDownload = () => {
+    const content = 
+      `AI머니야 월간 리포트\n` +
+      `========================\n\n` +
+      `📅 ${formatMonth(currentMonth)}\n\n` +
+      `💰 총 수입: ${formatAmount(totalIncome)}\n` +
+      `💸 총 지출: ${formatAmount(displaySpent)}\n` +
+      `💵 총 저축: ${formatAmount(displaySaved)}\n` +
+      `🎯 잉여자금: ${formatAmount(surplus)}\n\n` +
+      `📊 카테고리별 지출:\n` +
+      displayCategories.map(cat => `- ${cat.name}: ${formatAmount(cat.amount)} (${cat.percent}%)`).join('\n') +
+      `\n\n🤖 AI 코멘트:\n${getAIComment()}\n\n` +
+      `---\n` +
+      `AI머니야 - 당신의 AI 지출 코치`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `AI머니야_월간리포트_${currentMonth.getFullYear()}년${currentMonth.getMonth() + 1}월.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    alert('PDF 생성이 실패하여 텍스트 파일로 다운로드되었습니다.');
+  };
+
   const shareChannels: ShareChannel[] = [
     { id: 'email', name: '이메일', icon: '📧', enabled: true },
     { id: 'kakao', name: '카카오톡', icon: '💬', enabled: false },
@@ -264,75 +303,142 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     { id: 'link', name: '링크 복사', icon: '🔗', enabled: false },
   ];
 
-  // 공유하기 (이메일만 활성화)
-  const handleShare = (channelId: string) => {
+  const getEmailContent = () => {
+    return (
+      `AI머니야 월간 리포트\n\n` +
+      `📅 ${formatMonth(currentMonth)}\n\n` +
+      `💰 총 수입: ${formatAmount(totalIncome)}\n` +
+      `💸 총 지출: ${formatAmount(displaySpent)}\n` +
+      `💵 총 저축: ${formatAmount(displaySaved)}\n` +
+      `🎯 잉여자금: ${formatAmount(surplus)}\n\n` +
+      `📊 카테고리별 지출:\n` +
+      displayCategories.map(cat => `- ${cat.name}: ${formatAmount(cat.amount)} (${cat.percent}%)`).join('\n') +
+      `\n\n🤖 AI 코멘트:\n${getAIComment()}\n\n` +
+      `---\n` +
+      `AI머니야 - 당신의 AI 지출 코치\n` +
+      `https://moneya-frontend.vercel.app`
+    );
+  };
+
+  const handleShare = async (channelId: string) => {
     if (channelId === 'email') {
-      const subject = encodeURIComponent(`[AI머니야] ${formatMonth(currentMonth)} 월간 리포트`);
-      const body = encodeURIComponent(
-        `AI머니야 월간 리포트\n\n` +
-        `📅 ${formatMonth(currentMonth)}\n\n` +
-        `💰 총 수입: ${formatAmount(totalIncome)}\n` +
-        `💸 총 지출: ${formatAmount(displaySpent)}\n` +
-        `💵 총 저축: ${formatAmount(displaySaved)}\n` +
-        `🎯 잉여자금: ${formatAmount(surplus)}\n\n` +
-        `📊 카테고리별 지출:\n` +
-        displayCategories.map(cat => `- ${cat.name}: ${formatAmount(cat.amount)} (${cat.percent}%)`).join('\n') +
-        `\n\n🤖 AI 코멘트:\n${getAIComment()}\n\n` +
-        `---\n` +
-        `AI머니야 - 당신의 AI 지출 코치\n` +
-        `https://moneya-frontend.vercel.app`
-      );
+      const subject = `[AI머니야] ${formatMonth(currentMonth)} 월간 리포트`;
+      const body = getEmailContent();
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: subject,
+            text: body,
+          });
+          setShowShareModal(false);
+          return;
+        } catch (err) {
+          console.log('Web Share failed, falling back to mailto');
+        }
+      }
+
+      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const newWindow = window.open(mailtoUrl, '_blank');
       
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      if (!newWindow || newWindow.closed) {
+        try {
+          await navigator.clipboard.writeText(body);
+          alert('이메일 앱을 열 수 없습니다.\n리포트 내용이 클립보드에 복사되었습니다.');
+        } catch {
+          const textArea = document.createElement('textarea');
+          textArea.value = body;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          alert('이메일 앱을 열 수 없습니다.\n리포트 내용이 클립보드에 복사되었습니다.');
+        }
+      }
+      
       setShowShareModal(false);
     } else {
       alert(`${shareChannels.find(c => c.id === channelId)?.name} 공유 기능은 준비 중입니다.`);
     }
   };
 
+  // RGB 색상 직접 지정 (oklch 대신)
+  const colors = {
+    teal500: '#14b8a6',
+    teal600: '#0d9488',
+    teal400: '#2dd4bf',
+    gray50: '#f9fafb',
+    gray100: '#f3f4f6',
+    gray200: '#e5e7eb',
+    gray400: '#9ca3af',
+    gray500: '#6b7280',
+    gray700: '#374151',
+    gray900: '#111827',
+    white: '#ffffff',
+    red500: '#ef4444',
+    red400: '#f87171',
+    red600: '#dc2626',
+    green500: '#22c55e',
+    green600: '#16a34a',
+    blue600: '#2563eb',
+    amber50: '#fffbeb',
+    amber200: '#fde68a',
+    amber600: '#d97706',
+    amber700: '#b45309',
+    amber800: '#92400e',
+    yellow50: '#fefce8',
+    purple50: '#faf5ff',
+    purple100: '#f3e8ff',
+    purple700: '#7c3aed',
+    indigo50: '#eef2ff',
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div style={{ minHeight: '100vh', backgroundColor: colors.gray50, paddingBottom: '32px' }}>
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-5 pt-12 pb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={onBack} className="p-1">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div style={{ 
+        background: `linear-gradient(to right, ${colors.teal500}, ${colors.teal600})`, 
+        color: colors.white, 
+        padding: '48px 20px 24px 20px' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <button onClick={onBack} style={{ padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <svg style={{ width: '24px', height: '24px', color: colors.white }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold">월간 리포트</h1>
+          <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: colors.white, margin: 0 }}>월간 리포트</h1>
         </div>
         
-        {/* 월 선택 */}
-        <div className="flex items-center justify-center gap-4 mt-4">
-          <button onClick={prevMonth} className="p-2 hover:bg-white/20 rounded-full transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '16px' }}>
+          <button onClick={prevMonth} style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '50%' }}>
+            <svg style={{ width: '20px', height: '20px', color: colors.white }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-lg font-semibold min-w-[120px] text-center">{formatMonth(currentMonth)}</span>
-          <button onClick={nextMonth} className="p-2 hover:bg-white/20 rounded-full transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span style={{ fontSize: '18px', fontWeight: '600', minWidth: '120px', textAlign: 'center', color: colors.white }}>{formatMonth(currentMonth)}</span>
+          <button onClick={nextMonth} style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '50%' }}>
+            <svg style={{ width: '20px', height: '20px', color: colors.white }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
       </div>
 
-      {/* 리포트 내용 (PDF 캡처 영역) */}
-      <div ref={reportRef} className="px-5 -mt-4 space-y-4">
+      {/* 리포트 내용 (PDF 캡처 영역) - 인라인 스타일 사용 */}
+      <div ref={reportRef} style={{ padding: '0 20px', marginTop: '-16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* 총 지출 카드 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="text-gray-500 text-sm mb-1">이번 달 총 지출</p>
-          <p className="text-3xl font-bold text-gray-900">{formatAmount(displaySpent)}</p>
+        <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ color: colors.gray500, fontSize: '14px', marginBottom: '4px' }}>이번 달 총 지출</p>
+          <p style={{ fontSize: '30px', fontWeight: 'bold', color: colors.gray900, margin: 0 }}>{formatAmount(displaySpent)}</p>
           
-          <div className="flex gap-4 mt-3 text-sm">
-            <div className={`flex items-center gap-1 ${budgetDiff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+          <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: budgetDiff > 0 ? colors.red500 : colors.green500 }}>
               <span>{budgetDiff > 0 ? '▲' : budgetDiff < 0 ? '▼' : '•'}</span>
               <span>예산 대비 {budgetDiff === 0 ? '동일' : `${Math.abs(budgetDiff)}만원 ${budgetDiff > 0 ? '초과' : '절약'}`}</span>
             </div>
-            {displayLastMonthSpent > 0 && (
-              <div className={`flex items-center gap-1 ${lastMonthDiff > 0 ? 'text-red-500' : 'text-green-500'}`}>
+            {lastMonthSpentInManwon > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: lastMonthDiff > 0 ? colors.red500 : colors.green500 }}>
                 <span>{lastMonthDiff > 0 ? '▲' : '▼'}</span>
                 <span>지난달 대비 {Math.abs(lastMonthDiff)}만원</span>
               </div>
@@ -341,124 +447,180 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         </div>
 
         {/* 예산 현황 카드 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <div className="flex justify-between items-center mb-3">
-            <p className="font-semibold text-gray-900">예산 현황</p>
-            <p className={`font-bold ${budgetRate <= 100 ? 'text-teal-600' : 'text-red-500'}`}>{budgetRate}% 사용</p>
+        <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <p style={{ fontWeight: '600', color: colors.gray900, margin: 0 }}>예산 현황</p>
+            <p style={{ fontWeight: 'bold', color: budgetRate <= 100 ? colors.teal600 : colors.red500, margin: 0 }}>{budgetRate}% 사용</p>
           </div>
           
-          {/* 프로그레스 바 */}
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div style={{ height: '12px', backgroundColor: colors.gray100, borderRadius: '9999px', overflow: 'hidden' }}>
             <div 
-              className={`h-full rounded-full transition-all duration-500 ${budgetRate <= 100 ? 'bg-gradient-to-r from-teal-400 to-teal-600' : 'bg-gradient-to-r from-red-400 to-red-600'}`}
-              style={{ width: `${Math.min(budgetRate, 100)}%` }}
+              style={{ 
+                height: '100%', 
+                borderRadius: '9999px',
+                background: budgetRate <= 100 
+                  ? `linear-gradient(to right, ${colors.teal400}, ${colors.teal600})` 
+                  : `linear-gradient(to right, ${colors.red400}, ${colors.red600})`,
+                width: `${Math.min(budgetRate, 100)}%`,
+                transition: 'width 0.5s'
+              }}
             />
           </div>
           
-          <div className="flex justify-between mt-2 text-sm text-gray-500">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '14px', color: colors.gray500 }}>
             <span>0</span>
             <span>예산 {formatAmount(budgetTotal)}</span>
           </div>
         </div>
 
         {/* 수입/지출/저축 요약 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="font-semibold text-gray-900 mb-4">이번 달 요약</p>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">수입</p>
-              <p className="text-lg font-bold text-blue-600">{formatAmount(totalIncome)}</p>
+        <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ fontWeight: '600', color: colors.gray900, marginBottom: '16px' }}>이번 달 요약</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: colors.gray500, marginBottom: '4px' }}>수입</p>
+              <p style={{ fontSize: '18px', fontWeight: 'bold', color: colors.blue600, margin: 0 }}>{formatAmount(totalIncome)}</p>
             </div>
-            <div className="text-center border-x border-gray-100">
-              <p className="text-xs text-gray-500 mb-1">지출</p>
-              <p className="text-lg font-bold text-red-500">{formatAmount(displaySpent)}</p>
+            <div style={{ textAlign: 'center', borderLeft: `1px solid ${colors.gray100}`, borderRight: `1px solid ${colors.gray100}` }}>
+              <p style={{ fontSize: '12px', color: colors.gray500, marginBottom: '4px' }}>지출</p>
+              <p style={{ fontSize: '18px', fontWeight: 'bold', color: colors.red500, margin: 0 }}>{formatAmount(displaySpent)}</p>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mb-1">저축</p>
-              <p className="text-lg font-bold text-green-600">{formatAmount(displaySaved)}</p>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: colors.gray500, marginBottom: '4px' }}>저축</p>
+              <p style={{ fontSize: '18px', fontWeight: 'bold', color: colors.green600, margin: 0 }}>{formatAmount(displaySaved)}</p>
             </div>
           </div>
         </div>
 
         {/* 잉여자금 카드 */}
-        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-2xl p-5 border border-amber-200">
-          <div className="flex justify-between items-center">
+        <div style={{ 
+          background: `linear-gradient(to right, ${colors.amber50}, ${colors.yellow50})`, 
+          borderRadius: '16px', 
+          padding: '20px', 
+          border: `1px solid ${colors.amber200}` 
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p className="text-sm text-amber-700 font-medium">💰 이번 달 잉여자금</p>
-              <p className="text-2xl font-bold text-amber-800 mt-1">{formatAmount(surplus)}</p>
+              <p style={{ fontSize: '14px', color: colors.amber700, fontWeight: '500' }}>💰 이번 달 잉여자금</p>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: colors.amber800, marginTop: '4px' }}>{formatAmount(surplus)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-amber-600">추가 저축 가능 금액</p>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '12px', color: colors.amber600 }}>추가 저축 가능 금액</p>
             </div>
           </div>
         </div>
 
         {/* 카테고리별 지출 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="font-semibold text-gray-900 mb-4">카테고리별 지출</p>
+        <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ fontWeight: '600', color: colors.gray900, marginBottom: '16px' }}>카테고리별 지출</p>
           
           {actualSpentItems.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">아직 지출 기록이 없습니다</p>
+            <p style={{ fontSize: '14px', color: colors.gray400, textAlign: 'center', padding: '16px 0' }}>아직 지출 기록이 없습니다</p>
           )}
           
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {displayCategories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-3">
+              <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: cat.bgColor }}
+                  style={{ 
+                    width: '40px', 
+                    height: '40px', 
+                    borderRadius: '12px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '18px',
+                    backgroundColor: cat.bgColor 
+                  }}
                 >
                   {cat.icon}
                 </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium text-gray-700">{cat.name}</span>
-                    <span className="text-sm font-semibold text-gray-900">{formatAmount(cat.amount)}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: colors.gray700 }}>{cat.name}</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: colors.gray900 }}>{formatAmount(cat.amount)}</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div style={{ height: '8px', backgroundColor: colors.gray100, borderRadius: '9999px', overflow: 'hidden' }}>
                     <div 
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}
+                      style={{ 
+                        height: '100%', 
+                        borderRadius: '9999px',
+                        backgroundColor: cat.color,
+                        width: `${cat.percent}%`,
+                        transition: 'width 0.5s'
+                      }}
                     />
                   </div>
                 </div>
-                <span className="text-xs text-gray-400 w-8 text-right">{cat.percent}%</span>
+                <span style={{ fontSize: '12px', color: colors.gray400, width: '32px', textAlign: 'right' }}>{cat.percent}%</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* AI 코멘트 */}
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-100">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">🤖</span>
-            <span className="font-semibold text-purple-700">AI 머니야 코멘트</span>
+        <div style={{ 
+          background: `linear-gradient(to right, ${colors.purple50}, ${colors.indigo50})`, 
+          borderRadius: '16px', 
+          padding: '20px', 
+          border: `1px solid ${colors.purple100}` 
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <span style={{ fontSize: '20px' }}>🤖</span>
+            <span style={{ fontWeight: '600', color: colors.purple700 }}>AI 머니야 코멘트</span>
           </div>
-          <p className="text-gray-700 text-sm leading-relaxed">
+          <p style={{ color: colors.gray700, fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
             {getAIComment()}
           </p>
         </div>
       </div>
 
-      {/* 액션 버튼 (PDF 캡처 영역 외부) */}
-      <div className="px-5 mt-4">
-        <div className="flex gap-3">
+      {/* 액션 버튼 */}
+      <div style={{ padding: '0 20px', marginTop: '16px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
           <button
             onClick={handleDownloadPdf}
             disabled={isPdfLoading}
-            className="flex-1 py-3.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ 
+              flex: 1, 
+              padding: '14px', 
+              backgroundColor: colors.white, 
+              border: `1px solid ${colors.gray200}`, 
+              borderRadius: '12px', 
+              fontSize: '14px', 
+              fontWeight: 'bold', 
+              color: colors.gray700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px',
+              cursor: isPdfLoading ? 'not-allowed' : 'pointer',
+              opacity: isPdfLoading ? 0.5 : 1
+            }}
           >
             {isPdfLoading ? (
-              <>
-                <span className="animate-spin">⏳</span> 생성 중...
-              </>
+              <>⏳ 생성 중...</>
             ) : (
               <>📄 PDF 다운로드</>
             )}
           </button>
           <button
             onClick={() => setShowShareModal(true)}
-            className="flex-1 py-3.5 bg-teal-500 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2"
+            style={{ 
+              flex: 1, 
+              padding: '14px', 
+              backgroundColor: colors.teal500, 
+              border: 'none', 
+              borderRadius: '12px', 
+              fontSize: '14px', 
+              fontWeight: 'bold', 
+              color: colors.white, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px',
+              cursor: 'pointer'
+            }}
           >
             📤 공유하기
           </button>
@@ -467,33 +629,55 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
 
       {/* 공유 모달 */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 animate-slide-up">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold">공유하기</h3>
-              <button onClick={() => setShowShareModal(false)} className="p-2">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div style={{ 
+          position: 'fixed', 
+          inset: 0, 
+          backgroundColor: 'rgba(0,0,0,0.5)', 
+          display: 'flex', 
+          alignItems: 'flex-end', 
+          justifyContent: 'center', 
+          zIndex: 50 
+        }}>
+          <div style={{ 
+            backgroundColor: colors.white, 
+            borderRadius: '24px 24px 0 0', 
+            width: '100%', 
+            maxWidth: '512px', 
+            padding: '24px',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>공유하기</h3>
+              <button onClick={() => setShowShareModal(false)} style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <svg style={{ width: '24px', height: '24px', color: colors.gray400 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             
-            <div className="grid grid-cols-4 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
               {shareChannels.map((channel) => (
                 <button
                   key={channel.id}
                   onClick={() => handleShare(channel.id)}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl transition ${
-                    channel.enabled 
-                      ? 'hover:bg-gray-100 active:bg-gray-200' 
-                      : 'opacity-40 cursor-not-allowed'
-                  }`}
                   disabled={!channel.enabled}
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    padding: '16px', 
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: channel.enabled ? 'pointer' : 'not-allowed',
+                    opacity: channel.enabled ? 1 : 0.4
+                  }}
                 >
-                  <span className="text-3xl">{channel.icon}</span>
-                  <span className="text-xs text-gray-600">{channel.name}</span>
+                  <span style={{ fontSize: '30px' }}>{channel.icon}</span>
+                  <span style={{ fontSize: '12px', color: colors.gray700 }}>{channel.name}</span>
                   {!channel.enabled && (
-                    <span className="text-[10px] text-gray-400">준비중</span>
+                    <span style={{ fontSize: '10px', color: colors.gray400 }}>준비중</span>
                   )}
                 </button>
               ))}
@@ -502,18 +686,10 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         </div>
       )}
 
-      {/* 애니메이션 스타일 */}
       <style>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
         }
       `}</style>
     </div>
