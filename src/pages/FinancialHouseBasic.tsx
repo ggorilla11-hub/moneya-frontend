@@ -113,13 +113,13 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
 
   const toggleInterest = (id: string) => {
     if (interests.includes(id)) setInterests(interests.filter(i => i !== id));
-    else if (interests.length < 3) setInterests([...interests, id]);
-    else alert('경제적 관심사는 최대 3개까지 선택 가능합니다.');
+    else if (interests.length < 2) setInterests([...interests, id]);
+    else alert('경제적 관심사는 최대 2개까지 선택 가능합니다.');
   };
 
   const goNext = () => {
     if (currentStep === 2) {
-      if (interests.length < 2) { alert('경제적 관심사를 2개 이상 선택해 주세요.'); return; }
+      if (interests.length < 1) { alert('경제적 관심사를 1개 이상 선택해 주세요.'); return; }
       if (!goal) { alert('재무 목표를 선택해 주세요.'); return; }
     }
     if (currentStep < totalSteps) {
@@ -153,7 +153,18 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
     <div className="flex items-center gap-3 py-2">
       <span className="text-sm text-gray-600 w-32 flex items-center gap-1"><span>{icon}</span> {label}</span>
       <div className="flex-1 relative">
-        <input type="number" value={value || ''} onChange={(e) => onChange(Number(e.target.value))} placeholder="0" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-right pr-12 focus:outline-none focus:border-teal-500" />
+        <input 
+          type="text" 
+          inputMode="numeric" 
+          pattern="[0-9]*"
+          value={value === 0 ? '' : value} 
+          onChange={(e) => {
+            const val = e.target.value.replace(/[^0-9]/g, '');
+            onChange(val ? parseInt(val, 10) : 0);
+          }} 
+          placeholder="0" 
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-right pr-12 focus:outline-none focus:border-teal-500" 
+        />
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">만원</span>
       </div>
     </div>
@@ -205,11 +216,11 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
         )}
         {currentStep === 2 && (
           <>
-            <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">관심사 2-3개</span>와 <span className="text-teal-600 font-bold">목표 1개</span>를 선택! 🎯</p></div></div>
+            <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">관심사 1-2개</span>와 <span className="text-teal-600 font-bold">목표 1개</span>를 선택! 🎯</p></div></div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl">🎯</div><div><h3 className="font-bold text-gray-900">경제적 관심사</h3><p className="text-xs text-gray-400">2-3개 선택 ({interests.length}/3)</p></div></div>
+              <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl">🎯</div><div><h3 className="font-bold text-gray-900">경제적 관심사</h3><p className="text-xs text-gray-400">1-2개 선택 ({interests.length}/2)</p></div></div>
               <div className="flex flex-wrap gap-2">{interestOptions.map(o => <button key={o.id} onClick={() => toggleInterest(o.id)} className={`px-3 py-2 rounded-full border-2 text-xs font-semibold ${interests.includes(o.id) ? 'border-teal-500 bg-teal-500 text-white' : 'border-gray-200 text-gray-500'}`}>{o.label}</button>)}</div>
-              {interests.length < 2 && <p className="text-xs text-amber-600 mt-2">※ 최소 2개 이상 선택</p>}
+              {interests.length < 1 && <p className="text-xs text-amber-600 mt-2">※ 최소 1개 이상 선택</p>}
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl">🌟</div><div><h3 className="font-bold text-gray-900">재무 목표</h3><p className="text-xs text-gray-400">1개 선택</p></div></div>
@@ -221,7 +232,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700"><span className="text-teal-600 font-bold">수입과 지출</span> 입력! 생활비는 자동계산 💰</p></div></div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">💵</div><div><h3 className="font-bold text-gray-900">월 수입</h3><p className="text-xs text-gray-400">세후 기준</p></div></div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">💵</div><div><h3 className="font-bold text-gray-900">월 수입</h3><p className="text-xs text-gray-400">세후 기준</p></div></div>
+                {existingFinancialResult && existingFinancialResult.income > 0 && (
+                  <button onClick={() => setMyIncome(existingFinancialResult.income)} className="px-3 py-1.5 bg-teal-50 text-teal-600 text-xs font-semibold rounded-lg border border-teal-200">📥 불러오기</button>
+                )}
+              </div>
               <InputRow label="본인 소득" value={myIncome} onChange={setMyIncome} icon="👨‍💼" />
               {(married && dualIncome) && <InputRow label="배우자 소득" value={spouseIncome} onChange={setSpouseIncome} icon="👩‍💼" />}
               <InputRow label="기타 소득" value={otherIncome} onChange={setOtherIncome} icon="💼" />
@@ -255,7 +271,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">현재 보유 <span className="text-teal-600 font-bold">자산</span> 입력! 💎</p></div></div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💎</div><div><h3 className="font-bold text-gray-900">자산</h3><p className="text-xs text-gray-400">현재 보유 자산</p></div></div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💎</div><div><h3 className="font-bold text-gray-900">자산</h3><p className="text-xs text-gray-400">현재 보유 자산</p></div></div>
+                {existingFinancialResult && existingFinancialResult.assets > 0 && (
+                  <button onClick={() => setDepositAsset(existingFinancialResult.assets)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-lg border border-indigo-200">📥 불러오기</button>
+                )}
+              </div>
               <InputRow label="CMA(현금)" value={cmaAsset} onChange={setCmaAsset} icon="💵" />
               <InputRow label="금(GOLD)" value={goldAsset} onChange={setGoldAsset} icon="🥇" />
               <InputRow label="채권" value={bondAsset} onChange={setBondAsset} icon="📜" />
@@ -274,7 +295,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">마지막 <span className="text-teal-600 font-bold">부채</span> 입력! 📋</p></div></div>
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
+                {existingFinancialResult && existingFinancialResult.debt > 0 && (
+                  <button onClick={() => setMortgageDebt(existingFinancialResult.debt)} className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-lg border border-red-200">📥 불러오기</button>
+                )}
+              </div>
               <InputRow label="담보대출" value={mortgageDebt} onChange={setMortgageDebt} icon="🏠" />
               <InputRow label="신용대출" value={creditDebt} onChange={setCreditDebt} icon="💳" />
               <InputRow label="기타부채" value={otherDebt} onChange={setOtherDebt} icon="📦" />
