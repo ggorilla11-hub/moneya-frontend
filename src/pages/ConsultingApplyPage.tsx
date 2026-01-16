@@ -26,7 +26,7 @@ export default function ConsultingApplyPage({ product, onBack }: ConsultingApply
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Google Apps Script 웹앱 URL
-  const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwuAJrGcScmqY1koSkg7E0s7COTB8-vfplrxfYkbLXKaCRwEj1Yej2qk84NVHh5HTHywQ/exec';
+  const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwMsuhJl6qWHCzgiCDs-Jx2zO1F4yyLHIgGw_JNCn1o5POi1blwAjZtu3izjxV8cyOvFg/exec';
 
   // 입력값 변경 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
