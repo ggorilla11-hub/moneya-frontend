@@ -18,9 +18,11 @@ import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingPage from './pages/ConsultingPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
+import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
+import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
@@ -474,14 +476,18 @@ function App() {
               onFAQMore={handleFAQMore}
             />
           )}
+          {/* ✅ Phase 9: 금융집짓기 탭 - DISCLAIMER 화면 */}
           {currentTab === 'financial-house' && (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
-              <div className="text-center p-6">
-                <span className="text-6xl mb-4 block">🏗️</span>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
-                <p className="text-gray-500">Phase 4에서 개발 예정입니다</p>
-              </div>
-            </div>
+            <FinancialHouseProvider userId={user.uid}>
+              <FinancialHouseDisclaimer
+                userName={user.displayName || '사용자'}
+                onStart={() => {
+                  // TODO: Phase 9 다음 단계 - 기본정보 입력 화면으로 이동
+                  console.log('금융집짓기 시작 - 다음 단계 개발 예정');
+                  alert('금융집짓기가 시작됩니다!\n(다음 단계는 Phase 9에서 계속 개발됩니다)');
+                }}
+              />
+            </FinancialHouseProvider>
           )}
           {currentTab === 'mypage' && (
             <MyPage
