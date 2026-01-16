@@ -97,6 +97,12 @@ function App() {
           }
           setCurrentStep('main');
           setCurrentTab('home');
+          
+          // 금융집짓기 완료 여부 확인 → 재방문 시 design 화면 표시
+          const financialHouseCompleted = localStorage.getItem('financialHouseCompleted');
+          if (financialHouseCompleted === 'true') {
+            setFinancialHouseStep('design');
+          }
         } else {
           setCurrentStep('onboarding');
         }
@@ -501,17 +507,26 @@ function App() {
                 />
               )}
               {financialHouseStep === 'design' && (
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
-                  <div className="text-center p-6">
-                    <span className="text-6xl mb-4 block">🏗️</span>
-                    <h2 className="text-xl font-bold text-gray-800 mb-2">재무설계 화면</h2>
-                    <p className="text-gray-500 mb-4">다음 단계에서 개발 예정입니다</p>
-                    <button 
-                      onClick={() => setFinancialHouseStep('basic')}
-                      className="px-4 py-2 bg-teal-500 text-white rounded-lg"
-                    >
-                      이전으로
-                    </button>
+                <div className="min-h-screen bg-gray-50 flex flex-col pb-24">
+                  <div className="bg-white border-b border-gray-200 px-4 py-3">
+                    <h1 className="text-lg font-bold text-gray-900 text-center">금융집짓기 설계도면</h1>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center p-6">
+                      <span className="text-6xl mb-4 block">🏗️</span>
+                      <h2 className="text-xl font-bold text-gray-800 mb-2">3단계 재무설계</h2>
+                      <p className="text-gray-500 mb-6">다음 단계에서 개발 예정입니다</p>
+                      <button 
+                        onClick={() => {
+                          localStorage.removeItem('financialHouseCompleted');
+                          localStorage.removeItem('financialHouseData');
+                          setFinancialHouseStep('disclaimer');
+                        }}
+                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold"
+                      >
+                        🔄 다시 설계하기
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
