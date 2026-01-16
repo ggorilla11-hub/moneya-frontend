@@ -1,5 +1,5 @@
 // MonthlyReportPage.tsx
-// 월간 리포트 페이지 - 타입 에러 수정 완료 버전
+// 월간 리포트 페이지 - 타입 에러 + 미사용 변수 에러 모두 수정 완료
 // AdjustedBudget 타입: livingExpense, savings, pension, insurance, loanPayment, surplus, totalIncome
 
 import { useState } from 'react';
@@ -37,6 +37,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
   const pension = adjustedBudget?.pension || 50;
   const insurance = adjustedBudget?.insurance || 35;
   const loanPayment = adjustedBudget?.loanPayment || 50;
+  // surplus는 잉여자금 표시에 사용
   const surplus = adjustedBudget?.surplus || 15;
 
   // 총 지출 계산 (생활비 + 보험 + 대출)
@@ -164,6 +165,19 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-1">저축</p>
               <p className="text-lg font-bold text-green-600">{formatAmount(savings + pension)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 잉여자금 카드 */}
+        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-2xl p-5 border border-amber-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm text-amber-700 font-medium">💰 이번 달 잉여자금</p>
+              <p className="text-2xl font-bold text-amber-800 mt-1">{formatAmount(surplus)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-amber-600">추가 저축 가능 금액</p>
             </div>
           </div>
         </div>
