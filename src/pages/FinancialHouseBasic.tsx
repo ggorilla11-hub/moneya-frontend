@@ -103,6 +103,17 @@ const jobOptions = [
 ];
 
 // ============================================
+// 단위 변환 헬퍼 함수: 원 단위 → 만원 단위
+// 10000 이상이면 원 단위로 간주하여 변환
+// ============================================
+const toManwon = (value: number): number => {
+  if (value >= 10000) {
+    return Math.round(value / 10000);
+  }
+  return value;
+};
+
+// ============================================
 // 메인 컴포넌트
 // ============================================
 export default function FinancialHouseBasic({ userName, onComplete, onBack, existingFinancialResult, existingIncomeExpense }: FinancialHouseBasicProps) {
@@ -188,11 +199,14 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
 
   // ============================================
   // 합계 표시값 (새로 입력한 값이 있으면 계산값, 없으면 기존값)
+  // ★ 수정: toManwon 함수로 원→만원 단위 변환
   // ============================================
-  const existingIncome = existingIncomeExpense?.income || existingFinancialResult?.income || 0;
-  const existingExpense = existingIncomeExpense ? (existingIncomeExpense.loanPayment + existingIncomeExpense.insurance + existingIncomeExpense.pension + existingIncomeExpense.savings + existingIncomeExpense.surplus + existingIncomeExpense.livingExpense) : 0;
-  const existingAssets = existingFinancialResult?.assets || 0;
-  const existingDebt = existingFinancialResult?.debt || 0;
+  const existingIncome = existingIncomeExpense?.income || 
+    (existingFinancialResult?.income ? toManwon(existingFinancialResult.income) : 0);
+  const existingExpense = existingIncomeExpense ? 
+    (existingIncomeExpense.loanPayment + existingIncomeExpense.insurance + existingIncomeExpense.pension + existingIncomeExpense.savings + existingIncomeExpense.surplus + existingIncomeExpense.livingExpense) : 0;
+  const existingAssets = existingFinancialResult?.assets ? toManwon(existingFinancialResult.assets) : 0;
+  const existingDebt = existingFinancialResult?.debt ? toManwon(existingFinancialResult.debt) : 0;
 
   const displayIncome = totalMonthlyIncome > 0 ? totalMonthlyIncome : existingIncome;
   const displayExpense = totalExpense > 0 ? totalExpense : existingExpense;
