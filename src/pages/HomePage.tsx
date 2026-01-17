@@ -134,11 +134,15 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
   ] : [];
 
   const formatWon = (amount: number) => `₩${amount.toLocaleString()}`;
+  
+  // 금액을 만원 단위로 표시하는 함수 (수정됨)
   const formatMan = (amount: number) => {
-    if (amount >= 10000) {
-      return `${Math.round(amount / 10000)}만`;
+    // 이미 만원 단위인 경우 (10000 미만)
+    if (amount < 10000) {
+      return `${amount.toLocaleString()}만`;
     }
-    return `${amount.toLocaleString()}원`;
+    // 원 단위인 경우 (10000 이상) -> 만원으로 변환
+    return `${Math.round(amount / 10000).toLocaleString()}만`;
   };
 
   const handlePrevSlide = () => {
