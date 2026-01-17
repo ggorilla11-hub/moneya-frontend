@@ -19,6 +19,16 @@ interface FinancialResultPageProps {
 }
 
 function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: FinancialResultPageProps) {
+  // 금액을 만원 단위로 표시하는 함수
+  const formatManwon = (value: number): string => {
+    // 이미 만원 단위인 경우 (10000 미만)
+    if (value < 10000) {
+      return `${value.toLocaleString()}만원`;
+    }
+    // 원 단위인 경우 (10000 이상) -> 만원으로 변환
+    return `${Math.round(value / 10000).toLocaleString()}만원`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-green-50 to-amber-50 p-5">
       {/* 헤더 */}
@@ -92,19 +102,19 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">월수입</span>
-            <span className="font-medium text-gray-800">{result.income.toLocaleString()}만원</span>
+            <span className="font-medium text-gray-800">{formatManwon(result.income)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">총자산</span>
-            <span className="font-medium text-gray-800">{result.assets.toLocaleString()}만원</span>
+            <span className="font-medium text-gray-800">{formatManwon(result.assets)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">총부채</span>
-            <span className="font-medium text-gray-800">{result.debt.toLocaleString()}만원</span>
+            <span className="font-medium text-gray-800">{formatManwon(result.debt)}</span>
           </div>
           <div className="border-t pt-3 flex justify-between">
             <span className="text-gray-500">순자산</span>
-            <span className="font-bold text-purple-600">{(result.assets - result.debt).toLocaleString()}만원</span>
+            <span className="font-bold text-purple-600">{formatManwon(result.assets - result.debt)}</span>
           </div>
         </div>
       </div>
