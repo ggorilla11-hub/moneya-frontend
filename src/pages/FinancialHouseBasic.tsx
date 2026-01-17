@@ -2,7 +2,7 @@
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
-// 수정: normalizeToManwon 함수로 금액 단위 정규화 (444만원 오류 수정)
+// 수정: normalizeToManwon 함수로 금액 단위 정규화 (수입/지출/자산/부채 모두 적용)
 
 import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -205,8 +205,9 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   // normalizeToManwon 함수로 어떤 단위가 들어오든 만원 단위로 정규화
   // ============================================
   const existingIncome = normalizeToManwon(existingIncomeExpense?.income || existingFinancialResult?.income || 0);
-  const existingExpense = existingIncomeExpense ? 
+  const existingExpenseRaw = existingIncomeExpense ? 
     (existingIncomeExpense.loanPayment + existingIncomeExpense.insurance + existingIncomeExpense.pension + existingIncomeExpense.savings + existingIncomeExpense.surplus + existingIncomeExpense.livingExpense) : 0;
+  const existingExpense = normalizeToManwon(existingExpenseRaw);
   const existingAssets = normalizeToManwon(existingFinancialResult?.assets || 0);
   const existingDebt = normalizeToManwon(existingFinancialResult?.debt || 0);
 
