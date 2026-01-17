@@ -2,6 +2,7 @@
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
+// 수정: normalizeToManwon 함수로 금액 단위 정규화 (444만원 오류 수정)
 
 import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -103,11 +104,13 @@ const jobOptions = [
 ];
 
 // ============================================
-// 단위 변환 헬퍼 함수: 원 단위 → 만원 단위
-// 10000 이상이면 원 단위로 간주하여 변환
+// 단위 정규화 함수: 어떤 단위로 들어오든 만원 단위로 변환
+// 100000 이상이면 원 단위로 간주하여 변환
+// (월수입 10만 만원 = 10억 이상은 현실적으로 없음)
 // ============================================
-const toManwon = (value: number): number => {
-  if (value >= 10000) {
+const normalizeToManwon = (value: number): number => {
+  if (!value || value === 0) return 0;
+  if (value >= 100000) {
     return Math.round(value / 10000);
   }
   return value;
@@ -199,14 +202,13 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
 
   // ============================================
   // 합계 표시값 (새로 입력한 값이 있으면 계산값, 없으면 기존값)
-  // ★ 수정: toManwon 함수로 원→만원 단위 변환
+  // normalizeToManwon 함수로 어떤 단위가 들어오든 만원 단위로 정규화
   // ============================================
-  const existingIncome = existingIncomeExpense?.income || 
-    (existingFinancialResult?.income ? toManwon(existingFinancialResult.income) : 0);
+  const existingIncome = normalizeToManwon(existingIncomeExpense?.income || existingFinancialResult?.income || 0);
   const existingExpense = existingIncomeExpense ? 
     (existingIncomeExpense.loanPayment + existingIncomeExpense.insurance + existingIncomeExpense.pension + existingIncomeExpense.savings + existingIncomeExpense.surplus + existingIncomeExpense.livingExpense) : 0;
-  const existingAssets = existingFinancialResult?.assets ? toManwon(existingFinancialResult.assets) : 0;
-  const existingDebt = existingFinancialResult?.debt ? toManwon(existingFinancialResult.debt) : 0;
+  const existingAssets = normalizeToManwon(existingFinancialResult?.assets || 0);
+  const existingDebt = normalizeToManwon(existingFinancialResult?.debt || 0);
 
   const displayIncome = totalMonthlyIncome > 0 ? totalMonthlyIncome : existingIncome;
   const displayExpense = totalExpense > 0 ? totalExpense : existingExpense;
