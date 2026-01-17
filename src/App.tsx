@@ -15,6 +15,7 @@ import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import ConsultingPage from './pages/ConsultingPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
+import FinancialHouseDesign from './pages/financialHouse/FinancialHouseDesign';
 import type { ServiceItem } from './pages/ConsultingPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -50,7 +51,8 @@ type AppStep =
   | 're-analysis'
   | 're-analysis-input'
   | 'consulting'
-  | 'consulting-apply';
+  | 'consulting-apply'
+  | 'financial-house-design';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -220,6 +222,15 @@ function App() {
   const handleApplyBack = () => {
     setSelectedService(null);
     setCurrentStep('consulting');
+  };
+
+  const handleFinancialHouseDesign = () => {
+    setCurrentStep('financial-house-design');
+  };
+
+  const handleFinancialHouseBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('financial-house');
   };
 
   const handleRestart = async () => {
@@ -407,6 +418,12 @@ function App() {
     );
   }
 
+  if (currentStep === 'financial-house-design') {
+    return (
+      <FinancialHouseDesign />
+    );
+  }
+
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
@@ -430,11 +447,17 @@ function App() {
             />
           )}
           {currentTab === 'financial-house' && (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center pb-24">
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center pb-24">
               <div className="text-center p-6">
                 <span className="text-6xl mb-4 block">🏗️</span>
                 <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
-                <p className="text-gray-500">Phase 4에서 개발 예정입니다</p>
+                <p className="text-gray-500 mb-6">나만의 금융집을 설계해보세요</p>
+                <button
+                  onClick={handleFinancialHouseDesign}
+                  className="px-8 py-4 bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform"
+                >
+                  🏠 재무설계 시작하기
+                </button>
               </div>
             </div>
           )}
