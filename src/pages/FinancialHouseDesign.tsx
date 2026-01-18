@@ -16,7 +16,7 @@ const DESIGN_TABS = [
   { id: 'insurance', name: '보험', icon: '🛡️', step: 7 },
 ];
 
-export default function FinancialHouseDesign({ userName, onComplete, onBack }: FinancialHouseDesignProps) {
+export default function FinancialHouseDesign({ userName: _userName, onComplete, onBack }: FinancialHouseDesignProps) {
   const [currentTab, setCurrentTab] = useState('retire');
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
 
