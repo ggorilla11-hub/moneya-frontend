@@ -48,8 +48,28 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
 
   const currentStep = DESIGN_TABS.find(t => t.id === currentTab)?.step || 1;
 
+  const [inputMessage, setInputMessage] = useState('');
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim()) {
+      // TODO: AI 메시지 처리 로직
+      console.log('메시지 전송:', inputMessage);
+      setInputMessage('');
+    }
+  };
+
+  const handleVoiceInput = () => {
+    // TODO: 음성 입력 로직
+    console.log('음성 입력 시작');
+  };
+
+  const handleAttach = () => {
+    // TODO: 첨부파일 로직
+    console.log('첨부파일 추가');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-36">
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
         <button onClick={goToPrevTab} className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-lg text-lg">←</button>
@@ -90,6 +110,45 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast={true} />}
+      </div>
+
+      {/* 마이크버튼바 (입력바) - 2단계 재무설계에서만 표시 */}
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 flex items-center gap-2">
+        {/* + 버튼 (첨부) */}
+        <button 
+          onClick={handleAttach}
+          className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-teal-400 to-teal-600 text-white rounded-full text-xl font-bold shadow-md"
+        >
+          +
+        </button>
+        
+        {/* 마이크 버튼 */}
+        <button 
+          onClick={handleVoiceInput}
+          className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-full text-xl"
+        >
+          🎤
+        </button>
+        
+        {/* 텍스트 입력 */}
+        <input
+          type="text"
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+          placeholder="지출 전에 물어보세요..."
+          className="flex-1 px-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+        />
+        
+        {/* 전송 버튼 */}
+        <button 
+          onClick={handleSendMessage}
+          className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-teal-400 to-teal-600 text-white rounded-full shadow-md"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
       </div>
     </div>
   );
