@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth } from './config/firebase';
 import LoginPage from './components/LoginPage';
 import MainPage from './components/MainPage';
 import VoiceAssistant from './components/VoiceAssistant';
@@ -97,7 +97,6 @@ function App() {
                       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                         <FinancialHouseBasic
                           userName={user.displayName || '사용자'}
-                          onClose={handleCloseFinancialHouse}
                           onComplete={() => {
                             setFinancialHouseStep('design');
                           }}
