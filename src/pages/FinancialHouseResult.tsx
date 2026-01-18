@@ -67,7 +67,7 @@ const FinancialHouseResult = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-36">
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-base font-bold text-gray-900">
@@ -114,9 +114,9 @@ const FinancialHouseResult = ({
       </div>
 
       {/* 메인 컨텐츠 */}
-      <main className="flex-1 overflow-y-auto p-4 pb-44">
-        {/* 이미지 스와이프 영역 */}
-        <div className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden shadow-lg">
+      <main className="flex-1 overflow-y-auto p-4">
+        {/* 이미지 스와이프 영역 - 크기 축소 */}
+        <div className="relative w-full h-64 sm:h-72 md:h-80 bg-white rounded-2xl overflow-hidden shadow-lg">
           <div 
             className="flex transition-transform duration-300 ease-out h-full"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -149,9 +149,9 @@ const FinancialHouseResult = ({
                 &lt;샘플&gt;
               </div>
               <div className="text-center">
-                <div className="text-6xl mb-3">📊</div>
-                <div className="text-lg font-bold text-amber-800">금융집 내부</div>
-                <div className="text-sm text-amber-600 mt-1 opacity-70">실제 이미지로 교체 예정</div>
+                <div className="text-5xl mb-2">📊</div>
+                <div className="text-base font-bold text-amber-800">금융집 내부</div>
+                <div className="text-xs text-amber-600 mt-1 opacity-70">실제 이미지로 교체 예정</div>
               </div>
               <button
                 onClick={handleSwipeRight}
@@ -163,6 +163,17 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
+        {/* 다시 설계하기 버튼 */}
+        <div className="mt-4">
+          <button
+            onClick={handleRestart}
+            className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span>🔄</span>
+            <span>다시 설계하기</span>
+          </button>
+        </div>
+
         {/* 저작권 정보 */}
         <div className="mt-4 text-center">
           <p className="text-[10px] text-gray-500 font-semibold">
@@ -172,21 +183,10 @@ const FinancialHouseResult = ({
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
         </div>
-
-        {/* 다시 설계하기 버튼 */}
-        <div className="mt-4">
-          <button
-            onClick={handleRestart}
-            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <span>🔄</span>
-            <span>다시 설계하기</span>
-          </button>
-        </div>
       </main>
 
-      {/* 마이크 입력바 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-20">
+      {/* 마이크 입력바 - 위치 조정 */}
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-lg active:scale-95 transition-transform">
             +
@@ -209,9 +209,9 @@ const FinancialHouseResult = ({
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
         <div className="flex justify-around items-center py-2 pb-5 max-w-screen-sm mx-auto">
           {[
-            { icon: '💬', label: 'AI대화', tab: 'ai-spend' },
-            { icon: '💰', label: '지출', tab: 'home' },
-            { icon: '🏠', label: '금융집짓기', tab: 'financial-house', active: true },
+            { icon: '🏠', label: '홈', tab: 'home' },
+            { icon: '💬', label: 'AI지출', tab: 'ai-spend' },
+            { icon: '🏗️', label: '금융집짓기', tab: 'financial-house', active: true },
             { icon: '👤', label: '마이페이지', tab: 'mypage' },
           ].map((item, index) => (
             <button
