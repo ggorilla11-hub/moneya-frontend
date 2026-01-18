@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 2단계: 은퇴설계 + 부채설계 구현 (입력 필드 수정 + UI 개선 + 하단 여백 수정)
+// 3단계: 은퇴 + 부채 + 저축 구현 (나머지 4개는 플레이스홀더)
 
 import { useState } from 'react';
 
@@ -96,7 +96,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
       <div className="flex-1 overflow-y-auto p-4 pb-44">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'save' && <PlaceholderCard name="저축설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
+        {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'invest' && <PlaceholderCard name="투자설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'tax' && <PlaceholderCard name="세금설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'estate' && <PlaceholderCard name="부동산설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
@@ -470,7 +470,117 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 5개)
+// 3. 저축설계 카드 (신규)
+// ============================================
+function SavePlanCard({ onNext, onPrev }: CardProps) {
+  const [formData, setFormData] = useState({
+    monthlyIncome: 500,
+    monthlySaving: 100,
+    targetRate: 20,
+  });
+
+  const currentRate = formData.monthlyIncome > 0 ? (formData.monthlySaving / formData.monthlyIncome * 100) : 0;
+  const yearlyAmount = formData.monthlySaving * 12;
+  const fiveYearAmount = yearlyAmount * 5 / 10000;
+
+  let rateLevel = '';
+  let rateColor = '';
+  let rateMessage = '';
+  
+  if (currentRate >= 30) {
+    rateLevel = '우수';
+    rateColor = 'text-green-600';
+    rateMessage = '훌륭한 저축 습관입니다!';
+  } else if (currentRate >= 20) {
+    rateLevel = '양호';
+    rateColor = 'text-blue-600';
+    rateMessage = '좋은 저축률을 유지하고 있습니다.';
+  } else if (currentRate >= 10) {
+    rateLevel = '보통';
+    rateColor = 'text-yellow-600';
+    rateMessage = '조금 더 저축을 늘려보세요.';
+  } else {
+    rateLevel = '개선 필요';
+    rateColor = 'text-red-600';
+    rateMessage = '저축률을 높이는 것을 추천합니다!';
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">💰</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>세 번째는 <span className="text-teal-600 font-bold">저축설계</span>입니다. 현재 저축 상황을 입력해주세요.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">저축 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월 소득 (만원)</label>
+          <input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월 저축액 (만원)</label>
+          <input type="number" value={formData.monthlySaving} onChange={(e) => setFormData({...formData, monthlySaving: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">목표 저축률 (%)</label>
+          <input type="number" value={formData.targetRate} onChange={(e) => setFormData({...formData, targetRate: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-blue-800 mb-2">저축 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">현재 저축률</span>
+          <span className={`font-bold ${rateColor}`}>{currentRate.toFixed(1)}%</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">연간 저축액</span>
+          <span className="font-bold text-blue-700">{yearlyAmount.toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">5년 후 예상 금액</span>
+          <span className="font-bold text-blue-700">{fiveYearAmount.toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-2 border-t border-blue-200">
+          <span className="text-gray-700 font-bold">목표 저축률과의 차이</span>
+          <span className={`font-bold ${currentRate >= formData.targetRate ? 'text-green-600' : 'text-red-600'}`}>
+            {currentRate >= formData.targetRate ? '달성 ✓' : `${(formData.targetRate - currentRate).toFixed(1)}% 부족`}
+          </span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">저축 평가</span>
+            <span className={`text-xs font-bold ${rateColor}`}>{rateLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{rateMessage}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 플레이스홀더 (나머지 4개)
 // ============================================
 function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
   return (
