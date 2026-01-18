@@ -16,6 +16,7 @@ import FAQMorePage from './pages/FAQMorePage';
 import ConsultingPage from './pages/ConsultingPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import FinancialHouseDesign from './pages/financialHouse/FinancialHouseDesign';
+import FinancialHouseResult from './pages/financialHouse/FinancialHouseResult';
 import type { ServiceItem } from './pages/ConsultingPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -52,7 +53,8 @@ type AppStep =
   | 're-analysis-input'
   | 'consulting'
   | 'consulting-apply'
-  | 'financial-house-design';
+  | 'financial-house-design'
+  | 'financial-house-result';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -231,6 +233,10 @@ function App() {
   const handleFinancialHouseBack = () => {
     setCurrentStep('main');
     setCurrentTab('financial-house');
+  };
+
+  const handleFinancialHouseResult = () => {
+    setCurrentStep('financial-house-result');
   };
 
   const handleRestart = async () => {
@@ -424,6 +430,12 @@ function App() {
     );
   }
 
+  if (currentStep === 'financial-house-result') {
+    return (
+      <FinancialHouseResult />
+    );
+  }
+
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
@@ -453,10 +465,10 @@ function App() {
                 <h2 className="text-xl font-bold text-gray-800 mb-2">금융집짓기</h2>
                 <p className="text-gray-500 mb-6">나만의 금융집을 설계해보세요</p>
                 <button
-                  onClick={handleFinancialHouseDesign}
+                  onClick={handleFinancialHouseResult}
                   className="px-8 py-4 bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-transform"
                 >
-                  🏠 재무설계 시작하기
+                  🏠 결과 화면 보기 (테스트)
                 </button>
               </div>
             </div>
