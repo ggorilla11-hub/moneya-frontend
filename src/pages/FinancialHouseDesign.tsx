@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 6단계: 은퇴 + 부채 + 저축 + 투자 + 세금 + 부동산 구현 (나머지 1개는 플레이스홀더)
+// 7단계 완성: 은퇴 + 부채 + 저축 + 투자 + 세금 + 부동산 + 보험 (전체 완성!)
 
 import { useState } from 'react';
 
@@ -100,7 +100,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
+        {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
 
       {/* 마이크버튼바 - 네비바 위로 올림 */}
@@ -961,15 +961,156 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 1개)
+// 7. 보험설계 카드 (신규 - 마지막!)
 // ============================================
-function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
+function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
+  const [formData, setFormData] = useState({
+    monthlyPremium: 30,
+    deathCoverage: 5,
+    diseaseCoverage: 3,
+    hasHealthInsurance: true,
+    pensionInsurance: 20,
+  });
+
+  const yearlyPremium = formData.monthlyPremium * 12;
+  const totalCoverage = formData.deathCoverage + formData.diseaseCoverage;
+  
+  // 보험료 소득 대비 비율 (가정: 월소득 500만원)
+  const assumedIncome = 500;
+  const premiumRatio = (formData.monthlyPremium / assumedIncome) * 100;
+
+  let premiumLevel = '';
+  let premiumColor = '';
+  let premiumMessage = '';
+  
+  if (premiumRatio <= 5) {
+    premiumLevel = '적정';
+    premiumColor = 'text-green-600';
+    premiumMessage = '보험료 부담이 적정합니다!';
+  } else if (premiumRatio <= 10) {
+    premiumLevel = '양호';
+    premiumColor = 'text-blue-600';
+    premiumMessage = '적절한 수준의 보험료입니다.';
+  } else if (premiumRatio <= 15) {
+    premiumLevel = '주의';
+    premiumColor = 'text-yellow-600';
+    premiumMessage = '보험료가 다소 높습니다.';
+  } else {
+    premiumLevel = '과다';
+    premiumColor = 'text-red-600';
+    premiumMessage = '보험료 부담이 큽니다. 재검토 필요!';
+  }
+
+  let coverageLevel = '';
+  let coverageColor = '';
+  
+  if (totalCoverage >= 8) {
+    coverageLevel = '충분';
+    coverageColor = 'text-green-600';
+  } else if (totalCoverage >= 5) {
+    coverageLevel = '적정';
+    coverageColor = 'text-blue-600';
+  } else {
+    coverageLevel = '부족';
+    coverageColor = 'text-red-600';
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
   return (
     <div className="space-y-3">
-      <div className="bg-white rounded-xl p-8 text-center">
-        <p className="text-gray-400 text-sm">{name}는 다음 단계에서 개발됩니다</p>
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">🛡️</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>마지막 일곱 번째는 <span className="text-teal-600 font-bold">보험설계</span>입니다. 현재 보험 가입 현황을 입력해주세요.</p>
+        </div>
       </div>
-      <div className="flex gap-2">
+
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">보험 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월 보험료 총액 (만원)</label>
+          <input type="number" value={formData.monthlyPremium} onChange={(e) => setFormData({...formData, monthlyPremium: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">사망보장 금액 (억원)</label>
+          <input type="number" step="0.1" value={formData.deathCoverage} onChange={(e) => setFormData({...formData, deathCoverage: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">질병보장 금액 (억원)</label>
+          <input type="number" step="0.1" value={formData.diseaseCoverage} onChange={(e) => setFormData({...formData, diseaseCoverage: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">실손보험 가입 여부</label>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setFormData({...formData, hasHealthInsurance: true})}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold ${formData.hasHealthInsurance ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              가입
+            </button>
+            <button 
+              onClick={() => setFormData({...formData, hasHealthInsurance: false})}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold ${!formData.hasHealthInsurance ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              미가입
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">연금보험 납입액 (만원/월)</label>
+          <input type="number" value={formData.pensionInsurance} onChange={(e) => setFormData({...formData, pensionInsurance: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-emerald-800 mb-2">보험 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">연간 보험료</span>
+          <span className="font-bold text-emerald-700">{yearlyPremium.toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">총 보장금액</span>
+          <span className={`font-bold ${coverageColor}`}>{totalCoverage.toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">실손보험</span>
+          <span className={`font-bold ${formData.hasHealthInsurance ? 'text-green-600' : 'text-red-600'}`}>
+            {formData.hasHealthInsurance ? '가입 ✓' : '미가입 ✗'}
+          </span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-2 border-t border-emerald-200">
+          <span className="text-gray-700 font-bold">보험료 부담</span>
+          <span className={`font-bold ${premiumColor}`}>{premiumRatio.toFixed(1)}% ({premiumLevel})</span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">보장 적정성</span>
+            <span className={`text-xs font-bold ${coverageColor}`}>{coverageLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{premiumMessage}</p>
+          {!formData.hasHealthInsurance && (
+            <p className="text-xs text-red-600 mt-2">⚠️ 실손보험 가입을 강력히 추천합니다!</p>
+          )}
+          {totalCoverage < 5 && (
+            <p className="text-xs text-gray-600 mt-2">💡 가족 생계를 위해 보장금액을 늘리는 것을 추천합니다!</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">
           {isLast ? '금융집 완성 🎉' : '다음 →'}
@@ -978,3 +1119,7 @@ function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: s
     </div>
   );
 }
+
+// ============================================
+// 플레이스홀더 (삭제 - 더이상 필요없음)
+// ============================================
