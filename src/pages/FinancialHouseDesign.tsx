@@ -842,10 +842,8 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
   const yearlyTax = formData.currentPrice * 0.0015;
   const totalTax = yearlyTax * formData.holdingYears;
   
-  // 순자산 증가
+  // 순자산
   const netEquity = formData.currentPrice - formData.loanBalance;
-  const futureEquity = futureValue - formData.loanBalance;
-  const equityIncrease = futureEquity - netEquity;
   
   // LTV (Loan to Value)
   const ltv = formData.currentPrice > 0 ? (formData.loanBalance / formData.currentPrice * 100) : 0;
