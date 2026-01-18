@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 2단계: 은퇴설계 + 부채설계 구현 (입력 필드 수정 + UI 개선)
+// 2단계: 은퇴설계 + 부채설계 구현 (입력 필드 수정 + UI 개선 + 하단 여백 수정)
 
 import { useState } from 'react';
 
@@ -92,8 +92,8 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         })}
       </div>
 
-      {/* 컨텐츠 영역 - 마이크버튼바 공간 확보 (pb-24) */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+      {/* 컨텐츠 영역 - 마이크버튼바 + 버튼 공간 확보 (pb-40) */}
+      <div className="flex-1 overflow-y-auto p-4 pb-40">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <PlaceholderCard name="저축설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
