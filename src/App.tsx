@@ -21,6 +21,7 @@ import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
 import FinancialHouseDesign from './pages/FinancialHouseDesign';
+import FinancialHouseResult from './pages/FinancialHouseResult';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -95,6 +96,11 @@ function App() {
           const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
           if (savedIncomeExpense) {
             setIncomeExpenseData(JSON.parse(savedIncomeExpense));
+          }
+          // 금융집짓기 완성 여부 확인
+          const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          if (financialHouseCompleted) {
+            setFinancialHouseStep('result');
           }
           setCurrentStep('main');
           setCurrentTab('home');
@@ -178,6 +184,13 @@ function App() {
 
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
+    // 금융집짓기 탭 클릭 시 완성 여부 확인
+    if (tab === 'financial-house' && user) {
+      const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      if (financialHouseCompleted) {
+        setFinancialHouseStep('result');
+      }
+    }
   };
 
   const handleMoreDetail = () => {
@@ -259,13 +272,31 @@ function App() {
       localStorage.removeItem(`adjustedBudget_${user.uid}`);
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       localStorage.removeItem(`moneya_spend_${user.uid}`);
+      localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
       setAdjustedBudget(null);
+      setFinancialHouseStep('disclaimer');
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
+  };
+
+  // 금융집짓기 완성 핸들러
+  const handleFinancialHouseComplete = () => {
+    if (user) {
+      localStorage.setItem(`financialHouseCompleted_${user.uid}`, 'true');
+    }
+    setFinancialHouseStep('result');
+  };
+
+  // 금융집짓기 다시 설계하기 핸들러
+  const handleFinancialHouseRestart = () => {
+    if (user) {
+      localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
+    }
+    setFinancialHouseStep('disclaimer');
   };
 
   if (loading) {
@@ -489,8 +520,25 @@ function App() {
               {financialHouseStep === 'design' && (
                 <FinancialHouseDesign
                   userName={user.displayName || '사용자'}
-                  onComplete={() => setFinancialHouseStep('result')}
+                  onComplete={handleFinancialHouseComplete}
                   onBack={() => setFinancialHouseStep('basic')}
+                />
+              )}
+              {financialHouseStep === 'result' && (
+                <FinancialHouseResult
+                  userName={user.displayName || '사용자'}
+                  onRestart={handleFinancialHouseRestart}
+                  onNavigate={(path) => {
+                    if (path === 'mypage-consulting') {
+                      setCurrentStep('consulting');
+                    } else if (path === 'ai-spend') {
+                      setCurrentTab('ai-spend');
+                    } else if (path === 'home') {
+                      setCurrentTab('home');
+                    } else if (path === 'mypage') {
+                      setCurrentTab('mypage');
+                    }
+                  }}
                 />
               )}
             </FinancialHouseProvider>
