@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 3단계: 은퇴 + 부채 + 저축 구현 (나머지 4개는 플레이스홀더)
+// 4단계: 은퇴 + 부채 + 저축 + 투자 구현 (나머지 3개는 플레이스홀더)
 
 import { useState } from 'react';
 
@@ -97,7 +97,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'invest' && <PlaceholderCard name="투자설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
+        {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'tax' && <PlaceholderCard name="세금설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'estate' && <PlaceholderCard name="부동산설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
@@ -580,7 +580,117 @@ function SavePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 4개)
+// 4. 투자설계 카드 (신규)
+// ============================================
+function InvestPlanCard({ onNext, onPrev }: CardProps) {
+  const [formData, setFormData] = useState({
+    currentAge: 37,
+    currentAssets: 10000,
+    monthlyInvestment: 50,
+    expectedReturn: 7,
+  });
+
+  const yearlyInvestment = formData.monthlyInvestment * 12;
+  const tenYearAmount = (formData.currentAssets + yearlyInvestment * 10) * Math.pow(1 + formData.expectedReturn / 100, 10) / 10000;
+  const wealthIndex = formData.currentAssets / 10000 / (formData.currentAge / 10);
+
+  let wealthLevel = '';
+  let wealthColor = '';
+  let wealthMessage = '';
+  
+  if (wealthIndex >= 3) {
+    wealthLevel = '탁월';
+    wealthColor = 'text-green-600';
+    wealthMessage = '재무 목표를 잘 달성하고 있습니다!';
+  } else if (wealthIndex >= 2) {
+    wealthLevel = '우수';
+    wealthColor = 'text-blue-600';
+    wealthMessage = '좋은 자산 형성 단계입니다.';
+  } else if (wealthIndex >= 1) {
+    wealthLevel = '양호';
+    wealthColor = 'text-yellow-600';
+    wealthMessage = '꾸준한 투자가 필요합니다.';
+  } else {
+    wealthLevel = '개선 필요';
+    wealthColor = 'text-red-600';
+    wealthMessage = '투자를 늘리는 것을 추천합니다!';
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">📈</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>네 번째는 <span className="text-teal-600 font-bold">투자설계</span>입니다. 현재 투자 상황을 입력해주세요.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">투자 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">현재 나이</label>
+          <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">현재 자산 (만원)</label>
+          <input type="number" value={formData.currentAssets} onChange={(e) => setFormData({...formData, currentAssets: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월 투자액 (만원)</label>
+          <input type="number" value={formData.monthlyInvestment} onChange={(e) => setFormData({...formData, monthlyInvestment: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">예상 수익률 (%)</label>
+          <input type="number" step="0.1" value={formData.expectedReturn} onChange={(e) => setFormData({...formData, expectedReturn: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-orange-800 mb-2">투자 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">재무지수 (Wealth Index)</span>
+          <span className={`font-bold ${wealthColor}`}>{wealthIndex.toFixed(2)}</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">연간 투자액</span>
+          <span className="font-bold text-orange-700">{yearlyInvestment.toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">10년 후 예상 자산</span>
+          <span className="font-bold text-orange-700">{tenYearAmount.toFixed(1)}억원</span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">자산 수준</span>
+            <span className={`text-xs font-bold ${wealthColor}`}>{wealthLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{wealthMessage}</p>
+          <p className="text-xs text-gray-600 mt-2">💡 DESIRE 로드맵: 분산투자와 장기투자를 추천합니다!</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 플레이스홀더 (나머지 3개)
 // ============================================
 function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
   return (
