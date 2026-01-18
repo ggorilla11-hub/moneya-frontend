@@ -11,7 +11,7 @@ interface FinancialHouseResultProps {
 
 const FinancialHouseResult = ({ 
   userName = '홍길동',
-  onBack,
+  onBack: _onBack,
   onNavigate 
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -225,3 +225,10 @@ const FinancialHouseResult = ({
 };
 
 export default FinancialHouseResult;
+```
+
+---
+
+### 커밋 메시지
+```
+fix: onBack 미사용 변수 에러 수정
