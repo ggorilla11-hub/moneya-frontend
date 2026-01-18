@@ -6,8 +6,8 @@ import LoginPage from './components/LoginPage';
 import MainPage from './components/MainPage';
 import VoiceAssistant from './components/VoiceAssistant';
 import FinancialHouseDisclaimer from './components/FinancialHouseDisclaimer';
-import FinancialHouseBasicInfo from './components/FinancialHouseBasicInfo';
-import FinancialHouseDesign from './components/FinancialHouseDesign';
+import FinancialHouseBasic from './pages/FinancialHouseBasic';
+import FinancialHouseDesign from './pages/financialHouse/FinancialHouseDesign';
 
 type FinancialHouseStep = 'disclaimer' | 'basic-info' | 'design' | null;
 
@@ -95,11 +95,13 @@ function App() {
                   {financialHouseStep === 'basic-info' && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <FinancialHouseBasicInfo
+                        <FinancialHouseBasic
+                          userName={user.displayName || '사용자'}
                           onClose={handleCloseFinancialHouse}
                           onComplete={() => {
                             setFinancialHouseStep('design');
                           }}
+                          onBack={handleCloseFinancialHouse}
                         />
                       </div>
                     </div>
