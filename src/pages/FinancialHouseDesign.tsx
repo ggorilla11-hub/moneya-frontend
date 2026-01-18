@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 5단계: 은퇴 + 부채 + 저축 + 투자 + 세금 구현 (나머지 2개는 플레이스홀더)
+// 6단계: 은퇴 + 부채 + 저축 + 투자 + 세금 + 부동산 구현 (나머지 1개는 플레이스홀더)
 
 import { useState } from 'react';
 
@@ -99,7 +99,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'estate' && <PlaceholderCard name="부동산설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
+        {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
 
@@ -823,7 +823,147 @@ function TaxPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 2개)
+// 6. 부동산설계 카드 (신규)
+// ============================================
+function EstatePlanCard({ onNext, onPrev }: CardProps) {
+  const [formData, setFormData] = useState({
+    currentPrice: 50000,
+    loanBalance: 30000,
+    monthlyRent: 0,
+    holdingYears: 5,
+    expectedGrowth: 3,
+  });
+
+  // 예상 미래 가치
+  const futureValue = formData.currentPrice * Math.pow(1 + formData.expectedGrowth / 100, formData.holdingYears);
+  const valueIncrease = futureValue - formData.currentPrice;
+  
+  // 보유세 예상 (간이 계산: 공시가격의 0.15% 가정)
+  const yearlyTax = formData.currentPrice * 0.0015;
+  const totalTax = yearlyTax * formData.holdingYears;
+  
+  // 순자산 증가
+  const netEquity = formData.currentPrice - formData.loanBalance;
+  const futureEquity = futureValue - formData.loanBalance;
+  const equityIncrease = futureEquity - netEquity;
+  
+  // LTV (Loan to Value)
+  const ltv = formData.currentPrice > 0 ? (formData.loanBalance / formData.currentPrice * 100) : 0;
+
+  let ltvLevel = '';
+  let ltvColor = '';
+  let ltvMessage = '';
+  
+  if (ltv <= 40) {
+    ltvLevel = '안전';
+    ltvColor = 'text-green-600';
+    ltvMessage = '대출 비율이 안정적입니다!';
+  } else if (ltv <= 60) {
+    ltvLevel = '양호';
+    ltvColor = 'text-blue-600';
+    ltvMessage = '적정 수준의 대출 비율입니다.';
+  } else if (ltv <= 80) {
+    ltvLevel = '주의';
+    ltvColor = 'text-yellow-600';
+    ltvMessage = '대출 비율이 다소 높습니다.';
+  } else {
+    ltvLevel = '위험';
+    ltvColor = 'text-red-600';
+    ltvMessage = '대출 비율이 너무 높습니다. 상환 필요!';
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">🏠</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>여섯 번째는 <span className="text-teal-600 font-bold">부동산설계</span>입니다. 보유 부동산 정보를 입력해주세요.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">부동산 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">현재 주택 가격 (만원)</label>
+          <input type="number" value={formData.currentPrice} onChange={(e) => setFormData({...formData, currentPrice: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">대출 잔액 (만원)</label>
+          <input type="number" value={formData.loanBalance} onChange={(e) => setFormData({...formData, loanBalance: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월세 수입 (만원, 없으면 0)</label>
+          <input type="number" value={formData.monthlyRent} onChange={(e) => setFormData({...formData, monthlyRent: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">보유 예정 기간 (년)</label>
+          <input type="number" value={formData.holdingYears} onChange={(e) => setFormData({...formData, holdingYears: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">예상 상승률 (%/연)</label>
+          <input type="number" step="0.1" value={formData.expectedGrowth} onChange={(e) => setFormData({...formData, expectedGrowth: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-indigo-800 mb-2">부동산 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">현재 순자산</span>
+          <span className="font-bold text-indigo-700">{(netEquity / 10000).toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">{formData.holdingYears}년 후 예상 가치</span>
+          <span className="font-bold text-indigo-700">{(futureValue / 10000).toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">예상 자산 증가</span>
+          <span className="font-bold text-green-600">+{(valueIncrease / 10000).toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">예상 보유세 총액</span>
+          <span className="font-bold text-red-600">{totalTax.toFixed(0).toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-2 border-t border-indigo-200">
+          <span className="text-gray-700 font-bold">LTV (담보인정비율)</span>
+          <span className={`font-bold ${ltvColor}`}>{ltv.toFixed(1)}%</span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">대출 안정성</span>
+            <span className={`text-xs font-bold ${ltvColor}`}>{ltvLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{ltvMessage}</p>
+          {formData.monthlyRent > 0 && (
+            <p className="text-xs text-gray-600 mt-2">💡 월세 수입: 연간 {(formData.monthlyRent * 12).toLocaleString()}만원</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 플레이스홀더 (나머지 1개)
 // ============================================
 function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
   return (
