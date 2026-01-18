@@ -5,11 +5,13 @@ import { useState } from 'react';
 
 interface FinancialHouseResultProps {
   userName?: string;
+  onRestart?: () => void;
   onNavigate?: (path: string) => void;
 }
 
 const FinancialHouseResult = ({ 
   userName = '홍길동',
+  onRestart,
   onNavigate 
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -55,6 +57,12 @@ const FinancialHouseResult = ({
   const handleNavClick = (tab: string) => {
     if (onNavigate) {
       onNavigate(tab);
+    }
+  };
+
+  const handleRestart = () => {
+    if (onRestart) {
+      onRestart();
     }
   };
 
@@ -106,7 +114,7 @@ const FinancialHouseResult = ({
       </div>
 
       {/* 메인 컨텐츠 */}
-      <main className="flex-1 overflow-y-auto p-4 pb-40">
+      <main className="flex-1 overflow-y-auto p-4 pb-44">
         {/* 이미지 스와이프 영역 */}
         <div className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden shadow-lg">
           <div 
@@ -163,6 +171,17 @@ const FinancialHouseResult = ({
           <p className="text-[10px] text-gray-400 mt-0.5">
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
+        </div>
+
+        {/* 다시 설계하기 버튼 */}
+        <div className="mt-4">
+          <button
+            onClick={handleRestart}
+            className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span>🔄</span>
+            <span>다시 설계하기</span>
+          </button>
         </div>
       </main>
 
