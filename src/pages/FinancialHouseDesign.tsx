@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 2단계: 은퇴설계 + 부채설계 구현 (나머지 5개는 플레이스홀더)
+// 2단계: 은퇴설계 + 부채설계 구현 (입력 필드 수정 + UI 개선)
 
 import { useState } from 'react';
 
@@ -62,7 +62,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-36">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
         <button onClick={goToPrevTab} className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-lg text-lg">←</button>
@@ -92,8 +92,8 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         })}
       </div>
 
-      {/* 컨텐츠 영역 */}
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* 컨텐츠 영역 - 마이크버튼바 공간 확보 (pb-24) */}
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <PlaceholderCard name="저축설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
@@ -103,27 +103,36 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
 
-      {/* 마이크버튼바 - 하단 고정 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+      {/* 마이크버튼바 - 네비바 바로 위에 고정 */}
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
         <div className="flex items-center gap-2">
-          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+          {/* + 버튼 */}
+          <button className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center hover:bg-amber-500 transition-all">
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
           </button>
-          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+          
+          {/* 마이크 버튼 */}
+          <button className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center hover:bg-amber-500 transition-all">
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
             </svg>
           </button>
-          <input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="지출 전에 물어보세요..."
-            className="flex-1 bg-gray-100 border border-gray-200 rounded-full px-4 py-2 text-sm outline-none focus:border-teal-400"
-          />
-          <button className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+          
+          {/* 입력창 */}
+          <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="지출 전에 물어보세요..."
+              className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
+            />
+          </div>
+          
+          {/* 전송 버튼 */}
+          <button className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-all">
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>
@@ -135,7 +144,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
 }
 
 // ============================================
-// 1. 은퇴설계 카드 (완성)
+// 1. 은퇴설계 카드 (입력 필드 수정)
 // ============================================
 function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -154,6 +163,11 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const gap = totalNeeded - totalPension;
   const monthlyRequired = gap > 0 ? Math.round((gap * 10000) / yearsToRetire / 12) : 0;
 
+  // 입력 필드 포커스 시 전체 선택
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2.5">
@@ -168,32 +182,68 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
         
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">현재 나이</label>
-          <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.currentAge} 
+            onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">은퇴 예정 나이</label>
-          <input type="number" value={formData.retireAge} onChange={(e) => setFormData({...formData, retireAge: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.retireAge} 
+            onChange={(e) => setFormData({...formData, retireAge: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">예상 수명</label>
-          <input type="number" value={formData.lifeExpectancy} onChange={(e) => setFormData({...formData, lifeExpectancy: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.lifeExpectancy} 
+            onChange={(e) => setFormData({...formData, lifeExpectancy: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">월 생활비 (만원)</label>
-          <input type="number" value={formData.monthlyExpense} onChange={(e) => setFormData({...formData, monthlyExpense: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.monthlyExpense} 
+            onChange={(e) => setFormData({...formData, monthlyExpense: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">예상 국민연금 (만원)</label>
-          <input type="number" value={formData.nationalPension} onChange={(e) => setFormData({...formData, nationalPension: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.nationalPension} 
+            onChange={(e) => setFormData({...formData, nationalPension: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">예상 개인연금 (만원)</label>
-          <input type="number" value={formData.personalPension} onChange={(e) => setFormData({...formData, personalPension: Number(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <input 
+            type="number" 
+            value={formData.personalPension} 
+            onChange={(e) => setFormData({...formData, personalPension: Number(e.target.value)})} 
+            onFocus={handleFocus}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
         </div>
       </div>
 
@@ -241,25 +291,23 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 2. 부채설계 카드 (완성)
+// 2. 부채설계 카드 (입력 필드 수정)
 // ============================================
 function DebtPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
-    monthlyIncome: 500, // 월소득 (만원)
-    mortgageBalance: 30000, // 담보대출 잔액 (만원)
-    mortgageRate: 3.5, // 담보대출 금리 (%)
-    mortgageMonthly: 150, // 담보대출 월상환액 (만원)
-    creditBalance: 1000, // 신용대출 잔액 (만원)
-    creditRate: 5.5, // 신용대출 금리 (%)
-    creditMonthly: 50, // 신용대출 월상환액 (만원)
+    monthlyIncome: 500,
+    mortgageBalance: 30000,
+    mortgageRate: 3.5,
+    mortgageMonthly: 150,
+    creditBalance: 1000,
+    creditRate: 5.5,
+    creditMonthly: 50,
   });
 
-  // DSR 계산 (총부채원리금상환비율)
   const totalMonthlyPayment = formData.mortgageMonthly + formData.creditMonthly;
   const dsr = formData.monthlyIncome > 0 ? (totalMonthlyPayment / formData.monthlyIncome * 100) : 0;
   const totalDebt = formData.mortgageBalance + formData.creditBalance;
 
-  // DSR 평가
   let dsrLevel = '';
   let dsrColor = '';
   let dsrMessage = '';
@@ -278,9 +326,13 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
     dsrMessage = '부채 비율이 매우 높습니다. 상환 계획이 필요합니다!';
   }
 
+  // 입력 필드 포커스 시 전체 선택
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
   return (
     <div className="space-y-3">
-      {/* AI 안내 메시지 */}
       <div className="flex gap-2.5">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">💳</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
@@ -288,7 +340,6 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
 
-      {/* 입력 폼 */}
       <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
         <h3 className="text-base font-bold text-gray-800 mb-3">부채 정보 입력</h3>
         
@@ -298,6 +349,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
             type="number" 
             value={formData.monthlyIncome} 
             onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} 
+            onFocus={handleFocus}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
           />
         </div>
@@ -311,6 +363,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               type="number" 
               value={formData.mortgageBalance} 
               onChange={(e) => setFormData({...formData, mortgageBalance: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
@@ -322,6 +375,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               step="0.1"
               value={formData.mortgageRate} 
               onChange={(e) => setFormData({...formData, mortgageRate: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
@@ -332,6 +386,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               type="number" 
               value={formData.mortgageMonthly} 
               onChange={(e) => setFormData({...formData, mortgageMonthly: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
@@ -346,6 +401,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               type="number" 
               value={formData.creditBalance} 
               onChange={(e) => setFormData({...formData, creditBalance: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
@@ -357,6 +413,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               step="0.1"
               value={formData.creditRate} 
               onChange={(e) => setFormData({...formData, creditRate: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
@@ -367,13 +424,13 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
               type="number" 
               value={formData.creditMonthly} 
               onChange={(e) => setFormData({...formData, creditMonthly: Number(e.target.value)})} 
+              onFocus={handleFocus}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
             />
           </div>
         </div>
       </div>
 
-      {/* 결과 카드 */}
       <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 space-y-2">
         <h3 className="text-sm font-bold text-purple-800 mb-2">부채 분석 결과</h3>
         
@@ -404,7 +461,6 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
 
-      {/* 버튼 */}
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
