@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 1단계: 은퇴설계만 구현 (나머지 6개는 플레이스홀더)
+// 2단계: 은퇴설계 + 부채설계 구현 (나머지 5개는 플레이스홀더)
 
 import { useState } from 'react';
 
@@ -95,7 +95,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
       {/* 컨텐츠 영역 */}
       <div className="flex-1 overflow-y-auto p-4">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'debt' && <PlaceholderCard name="부채설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
+        {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <PlaceholderCard name="저축설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'invest' && <PlaceholderCard name="투자설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'tax' && <PlaceholderCard name="세금설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
@@ -156,7 +156,6 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
 
   return (
     <div className="space-y-3">
-      {/* AI 안내 메시지 */}
       <div className="flex gap-2.5">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
@@ -164,7 +163,6 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
 
-      {/* 입력 폼 */}
       <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
         <h3 className="text-base font-bold text-gray-800 mb-3">은퇴 정보 입력</h3>
         
@@ -199,7 +197,6 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
 
-      {/* 결과 카드 */}
       <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 space-y-2">
         <h3 className="text-sm font-bold text-teal-800 mb-2">은퇴자금 분석 결과</h3>
         
@@ -235,6 +232,178 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
         )}
       </div>
 
+      <div className="flex gap-2 pt-2">
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 2. 부채설계 카드 (완성)
+// ============================================
+function DebtPlanCard({ onNext, onPrev }: CardProps) {
+  const [formData, setFormData] = useState({
+    monthlyIncome: 500, // 월소득 (만원)
+    mortgageBalance: 30000, // 담보대출 잔액 (만원)
+    mortgageRate: 3.5, // 담보대출 금리 (%)
+    mortgageMonthly: 150, // 담보대출 월상환액 (만원)
+    creditBalance: 1000, // 신용대출 잔액 (만원)
+    creditRate: 5.5, // 신용대출 금리 (%)
+    creditMonthly: 50, // 신용대출 월상환액 (만원)
+  });
+
+  // DSR 계산 (총부채원리금상환비율)
+  const totalMonthlyPayment = formData.mortgageMonthly + formData.creditMonthly;
+  const dsr = formData.monthlyIncome > 0 ? (totalMonthlyPayment / formData.monthlyIncome * 100) : 0;
+  const totalDebt = formData.mortgageBalance + formData.creditBalance;
+
+  // DSR 평가
+  let dsrLevel = '';
+  let dsrColor = '';
+  let dsrMessage = '';
+  
+  if (dsr < 40) {
+    dsrLevel = '안전';
+    dsrColor = 'text-green-600';
+    dsrMessage = '부채 관리가 양호합니다!';
+  } else if (dsr < 50) {
+    dsrLevel = '주의';
+    dsrColor = 'text-yellow-600';
+    dsrMessage = '부채 비율이 높습니다. 주의가 필요합니다.';
+  } else {
+    dsrLevel = '위험';
+    dsrColor = 'text-red-600';
+    dsrMessage = '부채 비율이 매우 높습니다. 상환 계획이 필요합니다!';
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* AI 안내 메시지 */}
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">💳</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>두 번째는 <span className="text-teal-600 font-bold">부채설계</span>입니다. 현재 대출 상황을 입력해주세요.</p>
+        </div>
+      </div>
+
+      {/* 입력 폼 */}
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">부채 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">월소득 (만원)</label>
+          <input 
+            type="number" 
+            value={formData.monthlyIncome} 
+            onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} 
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+          />
+        </div>
+
+        <div className="border-t border-gray-200 pt-3 mt-3">
+          <h4 className="text-sm font-bold text-gray-700 mb-2">담보대출</h4>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">잔액 (만원)</label>
+            <input 
+              type="number" 
+              value={formData.mortgageBalance} 
+              onChange={(e) => setFormData({...formData, mortgageBalance: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-sm font-semibold text-gray-700">금리 (%)</label>
+            <input 
+              type="number" 
+              step="0.1"
+              value={formData.mortgageRate} 
+              onChange={(e) => setFormData({...formData, mortgageRate: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-sm font-semibold text-gray-700">월상환액 (만원)</label>
+            <input 
+              type="number" 
+              value={formData.mortgageMonthly} 
+              onChange={(e) => setFormData({...formData, mortgageMonthly: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-3 mt-3">
+          <h4 className="text-sm font-bold text-gray-700 mb-2">신용대출</h4>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-gray-700">잔액 (만원)</label>
+            <input 
+              type="number" 
+              value={formData.creditBalance} 
+              onChange={(e) => setFormData({...formData, creditBalance: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-sm font-semibold text-gray-700">금리 (%)</label>
+            <input 
+              type="number" 
+              step="0.1"
+              value={formData.creditRate} 
+              onChange={(e) => setFormData({...formData, creditRate: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-sm font-semibold text-gray-700">월상환액 (만원)</label>
+            <input 
+              type="number" 
+              value={formData.creditMonthly} 
+              onChange={(e) => setFormData({...formData, creditMonthly: Number(e.target.value)})} 
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 결과 카드 */}
+      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-purple-800 mb-2">부채 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">총 부채</span>
+          <span className="font-bold text-purple-700">{(totalDebt / 10000).toFixed(1)}억원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">월 총 상환액</span>
+          <span className="font-bold text-purple-700">{totalMonthlyPayment.toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-2 border-t border-purple-200">
+          <span className="text-gray-700 font-bold">DSR (부채상환비율)</span>
+          <span className={`font-bold ${dsrColor}`}>{dsr.toFixed(1)}%</span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">상태 평가</span>
+            <span className={`text-xs font-bold ${dsrColor}`}>{dsrLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{dsrMessage}</p>
+          {dsr >= 40 && (
+            <p className="text-xs text-gray-600 mt-2">💡 고금리 대출부터 상환하는 것을 추천합니다!</p>
+          )}
+        </div>
+      </div>
+
       {/* 버튼 */}
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
@@ -245,7 +414,7 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 6개)
+// 플레이스홀더 (나머지 5개)
 // ============================================
 function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
   return (
