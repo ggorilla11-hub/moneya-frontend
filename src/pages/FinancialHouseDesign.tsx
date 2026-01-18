@@ -1,5 +1,5 @@
 // src/pages/FinancialHouseDesign.tsx
-// 4단계: 은퇴 + 부채 + 저축 + 투자 구현 (나머지 3개는 플레이스홀더)
+// 5단계: 은퇴 + 부채 + 저축 + 투자 + 세금 구현 (나머지 2개는 플레이스홀더)
 
 import { useState } from 'react';
 
@@ -98,7 +98,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-        {currentTab === 'tax' && <PlaceholderCard name="세금설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
+        {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'estate' && <PlaceholderCard name="부동산설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
@@ -690,7 +690,140 @@ function InvestPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 플레이스홀더 (나머지 3개)
+// 5. 세금설계 카드 (신규)
+// ============================================
+function TaxPlanCard({ onNext, onPrev }: CardProps) {
+  const [formData, setFormData] = useState({
+    annualIncome: 6000,
+    pensionSaving: 400,
+    irpContribution: 0,
+    housingSubscription: 240,
+  });
+
+  // 세액공제 계산
+  const pensionDeduction = Math.min(formData.pensionSaving, 400) * 0.165; // 연금저축 16.5%
+  const irpDeduction = Math.min(formData.irpContribution, 300) * 0.165; // IRP 추가 16.5%
+  const housingDeduction = Math.min(formData.housingSubscription, 240) * 0.165; // 주택청약 16.5%
+  const totalDeduction = pensionDeduction + irpDeduction + housingDeduction;
+
+  // 소득세 간이 계산 (누진세율)
+  let estimatedTax = 0;
+  if (formData.annualIncome <= 1200) {
+    estimatedTax = formData.annualIncome * 0.06;
+  } else if (formData.annualIncome <= 4600) {
+    estimatedTax = 72 + (formData.annualIncome - 1200) * 0.15;
+  } else if (formData.annualIncome <= 8800) {
+    estimatedTax = 582 + (formData.annualIncome - 4600) * 0.24;
+  } else {
+    estimatedTax = 1590 + (formData.annualIncome - 8800) * 0.35;
+  }
+
+  const finalTax = Math.max(0, estimatedTax - totalDeduction);
+  const effectiveRate = formData.annualIncome > 0 ? (finalTax / formData.annualIncome * 100) : 0;
+
+  let taxLevel = '';
+  let taxColor = '';
+  let taxMessage = '';
+  
+  if (totalDeduction >= 100) {
+    taxLevel = '우수';
+    taxColor = 'text-green-600';
+    taxMessage = '세액공제를 잘 활용하고 있습니다!';
+  } else if (totalDeduction >= 50) {
+    taxLevel = '양호';
+    taxColor = 'text-blue-600';
+    taxMessage = '추가 절세 방법을 고려해보세요.';
+  } else {
+    taxLevel = '개선 필요';
+    taxColor = 'text-red-600';
+    taxMessage = '세액공제 상품 활용을 추천합니다!';
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2.5">
+        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">💸</div>
+        <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
+          <p>다섯 번째는 <span className="text-teal-600 font-bold">세금설계</span>입니다. 세액공제 현황을 입력해주세요.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">세금 정보 입력</h3>
+        
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">연간 소득 (만원)</label>
+          <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">연금저축 납입액 (만원/연)</label>
+          <input type="number" value={formData.pensionSaving} onChange={(e) => setFormData({...formData, pensionSaving: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <p className="text-xs text-gray-500">최대 400만원까지 공제</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">IRP 납입액 (만원/연)</label>
+          <input type="number" value={formData.irpContribution} onChange={(e) => setFormData({...formData, irpContribution: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <p className="text-xs text-gray-500">추가 최대 300만원까지 공제</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700">주택청약 납입액 (만원/연)</label>
+          <input type="number" value={formData.housingSubscription} onChange={(e) => setFormData({...formData, housingSubscription: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <p className="text-xs text-gray-500">최대 240만원까지 공제</p>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 space-y-2">
+        <h3 className="text-sm font-bold text-red-800 mb-2">세금 분석 결과</h3>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">예상 소득세</span>
+          <span className="font-bold text-red-700">{estimatedTax.toFixed(0).toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">총 세액공제</span>
+          <span className="font-bold text-green-600">{totalDeduction.toFixed(0).toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-700">실제 납부 예상세액</span>
+          <span className="font-bold text-red-700">{finalTax.toFixed(0).toLocaleString()}만원</span>
+        </div>
+
+        <div className="flex justify-between text-sm pt-2 border-t border-red-200">
+          <span className="text-gray-700 font-bold">실효세율</span>
+          <span className="font-bold text-red-700">{effectiveRate.toFixed(1)}%</span>
+        </div>
+
+        <div className="bg-white rounded-lg p-3 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700">절세 평가</span>
+            <span className={`text-xs font-bold ${taxColor}`}>{taxLevel}</span>
+          </div>
+          <p className="text-xs text-gray-600">{taxMessage}</p>
+          {totalDeduction < 100 && (
+            <p className="text-xs text-gray-600 mt-2">💡 연금저축+IRP 최대 한도 활용 시 최대 115만원 절세 가능!</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// 플레이스홀더 (나머지 2개)
 // ============================================
 function PlaceholderCard({ name, onNext, onPrev, isLast }: CardProps & { name: string }) {
   return (
