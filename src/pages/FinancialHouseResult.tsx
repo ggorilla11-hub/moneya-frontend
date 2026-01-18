@@ -13,6 +13,10 @@ const FinancialHouseResult = ({
   onNavigate 
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Firebase Storage 이미지 URL
+  const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png?alt=media&token=debc4c4c-5c43-49c4-b7ee-bde444185951';
 
   const tabs = [
     { emoji: '🏖️', label: '은퇴', completed: true },
@@ -56,6 +60,7 @@ const FinancialHouseResult = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-base font-bold text-gray-900">
           {userName}님의 금융집짓기®
@@ -82,6 +87,7 @@ const FinancialHouseResult = ({
         </div>
       </header>
 
+      {/* 탭 네비게이션 */}
       <div className="bg-white border-b border-gray-200 px-3 py-2 overflow-x-auto">
         <div className="flex gap-1.5 min-w-max">
           {tabs.map((tab, index) => (
@@ -99,26 +105,37 @@ const FinancialHouseResult = ({
         </div>
       </div>
 
+      {/* 메인 컨텐츠 */}
       <main className="flex-1 overflow-y-auto p-4 pb-40">
+        {/* 이미지 스와이프 영역 */}
         <div className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden shadow-lg">
           <div 
             className="flex transition-transform duration-300 ease-out h-full"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
           >
-            <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
-              <div className="text-center">
-                <div className="text-6xl mb-3">🏠</div>
-                <div className="text-lg font-bold text-blue-800">금융집 외부</div>
-                <div className="text-sm text-blue-600 mt-1 opacity-70">실제 이미지로 교체 예정</div>
-              </div>
+            {/* 외부 이미지 (첫 번째 슬라이드) */}
+            <div className="min-w-full h-full relative flex items-center justify-center bg-gray-100">
+              {!imageLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+                </div>
+              )}
+              <img 
+                src={EXTERIOR_IMAGE_URL}
+                alt="금융집 외부"
+                className={`w-full h-full object-contain ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)}
+              />
               <button
                 onClick={handleSwipeLeft}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/95 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
-                <span className="text-gray-700 font-bold">›</span>
+                <span className="text-gray-700 font-bold text-lg">›</span>
               </button>
             </div>
 
+            {/* 내부 이미지 (두 번째 슬라이드) */}
             <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-br from-amber-100 to-yellow-200">
               <div className="absolute top-4 left-4 bg-white/90 text-red-600 text-[10px] font-bold px-2 py-1 rounded border border-red-200">
                 &lt;샘플&gt;
@@ -132,12 +149,13 @@ const FinancialHouseResult = ({
                 onClick={handleSwipeRight}
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/95 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
-                <span className="text-gray-700 font-bold">‹</span>
+                <span className="text-gray-700 font-bold text-lg">‹</span>
               </button>
             </div>
           </div>
         </div>
 
+        {/* 저작권 정보 */}
         <div className="mt-4 text-center">
           <p className="text-[10px] text-gray-500 font-semibold">
             © 2017 오원트금융연구소 All rights reserved.
@@ -148,6 +166,7 @@ const FinancialHouseResult = ({
         </div>
       </main>
 
+      {/* 마이크 입력바 */}
       <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-lg active:scale-95 transition-transform">
@@ -167,6 +186,7 @@ const FinancialHouseResult = ({
         </div>
       </div>
 
+      {/* 하단 네비게이션 */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
         <div className="flex justify-around items-center py-2 pb-5 max-w-screen-sm mx-auto">
           {[
