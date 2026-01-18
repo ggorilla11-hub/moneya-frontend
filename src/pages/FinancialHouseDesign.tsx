@@ -92,8 +92,8 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         })}
       </div>
 
-      {/* 컨텐츠 영역 - 마이크버튼바 + 버튼 공간 확보 (pb-40) */}
-      <div className="flex-1 overflow-y-auto p-4 pb-40">
+      {/* 컨텐츠 영역 - 마이크버튼바 + 버튼 공간 확보 (pb-44) */}
+      <div className="flex-1 overflow-y-auto p-4 pb-44">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <PlaceholderCard name="저축설계" onNext={goToNextTab} onPrev={goToPrevTab} />}
@@ -103,8 +103,8 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'insurance' && <PlaceholderCard name="보험설계" onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
 
-      {/* 마이크버튼바 - 네비바 바로 위에 고정 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
+      {/* 마이크버튼바 - 네비바 위로 올림 */}
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
         <div className="flex items-center gap-2">
           {/* + 버튼 */}
           <button className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center hover:bg-amber-500 transition-all">
