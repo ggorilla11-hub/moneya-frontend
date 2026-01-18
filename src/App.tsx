@@ -20,6 +20,7 @@ import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
+import FinancialHouseDesign from './pages/FinancialHouseDesign';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -201,23 +202,19 @@ function App() {
     console.log('Selected question:', question);
   };
 
-  // 재무진단 다시하기
   const handleReDiagnosis = () => {
     setCurrentStep('re-diagnosis');
   };
 
-  // 재무분석 다시하기 → 예산조정화면으로 이동
   const handleReAnalysis = () => {
     setCurrentStep('re-analysis');
   };
 
-  // 홈으로 돌아가기
   const handleBackToHome = () => {
     setCurrentStep('main');
     setCurrentTab('home');
   };
 
-  // 마이페이지 하위 페이지 네비게이션
   const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
     if (page === 'subscription') {
       setCurrentStep('subscription');
@@ -228,36 +225,30 @@ function App() {
     }
   };
 
-  // 구독 페이지에서 마이페이지로 돌아가기
   const handleSubscriptionBack = () => {
     setCurrentStep('main');
     setCurrentTab('mypage');
   };
 
-  // 상담 페이지에서 마이페이지로 돌아가기
   const handleConsultingBack = () => {
     setCurrentStep('main');
     setCurrentTab('mypage');
   };
 
-  // 상담 신청 페이지로 이동 (상품 정보 전달)
   const handleConsultingApply = (product: ConsultingProduct) => {
     setSelectedProduct(product);
     setCurrentStep('consulting-apply');
   };
 
-  // 신청 페이지에서 상담 페이지로 돌아가기
   const handleConsultingApplyBack = () => {
     setSelectedProduct(null);
     setCurrentStep('consulting');
   };
 
-  // 로그아웃
   const handleLogout = () => {
     auth.signOut();
   };
 
-  // 처음부터 다시하기
   const handleRestart = () => {
     if (user) {
       localStorage.removeItem(`onboarding_${user.uid}`);
@@ -395,7 +386,6 @@ function App() {
     );
   }
 
-  // ✅ 수정: SpendProvider로 감싸기
   if (currentStep === 'monthly-report') {
     return (
       <SpendProvider userId={user.uid}>
@@ -410,7 +400,6 @@ function App() {
     );
   }
 
-  // 재무진단 다시하기 화면
   if (currentStep === 're-diagnosis' && financialResult) {
     return (
       <FinancialResultPage
@@ -422,7 +411,6 @@ function App() {
     );
   }
 
-  // 재무분석 다시하기 → 예산조정화면 (첨부1)
   if (currentStep === 're-analysis' && incomeExpenseData) {
     return (
       <BudgetAdjustPage
@@ -441,7 +429,6 @@ function App() {
     );
   }
 
-  // 다시 분석하기 → 정보입력화면 (첨부2)
   if (currentStep === 're-analysis-input') {
     return (
       <IncomeExpenseInputPage
@@ -480,7 +467,6 @@ function App() {
               onFAQMore={handleFAQMore}
             />
           )}
-          {/* ✅ Phase 9: 금융집짓기 탭 */}
           {currentTab === 'financial-house' && (
             <FinancialHouseProvider userId={user.uid}>
               {financialHouseStep === 'disclaimer' && (
@@ -493,12 +479,18 @@ function App() {
                 <FinancialHouseBasic
                   userName={user.displayName || '사용자'}
                   onComplete={() => {
-                    // 재무설계 화면으로 이동
                     setFinancialHouseStep('design');
                   }}
                   onBack={() => setFinancialHouseStep('disclaimer')}
                   existingFinancialResult={financialResult}
                   existingIncomeExpense={incomeExpenseData}
+                />
+              )}
+              {financialHouseStep === 'design' && (
+                <FinancialHouseDesign
+                  userName={user.displayName || '사용자'}
+                  onComplete={() => setFinancialHouseStep('result')}
+                  onBack={() => setFinancialHouseStep('basic')}
                 />
               )}
             </FinancialHouseProvider>
