@@ -1,6 +1,6 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: 헤더에 앱 로고 추가, 실제 고객 이름 표시
+// UI 수정: 로고/글자 크기 홈 대시보드와 동일하게 확대
 
 import { useState } from 'react';
 
@@ -72,15 +72,15 @@ const FinancialHouseResult = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 - 로고 + 고객 이름 */}
+      {/* 헤더 - 로고 + 고객 이름 (홈 대시보드와 동일한 크기) */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img 
             src={LOGO_URL}
             alt="AI머니야 로고"
-            className="w-6 h-6 object-contain"
+            className="w-10 h-10 object-contain"
           />
-          <h1 className="text-base font-bold text-gray-900">
+          <h1 className="text-lg font-bold text-gray-900">
             {userName || '고객'}님의 금융집짓기®
           </h1>
         </div>
@@ -197,7 +197,7 @@ const FinancialHouseResult = ({
         </div>
       </main>
 
-      {/* 마이크 입력바 - 네비게이션 바로 위 (위로 20px 추가 조정) */}
+      {/* 마이크 입력바 - 네비게이션 바로 위 */}
       <div className="fixed bottom-[80px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-lg active:scale-95 transition-transform">
