@@ -1,6 +1,6 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: 마이크바 위치 조정, 하단 여백 축소
+// UI 수정: 마이크바 위치 위로 조정
 
 import { useState } from 'react';
 
@@ -187,8 +187,8 @@ const FinancialHouseResult = ({
         </div>
       </main>
 
-      {/* 마이크 입력바 - 네비게이션 바로 위 (위치 조정) */}
-      <div className="fixed bottom-[60px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
+      {/* 마이크 입력바 - 네비게이션 바로 위 (위로 20px 추가 조정) */}
+      <div className="fixed bottom-[80px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-lg active:scale-95 transition-transform">
             +
