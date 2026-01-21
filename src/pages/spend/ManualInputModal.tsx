@@ -85,8 +85,11 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-      <div className="bg-white w-full max-w-md rounded-t-3xl h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+      <div 
+        className="bg-white w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
+        style={{ maxHeight: 'calc(100vh - 120px)' }}
+      >
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-lg font-bold text-gray-800">✏️ 직접 입력</h2>
@@ -112,7 +115,10 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
         </div>
 
         {/* 입력 폼 - 스크롤 영역 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div 
+          className="overflow-y-auto p-4 space-y-4"
+          style={{ maxHeight: 'calc(100vh - 320px)' }}
+        >
           {/* 내용 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">내용</label>
@@ -251,8 +257,8 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
           )}
         </div>
 
-        {/* 저장 버튼 - 하단 고정 */}
-        <div className="p-4 bg-white border-t border-gray-100 flex-shrink-0">
+        {/* 저장 버튼 - 모달 내부 하단 고정 */}
+        <div className="p-4 border-t border-gray-100 bg-white flex-shrink-0">
           <button
             onClick={handleSubmit}
             className={`w-full py-3 rounded-xl text-white font-bold text-base ${
