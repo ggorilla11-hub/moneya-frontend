@@ -1,6 +1,6 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: SVG 텍스트 위치 조정 (모바일 최적화) + 다시설계하기 배너 내부 + 저작권 확대
+// UI 수정: 10가지 수정사항 반영
 
 import { useState } from 'react';
 
@@ -163,9 +163,9 @@ const FinancialHouseResult = ({
       </div>
 
       {/* 메인 컨텐츠 - 스크롤 가능 영역 */}
-      <main className="flex-1 overflow-y-auto pb-36">
+      <main className="flex-1 overflow-y-auto pb-40">
         {/* 이미지 스와이프 영역 - 크게 */}
-        <div className="relative bg-white mx-2 mt-2 rounded-xl overflow-hidden shadow-lg" style={{ height: '55vh', minHeight: '320px' }}>
+        <div className="relative bg-white mx-2 mt-2 rounded-xl overflow-hidden shadow-lg" style={{ height: '50vh', minHeight: '300px' }}>
           <div 
             className="flex transition-transform duration-300 ease-out h-full"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -192,10 +192,10 @@ const FinancialHouseResult = ({
                 <span className="text-gray-600 font-bold">›</span>
               </button>
               
-              {/* 다시 설계하기 버튼 - 이미지 내부 하단 오버레이 */}
+              {/* 2. 다시 설계하기 버튼 - 글자 2배 확대 (text-[10px] → text-sm) */}
               <button
                 onClick={handleRestart}
-                className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white/95 hover:bg-white text-gray-700 text-[10px] font-semibold rounded-lg border border-gray-300 shadow-md transition-colors flex items-center gap-1"
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 px-5 py-2 bg-white/95 hover:bg-white text-gray-700 text-sm font-bold rounded-lg border border-gray-300 shadow-md transition-colors flex items-center gap-1.5"
               >
                 <span>🔄</span>
                 <span>다시 설계하기</span>
@@ -219,48 +219,51 @@ const FinancialHouseResult = ({
                 onError={() => setInteriorLoaded(true)}
               />
               
-              {/* SVG 텍스트 오버레이 - 위치 조정 (모바일 최적화) */}
+              {/* SVG 텍스트 오버레이 - 10가지 수정사항 반영 */}
               <svg 
                 className="absolute inset-0 w-full h-full pointer-events-none"
                 viewBox="0 0 355 296" 
                 preserveAspectRatio="xMidYMid slice"
               >
-                {/* 투자 영역 - 그대로 */}
-                <text x="44%" y="34%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">투자</text>
-                <text x="44%" y="38%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">부자지수 {data.wealthIndex}%</text>
+                {/* 5. 투자 영역 - 창문 높이만큼 아래로 이동 (y: 34% → 40%) */}
+                <text x="44%" y="40%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">투자</text>
+                <text x="44%" y="44%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">부자지수 {data.wealthIndex}%</text>
                 
-                {/* 세금 영역 - 그대로 */}
-                <text x="58%" y="34%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">세금</text>
-                <text x="58%" y="38%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">결정세액 {data.taxAmount}만원</text>
+                {/* 5. 세금 영역 - 창문 높이만큼 아래로 이동 (y: 34% → 40%) */}
+                <text x="58%" y="40%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">세금</text>
+                <text x="58%" y="44%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">결정세액 {data.taxAmount}만원</text>
                 
-                {/* 부동산 영역 - 좌측하향 + 작은 창문 높이만큼 아래로 */}
-                <text x="70%" y="28%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="800" fill="#fff">부동산</text>
-                <text x="70%" y="32%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#fff">시가 {data.realEstateValue}억</text>
+                {/* 4. 부동산 영역 - "부"자만큼 좌측으로 이동 (x: 70% → 67%) */}
+                <text x="67%" y="28%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="800" fill="#fff">부동산</text>
+                <text x="67%" y="32%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#fff">시가 {data.realEstateValue}억</text>
                 
-                {/* 처마보 (타임라인) - 위치 조정 */}
-                <text x="23%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">현재({data.currentAge})</text>
-                <text x="52%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">은퇴({data.retirementAge})</text>
-                <text x="76%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">사망({data.lifeExpectancy})</text>
+                {/* 처마보 (타임라인) */}
+                {/* 6. 현재나이 - 창문 넓이만큼 우측으로 이동 (x: 23% → 28%) */}
+                <text x="28%" y="50%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">현재({data.currentAge})</text>
+                {/* 7. 은퇴나이 - 글자높이만큼 아래로 이동 (y: 46% → 52%) */}
+                <text x="52%" y="52%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">은퇴({data.retirementAge})</text>
+                {/* 8. 사망나이 - 처마보 창문넓이 절반만큼 좌측으로 이동 (x: 76% → 73%) */}
+                <text x="73%" y="50%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">사망({data.lifeExpectancy})</text>
                 
-                {/* 부채 영역 - 우측으로 이동 */}
+                {/* 부채 영역 - 그대로 */}
                 <text x="30%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">부채</text>
                 <text x="30%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">부채비율 {data.debtRatio}%</text>
                 <text x="30%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">담보 {data.debtAmount}억</text>
                 
-                {/* 저축 영역 - 윗쪽으로 이동 */}
+                {/* 저축 영역 - 그대로 */}
                 <text x="45%" y="60%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">저축</text>
                 <text x="45%" y="64%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">저축률 {data.savingsRate}%</text>
                 <text x="45%" y="68%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">월 {data.monthlySavings}만원</text>
                 
-                {/* 은퇴 영역 - 좌측으로 이동 */}
-                <text x="70%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">은퇴</text>
-                <text x="70%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">준비율 {data.retirementReadyRate}%</text>
-                <text x="70%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">필요: {data.requiredMonthly}만원/월</text>
-                <text x="70%" y="70%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">준비: {data.preparedMonthly}만원/월</text>
-                <text x="70%" y="74%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="700" fill="#000">부족: {data.shortfallMonthly}만원/월</text>
+                {/* 10. 은퇴영역 - 은퇴글자높이만큼 위로 이동 (y: 58% → 54%) */}
+                <text x="70%" y="54%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">은퇴</text>
+                <text x="70%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">준비율 {data.retirementReadyRate}%</text>
+                <text x="70%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">필요: {data.requiredMonthly}만원/월</text>
+                <text x="70%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">준비: {data.preparedMonthly}만원/월</text>
+                <text x="70%" y="70%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="700" fill="#000">부족: {data.shortfallMonthly}만원/월</text>
                 
-                {/* 보장 영역 (흰색) */}
-                <text x="6%" y="88%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#fff">보장</text>
+                {/* 9. 고동색 기초공사영역 - 좌측에 "보장" 흰색 글자 추가 */}
+                <text x="8%" y="88%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#fff">보장</text>
                 
                 {/* 우측 하단 둔덕 가림용 사각형 */}
                 <rect x="85%" y="85%" width="15%" height="15%" fill="#5D4037" opacity="0.95"/>
@@ -274,10 +277,10 @@ const FinancialHouseResult = ({
                 <span className="text-gray-600 font-bold">‹</span>
               </button>
               
-              {/* 다시 설계하기 버튼 - 이미지 내부 하단 오버레이 */}
+              {/* 2. 다시 설계하기 버튼 - 글자 2배 확대 (text-[10px] → text-sm) */}
               <button
                 onClick={handleRestart}
-                className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white/95 hover:bg-white text-gray-700 text-[10px] font-semibold rounded-lg border border-gray-300 shadow-md transition-colors flex items-center gap-1"
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 px-5 py-2 bg-white/95 hover:bg-white text-gray-700 text-sm font-bold rounded-lg border border-gray-300 shadow-md transition-colors flex items-center gap-1.5"
               >
                 <span>🔄</span>
                 <span>다시 설계하기</span>
@@ -286,19 +289,19 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
-        {/* 저작권 정보 - 글씨 크기 확대 + 굵은 글씨 + 중앙 배치 */}
-        <div className="mt-3 mb-2 text-center px-3">
+        {/* 3. 저작권 정보 - 배너에서 떼고 여백 두고 공간 중간쯤 */}
+        <div className="mt-6 mb-4 text-center px-3">
           <p className="text-xs font-bold text-gray-600">
             © 2017 오원트금융연구소 All rights reserved.
           </p>
-          <p className="text-[11px] font-semibold text-gray-500 mt-0.5">
+          <p className="text-[11px] font-semibold text-gray-500 mt-1">
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
         </div>
       </main>
 
-      {/* 마이크 입력바 - 네비게이션 바로 위 */}
-      <div className="fixed bottom-[72px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
+      {/* 1. 마이크 입력바 - "지출전에" 글씨만큼 위로 올림 (bottom: 72px → 85px) */}
+      <div className="fixed bottom-[85px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-base active:scale-95 transition-transform">
             +
