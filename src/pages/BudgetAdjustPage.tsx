@@ -35,21 +35,22 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
     loanPayment: Math.round(income * recommendedRatios.loan / 100),
   };
 
-  // 현재 지출 금액 (2차 재무분석에서 입력한 값)
+  // 현재 지출 금액 (2차 재무분석에서 입력한 값) - 0도 유효한 값으로 처리
   const currentExpense = {
-    livingExpense: incomeExpenseData.livingExpense || 0,
-    savings: incomeExpenseData.savings || 0,
-    pension: incomeExpenseData.pension || 0,
-    insurance: incomeExpenseData.insurance || 0,
-    loanPayment: incomeExpenseData.loanPayment || 0,
+    livingExpense: incomeExpenseData.livingExpense ?? 0,
+    savings: incomeExpenseData.savings ?? 0,
+    pension: incomeExpenseData.pension ?? 0,
+    insurance: incomeExpenseData.insurance ?? 0,
+    loanPayment: incomeExpenseData.loanPayment ?? 0,
   };
 
+  // 초기값: 입력된 값이 있으면 그 값 사용 (0 포함), undefined면 0으로 시작
   const [budget, setBudget] = useState({
-    livingExpense: incomeExpenseData.livingExpense || recommendedBudget.livingExpense,
-    savings: incomeExpenseData.savings || recommendedBudget.savings,
-    pension: incomeExpenseData.pension || recommendedBudget.pension,
-    insurance: incomeExpenseData.insurance || recommendedBudget.insurance,
-    loanPayment: incomeExpenseData.loanPayment || recommendedBudget.loanPayment,
+    livingExpense: incomeExpenseData.livingExpense ?? 0,
+    savings: incomeExpenseData.savings ?? 0,
+    pension: incomeExpenseData.pension ?? 0,
+    insurance: incomeExpenseData.insurance ?? 0,
+    loanPayment: incomeExpenseData.loanPayment ?? 0,
   });
 
   const [confirmed, setConfirmed] = useState({
@@ -78,8 +79,8 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
-  // 1만원 단위 조정
-  const STEP = 10;
+  // 1만원 단위 조정 (데이터가 만원 단위이므로 STEP = 1)
+  const STEP = 1;
 
   // 스냅 소리 재생
   const playSnapSound = useCallback(() => {
@@ -150,13 +151,13 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
 
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
   
-  // 만원 단위 표시 (슬라이더 값용)
-  const formatManwon = (manwon: number) => `₩${(manwon * 10000).toLocaleString()}원`;
+  // 만원 단위 표시 (데이터가 이미 만원 단위이므로 그대로 표시)
+  const formatManwon = (manwon: number) => `₩${manwon.toLocaleString()}만원`;
   
-  // 원 단위 표시 (차이 금액용)
-  const formatWonDiff = (manwon: number) => `${(manwon * 10000).toLocaleString()}원`;
+  // 차이 금액 표시 (만원 단위)
+  const formatWonDiff = (manwon: number) => `${manwon.toLocaleString()}만원`;
 
-  const monthlySavingsIncrease = budget.savings - (incomeExpenseData.savings || 0);
+  const monthlySavingsIncrease = budget.savings - currentExpense.savings;
   const yearlySavingsIncrease = monthlySavingsIncrease * 12;
 
   const handleConfirm = () => {
@@ -490,11 +491,11 @@ function SliderItem({
   isSnapped
 }: SliderItemProps) {
   const colorMap = {
-    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600', snap: 'bg-green-400' },
-    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600', snap: 'bg-amber-400' },
-    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', snap: 'bg-blue-400' },
-    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600', snap: 'bg-purple-400' },
-    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600', snap: 'bg-gray-400' },
+    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600' },
+    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600' },
+    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600' },
+    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600' },
+    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600' },
   };
   const colors = colorMap[color];
   const difference = value - recommended;
@@ -514,11 +515,9 @@ function SliderItem({
       </div>
       
       {/* 현재 지출 금액 표시 */}
-      {currentValue > 0 && (
-        <div className="text-xs text-gray-400 mb-2 text-right">
-          현재 지출: <span className="font-semibold text-gray-600">{formatManwon(currentValue)}</span>
-        </div>
-      )}
+      <div className="text-xs text-gray-400 mb-2 text-right">
+        현재 지출: <span className="font-semibold text-gray-600">{formatManwon(currentValue)}</span>
+      </div>
       
       <div className="relative h-10">
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 bg-gray-200 rounded-full"></div>
@@ -550,10 +549,11 @@ function SliderItem({
         
         {/* 슬라이더 동그라미 - 스냅 효과 적용 */}
         <div 
-          className={`absolute top-1/2 w-7 h-7 bg-white border-4 rounded-full shadow-lg pointer-events-none transition-all ${isConfirmed ? 'border-gray-400' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150 animate-pulse' : ''}`} 
+          className={`absolute top-1/2 w-7 h-7 border-4 rounded-full shadow-lg pointer-events-none transition-all duration-200 ${isConfirmed ? 'border-gray-400 bg-white' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150' : 'bg-white'}`} 
           style={{ 
             left: `${percent}%`, 
             transform: 'translate(-50%, -50%)',
+            backgroundColor: isSnapped ? (color === 'amber' ? '#f59e0b' : color === 'green' ? '#22c55e' : color === 'blue' ? '#3b82f6' : color === 'purple' ? '#a855f7' : '#6b7280') : 'white',
           }}
         >
           {isSnapped && (
