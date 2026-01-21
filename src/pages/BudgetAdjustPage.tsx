@@ -151,11 +151,11 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
 
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
   
-  // 만원 단위 표시 (데이터가 이미 만원 단위이므로 그대로 표시)
-  const formatManwon = (manwon: number) => `₩${manwon.toLocaleString()}만원`;
+  // 금액 표시 (원 단위로 수정)
+  const formatManwon = (manwon: number) => `₩${manwon.toLocaleString()}원`;
   
-  // 차이 금액 표시 (만원 단위)
-  const formatWonDiff = (manwon: number) => `${manwon.toLocaleString()}만원`;
+  // 차이 금액 표시 (원 단위로 수정)
+  const formatWonDiff = (manwon: number) => `${manwon.toLocaleString()}원`;
 
   const monthlySavingsIncrease = budget.savings - currentExpense.savings;
   const yearlySavingsIncrease = monthlySavingsIncrease * 12;
