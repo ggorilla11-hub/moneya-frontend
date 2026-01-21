@@ -79,10 +79,13 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
-  // 1만원 단위 조정 (데이터가 만원 단위이므로 STEP = 1)
+  // 1만원 단위 조정 (데이터가 만원 단위이므로 STEP = 1 = 1만원)
   const STEP = 1;
+  
+  // 스냅 허용 오차: 5만원 (기존 1만원에서 증가)
+  const SNAP_TOLERANCE = 5;
 
-  // 스냅 소리 재생
+  // 스냅 소리 재생 (볼륨 강화)
   const playSnapSound = useCallback(() => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -92,14 +95,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      oscillator.frequency.value = 800;
+      // 더 명확한 '틱' 소리
+      oscillator.frequency.value = 1000;
       oscillator.type = 'sine';
       
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      // 볼륨 강화
+      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
       
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
+      oscillator.stop(audioContext.currentTime + 0.15);
     } catch (e) {
       console.log('Audio not supported');
     }
@@ -113,10 +118,9 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
     newValue = Math.max(0, Math.min(newValue, income));
     
     const recommended = recommendedBudget[field];
-    const tolerance = STEP; // 1만원 허용 오차
     
-    // 권장값에 스냅
-    if (Math.abs(newValue - recommended) <= tolerance) {
+    // 권장값에 스냅 (허용 오차 5만원)
+    if (Math.abs(newValue - recommended) <= SNAP_TOLERANCE) {
       newValue = recommended;
       
       // 스냅 효과 (처음 스냅될 때만)
@@ -124,14 +128,14 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
         setSnappedFields(prev => new Set(prev).add(field));
         playSnapSound();
         
-        // 0.5초 후 스냅 효과 제거
+        // 0.8초 후 스냅 효과 제거 (기존 0.5초에서 증가)
         setTimeout(() => {
           setSnappedFields(prev => {
             const newSet = new Set(prev);
             newSet.delete(field);
             return newSet;
           });
-        }, 500);
+        }, 800);
       }
     } else {
       // 권장값에서 벗어나면 스냅 상태 제거
@@ -151,10 +155,10 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
 
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
   
-  // 금액 표시 (원 단위로 수정)
+  // 금액 표시 (원 단위)
   const formatManwon = (manwon: number) => `₩${manwon.toLocaleString()}원`;
   
-  // 차이 금액 표시 (원 단위로 수정)
+  // 차이 금액 표시 (원 단위)
   const formatWonDiff = (manwon: number) => `${manwon.toLocaleString()}원`;
 
   const monthlySavingsIncrease = budget.savings - currentExpense.savings;
@@ -491,11 +495,11 @@ function SliderItem({
   isSnapped
 }: SliderItemProps) {
   const colorMap = {
-    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600' },
-    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600' },
-    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600' },
-    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600' },
-    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600' },
+    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600', bg: '#22c55e' },
+    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600', bg: '#f59e0b' },
+    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', bg: '#3b82f6' },
+    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600', bg: '#a855f7' },
+    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600', bg: '#6b7280' },
   };
   const colors = colorMap[color];
   const difference = value - recommended;
@@ -523,10 +527,10 @@ function SliderItem({
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 bg-gray-200 rounded-full"></div>
         <div className={`absolute top-1/2 -translate-y-1/2 left-0 h-3 rounded-full transition-all ${isConfirmed ? 'bg-gray-400' : colors.fill}`} style={{ width: `${percent}%` }}></div>
         
-        {/* 권장값 세로 라인 */}
+        {/* 권장값 세로 라인 - 더 두껍게 */}
         {!isConfirmed && (
           <div 
-            className="absolute top-1/2 w-0.5 h-8 bg-gray-400 -translate-y-1/2" 
+            className="absolute top-1/2 w-1 h-10 bg-gray-600 -translate-y-1/2 rounded-full" 
             style={{ left: `${recommendedPercent}%` }}
           />
         )}
@@ -547,17 +551,21 @@ function SliderItem({
           />
         )}
         
-        {/* 슬라이더 동그라미 - 스냅 효과 적용 */}
+        {/* 슬라이더 동그라미 - 스냅 효과 강화 */}
         <div 
-          className={`absolute top-1/2 w-7 h-7 border-4 rounded-full shadow-lg pointer-events-none transition-all duration-200 ${isConfirmed ? 'border-gray-400 bg-white' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150' : 'bg-white'}`} 
+          className={`absolute top-1/2 w-7 h-7 border-4 rounded-full shadow-lg pointer-events-none transition-all duration-200 ${isConfirmed ? 'border-gray-400 bg-white' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150' : ''}`} 
           style={{ 
             left: `${percent}%`, 
             transform: 'translate(-50%, -50%)',
-            backgroundColor: isSnapped ? (color === 'amber' ? '#f59e0b' : color === 'green' ? '#22c55e' : color === 'blue' ? '#3b82f6' : color === 'purple' ? '#a855f7' : '#6b7280') : 'white',
+            backgroundColor: isSnapped ? colors.bg : 'white',
           }}
         >
+          {/* 스냅 시 펄스 애니메이션 */}
           {isSnapped && (
-            <div className={`absolute inset-0 rounded-full ${colors.fill} animate-ping opacity-75`}></div>
+            <div 
+              className="absolute inset-0 rounded-full animate-ping"
+              style={{ backgroundColor: colors.bg, opacity: 0.75 }}
+            ></div>
           )}
         </div>
       </div>
