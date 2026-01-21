@@ -4,6 +4,7 @@
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
 // 수정: normalizeToManwon 함수로 금액 단위 정규화 (수입/지출/자산/부채 모두 적용)
 // 추가: DESIRE 6단계 결과 표시
+// 수정 (2026-01-22): 자산 구조 변경 - 금융자산/부동산자산 분리, 예적금→예금+적금/적립금 분리
 
 import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -167,18 +168,27 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [surplusAmount, setSurplusAmount] = useState(0);
 
   // ============================================
-  // Step 4: 자산 (세부항목은 0으로 시작, 직접 입력)
+  // Step 4: 금융자산 (세부항목은 0으로 시작, 직접 입력)
+  // 수정: 예적금 → 예금 + 적금/적립금 분리
   // ============================================
   const [cmaAsset, setCmaAsset] = useState(0);
   const [goldAsset, setGoldAsset] = useState(0);
   const [bondAsset, setBondAsset] = useState(0);
-  const [depositAsset, setDepositAsset] = useState(0);
+  const [depositAsset, setDepositAsset] = useState(0); // 예금
+  const [installmentAsset, setInstallmentAsset] = useState(0); // 적금/적립금 (신규)
   const [pensionAsset, setPensionAsset] = useState(0);
   const [savingsAsset, setSavingsAsset] = useState(0);
   const [fundSavingsAsset, setFundSavingsAsset] = useState(0);
   const [etfAsset, setEtfAsset] = useState(0);
   const [stockAsset, setStockAsset] = useState(0);
   const [cryptoAsset, setCryptoAsset] = useState(0);
+  const [insuranceRefundAsset, setInsuranceRefundAsset] = useState(0); // 보험해약환급금
+
+  // ============================================
+  // Step 4: 부동산자산 (신규 추가)
+  // ============================================
+  const [residentialRealEstate, setResidentialRealEstate] = useState(0); // 주거용부동산
+  const [investmentRealEstate, setInvestmentRealEstate] = useState(0); // 투자용부동산
 
   // ============================================
   // Step 5: 부채 (세부항목은 0으로 시작, 직접 입력)
@@ -197,7 +207,16 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const totalExpenseWithoutLiving = cmaAmount + savingsAmount + fundAmount + housingSubAmount + isaAmount + pensionAmount + taxFreePensionAmount + insuranceAmount + loanPaymentAmount + surplusAmount;
   const livingExpense = Math.max(0, totalMonthlyIncome - totalExpenseWithoutLiving);
   const totalExpense = totalExpenseWithoutLiving + livingExpense;
-  const totalAsset = cmaAsset + goldAsset + bondAsset + depositAsset + pensionAsset + savingsAsset + fundSavingsAsset + etfAsset + stockAsset + cryptoAsset;
+  
+  // 금융자산 합계 (수정: 예금 + 적금/적립금 + 보험해약환급금 포함)
+  const totalFinancialAsset = cmaAsset + goldAsset + bondAsset + depositAsset + installmentAsset + pensionAsset + savingsAsset + fundSavingsAsset + etfAsset + stockAsset + cryptoAsset + insuranceRefundAsset;
+  
+  // 부동산자산 합계 (신규)
+  const totalRealEstateAsset = residentialRealEstate + investmentRealEstate;
+  
+  // 총 자산 = 금융자산 + 부동산자산
+  const totalAsset = totalFinancialAsset + totalRealEstateAsset;
+  
   const totalDebt = mortgageDebt + creditDebt + otherDebt;
   const progress = (currentStep / totalSteps) * 100;
 
@@ -280,7 +299,9 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       interests, goal, personalInfo: { name, age, married, job, familyCount, retireAge, dualIncome },
       income: { myIncome, spouseIncome, otherIncome }, irregularIncome: { bonusIncome, incentiveIncome, otherIrregularIncome },
       expense: { cmaAmount, savingsAmount, fundAmount, housingSubAmount, isaAmount, pensionAmount, taxFreePensionAmount, insuranceAmount, loanPaymentAmount, surplusAmount, livingExpense },
-      assets: { cmaAsset, goldAsset, bondAsset, depositAsset, pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset },
+      financialAssets: { cmaAsset, goldAsset, bondAsset, depositAsset, installmentAsset, pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset, insuranceRefundAsset },
+      realEstateAssets: { residentialRealEstate, investmentRealEstate },
+      totalFinancialAsset, totalRealEstateAsset, totalAsset,
       debts: { mortgageDebt, creditDebt, otherDebt, emergencyFund },
       desireStage: desireResult,
     }));
@@ -397,29 +418,53 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
 
-        {/* Step 4: 자산 */}
+        {/* Step 4: 자산 (금융자산 + 부동산자산) */}
         {currentStep === 4 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">현재 보유 <span className="text-teal-600 font-bold">자산</span> 입력! 💎</p></div></div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💎</div><div><h3 className="font-bold text-gray-900">자산</h3><p className="text-xs text-gray-400">현재 보유 자산</p></div></div>
+            
+            {/* 금융자산 */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl">💰</div><div><h3 className="font-bold text-gray-900">금융자산</h3><p className="text-xs text-gray-400">현금, 예금, 투자자산 등</p></div></div>
               <InputRow label="CMA(현금)" value={cmaAsset} onChange={setCmaAsset} icon="💵" />
               <InputRow label="금(GOLD)" value={goldAsset} onChange={setGoldAsset} icon="🥇" />
               <InputRow label="채권" value={bondAsset} onChange={setBondAsset} icon="📜" />
-              <InputRow label="예적금" value={depositAsset} onChange={setDepositAsset} icon="🏦" />
+              <InputRow label="예금" value={depositAsset} onChange={setDepositAsset} icon="🏦" />
+              <InputRow label="적금/적립금" value={installmentAsset} onChange={setInstallmentAsset} icon="📥" />
               <InputRow label="연금적립금" value={pensionAsset} onChange={setPensionAsset} icon="🏖️" />
               <InputRow label="저축적립금" value={savingsAsset} onChange={setSavingsAsset} icon="💰" />
               <InputRow label="펀드적립금" value={fundSavingsAsset} onChange={setFundSavingsAsset} icon="📊" />
               <InputRow label="ETF(펀드)" value={etfAsset} onChange={setEtfAsset} icon="📈" />
               <InputRow label="주식" value={stockAsset} onChange={setStockAsset} icon="📉" />
               <InputRow label="가상화폐" value={cryptoAsset} onChange={setCryptoAsset} icon="₿" />
+              <InputRow label="보험해약환급금" value={insuranceRefundAsset} onChange={setInsuranceRefundAsset} icon="🛡️" />
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
-                <span className="text-sm font-semibold text-gray-700">총 자산</span>
+                <span className="text-sm font-semibold text-gray-700">금융자산 소계</span>
+                <span className="text-lg font-bold text-indigo-600">{totalFinancialAsset.toLocaleString()}만원</span>
+              </div>
+            </div>
+            
+            {/* 부동산자산 */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
+              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl">🏠</div><div><h3 className="font-bold text-gray-900">부동산자산</h3><p className="text-xs text-gray-400">주거용, 투자용 부동산</p></div></div>
+              <InputRow label="주거용부동산" value={residentialRealEstate} onChange={setResidentialRealEstate} icon="🏡" />
+              <InputRow label="투자용부동산" value={investmentRealEstate} onChange={setInvestmentRealEstate} icon="🏢" />
+              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
+                <span className="text-sm font-semibold text-gray-700">부동산자산 소계</span>
+                <span className="text-lg font-bold text-amber-600">{totalRealEstateAsset.toLocaleString()}만원</span>
+              </div>
+            </div>
+            
+            {/* 총 자산 */}
+            <div className="bg-gradient-to-r from-indigo-50 to-amber-50 rounded-2xl p-4 border border-indigo-200">
+              <div className="flex justify-between items-center">
+                <span className="text-base font-bold text-gray-900">💎 총 자산</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-indigo-600">{displayAsset.toLocaleString()}만원</span>
+                  <span className="text-xl font-bold text-indigo-600">{displayAsset.toLocaleString()}만원</span>
                   {totalAsset === 0 && existingAssets > 0 && <span className="text-xs text-gray-400 ml-1">(기존)</span>}
                 </div>
               </div>
+              <div className="mt-2 text-xs text-gray-500">= 금융자산 {totalFinancialAsset.toLocaleString()}만원 + 부동산자산 {totalRealEstateAsset.toLocaleString()}만원</div>
             </div>
           </>
         )}
@@ -460,6 +505,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">가족구성</span><span className="text-sm font-semibold text-gray-900">{familyCount}명 ({married ? (dualIncome ? '맞벌이' : '외벌이') : '미혼'})</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">월 수입</span><span className="text-sm font-semibold text-emerald-600">{displayIncome.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">월 지출</span><span className="text-sm font-semibold text-red-500">{displayExpense.toLocaleString()}만원</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">금융자산</span><span className="text-sm font-semibold text-indigo-600">{totalFinancialAsset.toLocaleString()}만원</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">부동산자산</span><span className="text-sm font-semibold text-amber-600">{totalRealEstateAsset.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 자산</span><span className="text-sm font-semibold text-indigo-600">{displayAsset.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 부채</span><span className="text-sm font-semibold text-red-500">{displayDebt.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-2 border-t border-teal-200 mt-2"><span className="text-sm font-bold text-gray-900">💎 순자산</span><span className="text-lg font-bold text-teal-600">{(displayAsset - displayDebt).toLocaleString()}만원</span></div>
