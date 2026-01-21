@@ -3,6 +3,7 @@
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
 // 수정: normalizeToManwon 함수로 금액 단위 정규화 (수입/지출/자산/부채 모두 적용)
+// 추가: DESIRE 6단계 결과 표시
 
 import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -216,6 +217,38 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const displayAsset = totalAsset > 0 ? totalAsset : existingAssets;
   const displayDebt = totalDebt > 0 ? totalDebt : existingDebt;
 
+  // ============================================
+  // DESIRE 6단계 판별 로직
+  // ============================================
+  const getDesireStage = (): { stage: number; label: string; description: string; color: string } => {
+    // 1단계: 신용대출이 있으면
+    if (creditDebt > 0) {
+      return { stage: 1, label: 'D단계 (Debt Free)', description: '신용대출 상환이 필요합니다', color: 'text-red-600' };
+    }
+    // 2단계: 비상예비자금이 없으면
+    if (emergencyFund === 0) {
+      return { stage: 2, label: 'E단계 (Emergency Fund)', description: '비상예비자금 마련이 필요합니다', color: 'text-orange-600' };
+    }
+    // 3단계: 저축투자/노후연금이 예산 이하 (저축+연금이 월수입의 20% 미만)
+    const savingsTotal = savingsAmount + fundAmount + pensionAmount + taxFreePensionAmount;
+    const savingsTarget = displayIncome * 0.2; // 월수입의 20%
+    if (savingsTotal < savingsTarget) {
+      return { stage: 3, label: 'S단계 (Savings)', description: '적립식 저축투자 확대가 필요합니다', color: 'text-yellow-600' };
+    }
+    // 4단계: 금융자산이 10억원 이하
+    if (displayAsset <= 100000) { // 10억 = 100,000만원
+      return { stage: 4, label: 'I단계 (Investment)', description: '금융자산 10억 목표 달성 중', color: 'text-blue-600' };
+    }
+    // 5단계: 담보대출이 있으면
+    if (mortgageDebt > 0) {
+      return { stage: 5, label: 'R단계 (Retirement)', description: '담보대출 상환이 필요합니다', color: 'text-purple-600' };
+    }
+    // 6단계: 담보대출이 없으면 (모든 조건 충족)
+    return { stage: 6, label: 'E단계 (Enjoy)', description: '경제적 자유 달성! 🎉', color: 'text-emerald-600' };
+  };
+
+  const desireResult = getDesireStage();
+
   const toggleInterest = (id: string) => {
     if (interests.includes(id)) setInterests(interests.filter(i => i !== id));
     else if (interests.length < 2) setInterests([...interests, id]);
@@ -249,6 +282,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       expense: { cmaAmount, savingsAmount, fundAmount, housingSubAmount, isaAmount, pensionAmount, taxFreePensionAmount, insuranceAmount, loanPaymentAmount, surplusAmount, livingExpense },
       assets: { cmaAsset, goldAsset, bondAsset, depositAsset, pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset },
       debts: { mortgageDebt, creditDebt, otherDebt, emergencyFund },
+      desireStage: desireResult,
     }));
   };
 
@@ -429,6 +463,21 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 자산</span><span className="text-sm font-semibold text-indigo-600">{displayAsset.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 부채</span><span className="text-sm font-semibold text-red-500">{displayDebt.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-2 border-t border-teal-200 mt-2"><span className="text-sm font-bold text-gray-900">💎 순자산</span><span className="text-lg font-bold text-teal-600">{(displayAsset - displayDebt).toLocaleString()}만원</span></div>
+                  
+                  {/* DESIRE 6단계 결과 */}
+                  <div className="mt-3 pt-3 border-t border-teal-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">🎯</span>
+                      <span className="text-sm font-bold text-gray-900">DESIRE 로드맵 현재 단계</span>
+                    </div>
+                    <div className={`p-3 rounded-xl ${desireResult.stage <= 2 ? 'bg-red-50 border border-red-200' : desireResult.stage <= 4 ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-base font-bold ${desireResult.color}`}>{desireResult.label}</span>
+                        <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded-full">{desireResult.stage}/6단계</span>
+                      </div>
+                      <p className="text-xs text-gray-600">{desireResult.description}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
