@@ -21,12 +21,7 @@ interface FinancialResultPageProps {
 function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: FinancialResultPageProps) {
   // 금액을 만원 단위로 표시하는 함수
   const formatManwon = (value: number): string => {
-    // 이미 만원 단위인 경우 (10000 미만)
-    if (value < 10000) {
-      return `${value.toLocaleString()}만원`;
-    }
-    // 원 단위인 경우 (10000 이상) -> 만원으로 변환
-    return `${Math.round(value / 10000).toLocaleString()}만원`;
+    return `${value.toLocaleString()}만원`;
   };
 
   return (
