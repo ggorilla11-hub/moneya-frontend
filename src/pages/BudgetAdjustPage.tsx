@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { IncomeExpenseData } from '../types/incomeExpense';
 import { BUDGET_RATIOS } from '../types/incomeExpense';
 
@@ -24,6 +24,9 @@ type BudgetField = 'livingExpense' | 'savings' | 'pension' | 'insurance' | 'loan
 
 function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = false, onReAnalysis }: BudgetAdjustPageProps) {
   const { income, familySize } = incomeExpenseData;
+  
+  // AudioContext 참조 (터치 시점에 활성화)
+  const audioContextRef = useRef<AudioContext | null>(null);
   
   const recommendedRatios = BUDGET_RATIOS[Math.min(familySize, 5)] || BUDGET_RATIOS[2];
   
@@ -79,32 +82,45 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
-  // 1만원 단위 조정 (데이터가 만원 단위이므로 STEP = 1 = 1만원)
+  // 1만원 단위 조정
   const STEP = 1;
   
-  // 스냅 허용 오차: 5만원 (기존 1만원에서 증가)
-  const SNAP_TOLERANCE = 5;
+  // 스냅 허용 오차: 5만원 (원 단위이므로 50000)
+  const SNAP_TOLERANCE = 50000;
 
-  // 스냅 소리 재생 (볼륨 강화)
+  // AudioContext 초기화 (터치 시점에 호출)
+  const initAudio = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // suspended 상태면 resume
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  }, []);
+
+  // 스냅 소리 재생 (더 길고 명쾌한 소리)
   const playSnapSound = useCallback(() => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
       
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(ctx.destination);
       
-      // 더 명확한 '틱' 소리
-      oscillator.frequency.value = 1000;
+      // 더 높고 명쾌한 소리
+      oscillator.frequency.value = 1200;
       oscillator.type = 'sine';
       
-      // 볼륨 강화
-      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      // 볼륨 강화, 더 긴 지속시간
+      gainNode.gain.setValueAtTime(0.6, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
       
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.15);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.2);
     } catch (e) {
       console.log('Audio not supported');
     }
@@ -119,7 +135,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
     
     const recommended = recommendedBudget[field];
     
-    // 권장값에 스냅 (허용 오차 5만원)
+    // 권장값에 스냅 (허용 오차 5만원 = 50000원)
     if (Math.abs(newValue - recommended) <= SNAP_TOLERANCE) {
       newValue = recommended;
       
@@ -128,7 +144,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
         setSnappedFields(prev => new Set(prev).add(field));
         playSnapSound();
         
-        // 0.8초 후 스냅 효과 제거 (기존 0.5초에서 증가)
+        // 0.8초 후 스냅 효과 제거
         setTimeout(() => {
           setSnappedFields(prev => {
             const newSet = new Set(prev);
@@ -265,6 +281,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             formatWonDiff={formatWonDiff}
             step={STEP}
             isSnapped={snappedFields.has('livingExpense')}
+            onTouchInit={initAudio}
           />
 
           <SliderItem 
@@ -286,6 +303,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             formatWonDiff={formatWonDiff}
             step={STEP}
             isSnapped={snappedFields.has('savings')}
+            onTouchInit={initAudio}
           />
 
           <SliderItem 
@@ -307,6 +325,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             formatWonDiff={formatWonDiff}
             step={STEP}
             isSnapped={snappedFields.has('pension')}
+            onTouchInit={initAudio}
           />
 
           <SliderItem 
@@ -328,6 +347,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             formatWonDiff={formatWonDiff}
             step={STEP}
             isSnapped={snappedFields.has('insurance')}
+            onTouchInit={initAudio}
           />
 
           <SliderItem 
@@ -349,6 +369,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             formatWonDiff={formatWonDiff}
             step={STEP}
             isSnapped={snappedFields.has('loanPayment')}
+            onTouchInit={initAudio}
           />
 
           <div className="pt-2">
@@ -472,6 +493,7 @@ interface SliderItemProps {
   formatWonDiff: (v: number) => string;
   step: number;
   isSnapped: boolean;
+  onTouchInit: () => void;
 }
 
 function SliderItem({ 
@@ -492,7 +514,8 @@ function SliderItem({
   formatManwon,
   formatWonDiff,
   step,
-  isSnapped
+  isSnapped,
+  onTouchInit
 }: SliderItemProps) {
   const colorMap = {
     green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600', bg: '#22c55e' },
@@ -504,6 +527,12 @@ function SliderItem({
   const colors = colorMap[color];
   const difference = value - recommended;
   const recommendedPercent = maxValue > 0 ? (recommended / maxValue) * 100 : 0;
+
+  // 슬라이더 터치/클릭 시 AudioContext 초기화
+  const handleInteractionStart = () => {
+    onTouchInit();
+    onFocus();
+  };
 
   return (
     <div className={`mb-4 pb-4 border-b border-gray-100 ${isConfirmed ? 'opacity-75' : ''}`}>
@@ -543,10 +572,11 @@ function SliderItem({
             step={step} 
             value={value} 
             onChange={(e) => onChange(Number(e.target.value))} 
-            onFocus={onFocus} 
+            onFocus={handleInteractionStart} 
             onBlur={onBlur} 
-            onTouchStart={onFocus} 
-            onTouchEnd={onBlur} 
+            onTouchStart={handleInteractionStart} 
+            onTouchEnd={onBlur}
+            onMouseDown={handleInteractionStart}
             className="absolute top-0 left-0 w-full h-10 opacity-0 cursor-pointer z-10" 
           />
         )}
