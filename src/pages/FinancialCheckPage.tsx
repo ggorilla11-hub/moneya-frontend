@@ -5,6 +5,9 @@ import house3 from '../assets/house3.jpg';
 import house4 from '../assets/house4.jpg';
 import house5 from '../assets/house5.jpg';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface FinancialCheckPageProps {
   onComplete: (result: FinancialResult) => void;
 }
@@ -122,9 +125,11 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
 
       <div className="bg-gradient-to-r from-purple-100 to-purple-50 rounded-2xl p-4 mb-6">
         <div className="flex items-start gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>M</span>
-          </div>
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-12 h-12 flex-shrink-0"
+          />
           <div>
             <p className="font-bold text-gray-800">안녕하세요! 👋</p>
             <p className="text-sm text-gray-600">5가지만 알려주시면</p>
