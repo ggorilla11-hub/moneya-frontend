@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -26,7 +29,7 @@ interface MyPageProps {
 export default function MyPage({
   userName,
   userEmail,
-  userPhoto,
+  userPhoto: _userPhoto,
   financialResult: _financialResult,
   onNavigate,
   onLogout,
@@ -61,13 +64,11 @@ export default function MyPage({
       {/* 프로필 영역 */}
       <div className="bg-white p-5 border-b border-gray-200">
         <div className="flex items-center gap-4 mb-4">
-          {userPhoto ? (
-            <img src={userPhoto} alt="프로필" className="w-14 h-14 rounded-full" />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-              <span className="text-white text-xl font-bold">{userName.charAt(0)}</span>
-            </div>
-          )}
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-14 h-14"
+          />
           <div className="flex-1">
             <p className="font-extrabold text-lg text-gray-900">{userName}님</p>
             <p className="text-sm text-gray-500">{userEmail}</p>
