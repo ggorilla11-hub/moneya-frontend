@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { IncomeExpenseData } from '../types/incomeExpense';
 import { BUDGET_RATIOS } from '../types/incomeExpense';
 
@@ -65,9 +65,6 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   // 스냅 효과 상태
   const [snappedFields, setSnappedFields] = useState<Set<string>>(new Set());
   
-  // 오디오 참조
-  const snapSoundRef = useRef<HTMLAudioElement | null>(null);
-  
   // 예산 시작일 설정
   const [budgetStartDate, setBudgetStartDate] = useState(() => {
     const today = new Date();
@@ -87,7 +84,6 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   // 스냅 소리 재생
   const playSnapSound = useCallback(() => {
     try {
-      // Web Audio API로 짧은 '틱' 소리 생성
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -558,7 +554,6 @@ function SliderItem({
           style={{ 
             left: `${percent}%`, 
             transform: 'translate(-50%, -50%)',
-            backgroundColor: isSnapped ? colors.snap.replace('bg-', '') : 'white',
           }}
         >
           {isSnapped && (
