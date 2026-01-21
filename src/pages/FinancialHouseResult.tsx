@@ -1,28 +1,66 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: 로고/글자 크기 홈 대시보드와 동일하게 확대
+// UI 수정: 외부/내부 이미지 스와이프 + SVG 텍스트 오버레이 (데이터 연동)
 
 import { useState } from 'react';
 
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
+// 금융집 이미지 URL (Firebase Storage)
+const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png?alt=media&token=debc4c4c-5c43-49c4-b7ee-bde444185951';
+const INTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%EC%8B%A4%EC%82%AC%20%EB%82%B4%EB%B6%80%EC%9B%90%EB%B3%B8.png?alt=media&token=e551fe5a-5899-4366-8421-719c2694f0b7';
+
 interface FinancialHouseResultProps {
   userName?: string;
   onRestart?: () => void;
   onNavigate?: (path: string) => void;
+  // 데이터 연동용 props
+  financialData?: {
+    currentAge?: number;
+    retirementAge?: number;
+    lifeExpectancy?: number;
+    wealthIndex?: number;
+    taxAmount?: number;
+    realEstateValue?: number;
+    debtRatio?: number;
+    debtAmount?: number;
+    savingsRate?: number;
+    monthlySavings?: number;
+    retirementReadyRate?: number;
+    requiredMonthly?: number;
+    preparedMonthly?: number;
+    shortfallMonthly?: number;
+  };
 }
 
 const FinancialHouseResult = ({ 
   userName = '',
   onRestart,
-  onNavigate 
+  onNavigate,
+  financialData = {}
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [exteriorLoaded, setExteriorLoaded] = useState(false);
+  const [interiorLoaded, setInteriorLoaded] = useState(false);
 
-  // Firebase Storage 이미지 URL
-  const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png?alt=media&token=debc4c4c-5c43-49c4-b7ee-bde444185951';
+  // 기본값 설정
+  const data = {
+    currentAge: financialData.currentAge || 37,
+    retirementAge: financialData.retirementAge || 65,
+    lifeExpectancy: financialData.lifeExpectancy || 90,
+    wealthIndex: financialData.wealthIndex || 108,
+    taxAmount: financialData.taxAmount || 380,
+    realEstateValue: financialData.realEstateValue || 5,
+    debtRatio: financialData.debtRatio || 46,
+    debtAmount: financialData.debtAmount || 3.5,
+    savingsRate: financialData.savingsRate || 25,
+    monthlySavings: financialData.monthlySavings || 130,
+    retirementReadyRate: financialData.retirementReadyRate || 43,
+    requiredMonthly: financialData.requiredMonthly || 300,
+    preparedMonthly: financialData.preparedMonthly || 130,
+    shortfallMonthly: financialData.shortfallMonthly || 170,
+  };
 
   const tabs = [
     { emoji: '🏖️', label: '은퇴' },
@@ -72,7 +110,7 @@ const FinancialHouseResult = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 - 로고 + 고객 이름 (홈 대시보드와 동일한 크기) */}
+      {/* 헤더 - 로고 + 고객 이름 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <img 
@@ -106,7 +144,7 @@ const FinancialHouseResult = ({
         </div>
       </header>
 
-      {/* 탭 네비게이션 - 여백 확대 */}
+      {/* 탭 네비게이션 */}
       <div className="bg-white border-b border-gray-200 px-3 py-2 overflow-x-auto">
         <div className="flex gap-1.5 min-w-max">
           {tabs.map((tab, index) => (
@@ -134,7 +172,7 @@ const FinancialHouseResult = ({
           >
             {/* 외부 이미지 (첫 번째 슬라이드) */}
             <div className="min-w-full h-full relative flex items-center justify-center bg-gray-100">
-              {!imageLoaded && (
+              {!exteriorLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
                 </div>
@@ -142,9 +180,9 @@ const FinancialHouseResult = ({
               <img 
                 src={EXTERIOR_IMAGE_URL}
                 alt="금융집 외부"
-                className={`w-full h-full object-contain ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={() => setImageLoaded(true)}
-                onError={() => setImageLoaded(true)}
+                className={`w-full h-full object-contain ${exteriorLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setExteriorLoaded(true)}
+                onError={() => setExteriorLoaded(true)}
               />
               {/* 스와이프 화살표 */}
               <button
@@ -155,16 +193,71 @@ const FinancialHouseResult = ({
               </button>
             </div>
 
-            {/* 내부 이미지 (두 번째 슬라이드) */}
-            <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-br from-amber-100 to-yellow-200">
-              <div className="absolute top-3 left-3 bg-white/90 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-200">
-                &lt;샘플&gt;
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-2">📊</div>
-                <div className="text-base font-bold text-amber-800">금융집 내부</div>
-                <div className="text-xs text-amber-600 mt-1 opacity-70">실제 이미지로 교체 예정</div>
-              </div>
+            {/* 내부 이미지 + SVG 오버레이 (두 번째 슬라이드) */}
+            <div className="min-w-full h-full relative flex items-center justify-center bg-gray-100">
+              {!interiorLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+                </div>
+              )}
+              
+              {/* 내부 실사 이미지 */}
+              <img 
+                src={INTERIOR_IMAGE_URL}
+                alt="금융집 내부"
+                className={`w-full h-full object-contain ${interiorLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setInteriorLoaded(true)}
+                onError={() => setInteriorLoaded(true)}
+              />
+              
+              {/* SVG 텍스트 오버레이 - 데이터 연동 */}
+              <svg 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 355 296" 
+                preserveAspectRatio="xMidYMid slice"
+              >
+                {/* 투자 영역 */}
+                <text x="44%" y="34%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">투자</text>
+                <text x="44%" y="38%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">부자지수 {data.wealthIndex}%</text>
+                
+                {/* 세금 영역 */}
+                <text x="58%" y="34%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">세금</text>
+                <text x="58%" y="38%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">결정세액 {data.taxAmount}만원</text>
+                
+                {/* 부동산 영역 (흰색) */}
+                <text x="78%" y="18%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="800" fill="#fff">부동산</text>
+                <text x="78%" y="22%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#fff">시가 {data.realEstateValue}억</text>
+                
+                {/* 처마보 (타임라인) */}
+                <text x="18%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">현재({data.currentAge})</text>
+                <text x="48%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">은퇴({data.retirementAge})</text>
+                <text x="81%" y="46%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">사망({data.lifeExpectancy})</text>
+                
+                {/* 부채 영역 */}
+                <text x="19%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">부채</text>
+                <text x="19%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">부채비율 {data.debtRatio}%</text>
+                <text x="19%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">담보 {data.debtAmount}억</text>
+                
+                {/* 저축 영역 */}
+                <text x="45%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">저축</text>
+                <text x="45%" y="70%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">저축률 {data.savingsRate}%</text>
+                <text x="45%" y="74%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">월 {data.monthlySavings}만원</text>
+                
+                {/* 은퇴 영역 */}
+                <text x="81%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">은퇴</text>
+                <text x="81%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">준비율 {data.retirementReadyRate}%</text>
+                <text x="81%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">필요: {data.requiredMonthly}만원/월</text>
+                <text x="81%" y="70%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="600" fill="#000">준비: {data.preparedMonthly}만원/월</text>
+                <text x="81%" y="74%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="3" fontWeight="700" fill="#000">부족: {data.shortfallMonthly}만원/월</text>
+                
+                {/* 보장 영역 (흰색) */}
+                <text x="6%" y="88%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#fff">보장</text>
+                
+                {/* 우측 하단 둔덕 가림용 사각형 */}
+                <rect x="85%" y="85%" width="15%" height="15%" fill="#5D4037" opacity="0.95"/>
+              </svg>
+
+              {/* 스와이프 화살표 */}
               <button
                 onClick={handleSwipeRight}
                 className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform"
@@ -175,7 +268,7 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
-        {/* 다시 설계하기 버튼 - 이미지 밖 아래 (축소) */}
+        {/* 다시 설계하기 버튼 */}
         <div className="px-3 mt-2">
           <button
             onClick={handleRestart}
@@ -186,7 +279,7 @@ const FinancialHouseResult = ({
           </button>
         </div>
 
-        {/* 저작권 정보 - 중앙 배치 (여백 축소) */}
+        {/* 저작권 정보 */}
         <div className="mt-2 mb-1 text-center px-3">
           <p className="text-[9px] text-gray-500">
             © 2017 오원트금융연구소 All rights reserved.
