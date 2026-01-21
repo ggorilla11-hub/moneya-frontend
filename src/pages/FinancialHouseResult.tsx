@@ -1,8 +1,11 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: 마이크바 위치 위로 조정
+// UI 수정: 헤더에 앱 로고 추가, 실제 고객 이름 표시
 
 import { useState } from 'react';
+
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
 interface FinancialHouseResultProps {
   userName?: string;
@@ -69,11 +72,18 @@ const FinancialHouseResult = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 - 여백 확대 */}
+      {/* 헤더 - 로고 + 고객 이름 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
-        <h1 className="text-base font-bold text-gray-900">
-          {userName || '고객'}님의 금융집짓기®
-        </h1>
+        <div className="flex items-center gap-2">
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-6 h-6 object-contain"
+          />
+          <h1 className="text-base font-bold text-gray-900">
+            {userName || '고객'}님의 금융집짓기®
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleMetaverse}
