@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface OnboardingPageProps {
   onComplete: () => void;
 }
@@ -47,9 +50,11 @@ function OnboardingPage({ onComplete }: OnboardingPageProps) {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-2 border-purple-400/40 rounded-full animate-spin" style={{ animationDuration: '8s' }}>
             <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-purple-400 rounded-full shadow-lg shadow-purple-400/50"></div>
           </div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-xl shadow-purple-500/30">
-            <span className="text-white text-xl font-bold" style={{ fontFamily: 'Orbitron, sans-serif' }}>M</span>
-          </div>
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 shadow-xl shadow-purple-500/30"
+          />
         </div>
         
         <h1 className="text-xl font-extrabold text-gray-800 mb-2">AI머니야에 오신 것을 환영합니다</h1>
