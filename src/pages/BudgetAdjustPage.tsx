@@ -82,11 +82,6 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const getPercent = (value: number) => income > 0 ? Math.round((value / income) * 100) : 0;
   const formatWon = (manwon: number) => `₩${manwon.toLocaleString()}원`;
 
-  const wealthIndex = income > 0 ? ((surplus / income) * 100).toFixed(1) : '0.0';
-  const debtRatio = income > 0 ? Math.round((budget.loanPayment / income) * 100) : 0;
-  const overSpendRatio = recommendedBudget.livingExpense > 0 ?
-    Math.round(((budget.livingExpense - recommendedBudget.livingExpense) / recommendedBudget.livingExpense) * 100) : 0;
-
   const monthlySavingsIncrease = budget.savings - (incomeExpenseData.savings || 0);
   const yearlySavingsIncrease = monthlySavingsIncrease * 12;
 
@@ -157,24 +152,6 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             </div>
           </div>
         )}
-
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className={`bg-white rounded-xl p-3 text-center border ${parseFloat(wealthIndex) >= 1 ? 'border-green-200' : parseFloat(wealthIndex) >= 0.5 ? 'border-amber-200' : 'border-red-200'}`}>
-            <div className="text-xl mb-1">📈</div>
-            <div className={`font-extrabold text-lg ${parseFloat(wealthIndex) >= 1 ? 'text-green-600' : parseFloat(wealthIndex) >= 0.5 ? 'text-amber-500' : 'text-red-500'}`}>{wealthIndex}%</div>
-            <div className="text-xs text-gray-400">부자지수</div>
-          </div>
-          <div className={`bg-white rounded-xl p-3 text-center border ${debtRatio <= 20 ? 'border-green-200' : debtRatio <= 30 ? 'border-amber-200' : 'border-red-200'}`}>
-            <div className="text-xl mb-1">💳</div>
-            <div className={`font-extrabold text-lg ${debtRatio <= 20 ? 'text-green-600' : debtRatio <= 30 ? 'text-amber-500' : 'text-red-500'}`}>{debtRatio}%</div>
-            <div className="text-xs text-gray-400">부채비율</div>
-          </div>
-          <div className={`bg-white rounded-xl p-3 text-center border ${overSpendRatio <= 0 ? 'border-green-200' : overSpendRatio <= 20 ? 'border-amber-200' : 'border-red-200'}`}>
-            <div className="text-xl mb-1">🛒</div>
-            <div className={`font-extrabold text-lg ${overSpendRatio <= 0 ? 'text-green-600' : overSpendRatio <= 20 ? 'text-amber-500' : 'text-red-500'}`}>{overSpendRatio > 0 ? `+${overSpendRatio}` : overSpendRatio}%</div>
-            <div className="text-xs text-gray-400">과소비</div>
-          </div>
-        </div>
 
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm mb-4">
           <div className="flex items-center justify-between mb-4">
