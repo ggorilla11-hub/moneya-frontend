@@ -1,6 +1,6 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
-// UI 수정: 레이아웃 정리, 다시설계하기 버튼 이미지 밖으로 이동
+// UI 수정: 마이크바 위치 조정, 하단 여백 축소
 
 import { useState } from 'react';
 
@@ -115,7 +115,7 @@ const FinancialHouseResult = ({
       </div>
 
       {/* 메인 컨텐츠 - 스크롤 가능 영역 */}
-      <main className="flex-1 overflow-y-auto pb-36">
+      <main className="flex-1 overflow-y-auto pb-32">
         {/* 이미지 스와이프 영역 */}
         <div className="relative bg-white mx-3 mt-3 rounded-2xl overflow-hidden shadow-lg" style={{ height: '50vh', minHeight: '300px' }}>
           <div 
@@ -165,30 +165,30 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
-        {/* 다시 설계하기 버튼 - 이미지 밖 아래 */}
-        <div className="px-3 mt-3">
+        {/* 다시 설계하기 버튼 - 이미지 밖 아래 (축소) */}
+        <div className="px-3 mt-2">
           <button
             onClick={handleRestart}
-            className="w-full py-3 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 shadow-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 shadow-sm transition-colors flex items-center justify-center gap-1"
           >
             <span>🔄</span>
             <span>다시 설계하기</span>
           </button>
         </div>
 
-        {/* 저작권 정보 - 중앙 배치 */}
-        <div className="mt-4 text-center px-3">
-          <p className="text-[10px] text-gray-500">
+        {/* 저작권 정보 - 중앙 배치 (여백 축소) */}
+        <div className="mt-2 mb-1 text-center px-3">
+          <p className="text-[9px] text-gray-500">
             © 2017 오원트금융연구소 All rights reserved.
           </p>
-          <p className="text-[10px] text-gray-400 mt-1">
+          <p className="text-[9px] text-gray-400">
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
         </div>
       </main>
 
-      {/* 마이크 입력바 - 네비게이션 바로 위 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
+      {/* 마이크 입력바 - 네비게이션 바로 위 (위치 조정) */}
+      <div className="fixed bottom-[60px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
         <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
           <button className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-lg active:scale-95 transition-transform">
             +
