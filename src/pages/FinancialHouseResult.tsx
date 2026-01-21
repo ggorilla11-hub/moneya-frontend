@@ -2,8 +2,7 @@
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
 // UI 수정: 레이아웃 정리, 다시설계하기 버튼 이미지 밖으로 이동
 
-import { useState, useEffect } from 'react';
-import { auth } from '../firebase';
+import { useState } from 'react';
 
 interface FinancialHouseResultProps {
   userName?: string;
@@ -12,25 +11,12 @@ interface FinancialHouseResultProps {
 }
 
 const FinancialHouseResult = ({ 
-  userName,
+  userName = '',
   onRestart,
   onNavigate 
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [displayName, setDisplayName] = useState(userName || '');
-
-  // Firebase에서 실제 사용자 이름 가져오기
-  useEffect(() => {
-    if (!userName && auth.currentUser) {
-      const firebaseDisplayName = auth.currentUser.displayName;
-      if (firebaseDisplayName) {
-        setDisplayName(firebaseDisplayName);
-      }
-    } else if (userName) {
-      setDisplayName(userName);
-    }
-  }, [userName]);
 
   // Firebase Storage 이미지 URL
   const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png?alt=media&token=debc4c4c-5c43-49c4-b7ee-bde444185951';
@@ -86,7 +72,7 @@ const FinancialHouseResult = ({
       {/* 헤더 - 여백 확대 */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-base font-bold text-gray-900">
-          {displayName || '고객'}님의 금융집짓기®
+          {userName || '고객'}님의 금융집짓기®
         </h1>
         <div className="flex items-center gap-3">
           <button
