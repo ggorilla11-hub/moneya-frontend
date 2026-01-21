@@ -233,22 +233,22 @@ const FinancialHouseResult = ({
                 <text x="58%" y="40%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="7" fontWeight="800" fill="#000">세금</text>
                 <text x="58%" y="44%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">결정세액 {data.taxAmount}만원</text>
                 
-                {/* 4. 부동산 영역 - "부"자만큼 좌측으로 이동 (x: 70% → 67%) */}
-                <text x="67%" y="28%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="800" fill="#fff">부동산</text>
-                <text x="67%" y="32%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#fff">시가 {data.realEstateValue}억</text>
+                {/* 2. 부동산 영역 - 부동산 글씨만큼 우측으로 이동 (x: 67% → 72%) */}
+                <text x="72%" y="28%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="800" fill="#fff">부동산</text>
+                <text x="72%" y="32%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#fff">시가 {data.realEstateValue}억</text>
                 
                 {/* 처마보 (타임라인) */}
-                {/* 6. 현재나이 - 창문 넓이만큼 우측으로 이동 (x: 23% → 28%) */}
-                <text x="28%" y="50%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">현재({data.currentAge})</text>
-                {/* 7. 은퇴나이 - 글자높이만큼 아래로 이동 (y: 46% → 52%) */}
-                <text x="52%" y="52%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">은퇴({data.retirementAge})</text>
-                {/* 8. 사망나이 - 처마보 창문넓이 절반만큼 좌측으로 이동 (x: 76% → 73%) */}
-                <text x="73%" y="50%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">사망({data.lifeExpectancy})</text>
+                {/* 1. 현재나이 - 글씨 크기만큼 윗쪽으로 상승 (y: 50% → 47%) */}
+                <text x="28%" y="47%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">현재({data.currentAge})</text>
+                {/* 1. 은퇴나이 - 글씨 크기만큼 윗쪽으로 상승 (y: 52% → 49%) */}
+                <text x="52%" y="49%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">은퇴({data.retirementAge})</text>
+                {/* 1. 사망나이 - 글씨 크기만큼 윗쪽으로 상승 (y: 50% → 47%) */}
+                <text x="73%" y="47%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="5" fontWeight="700" fill="#000">사망({data.lifeExpectancy})</text>
                 
-                {/* 부채 영역 - 그대로 */}
-                <text x="30%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">부채</text>
-                <text x="30%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">부채비율 {data.debtRatio}%</text>
-                <text x="30%" y="66%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">담보 {data.debtAmount}억</text>
+                {/* 3. 부채 영역 - 부채 글자 높이만큼 윗쪽으로 상승 (y: 58% → 54%) */}
+                <text x="30%" y="54%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">부채</text>
+                <text x="30%" y="58%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="700" fill="#000">부채비율 {data.debtRatio}%</text>
+                <text x="30%" y="62%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="4" fontWeight="600" fill="#000">담보 {data.debtAmount}억</text>
                 
                 {/* 저축 영역 - 그대로 */}
                 <text x="45%" y="60%" textAnchor="middle" fontFamily="Noto Sans KR, sans-serif" fontSize="6" fontWeight="800" fill="#000">저축</text>
