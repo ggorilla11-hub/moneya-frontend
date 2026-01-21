@@ -487,7 +487,7 @@ function App() {
         <div className="relative">
           {currentTab === 'home' && (
             <HomePage 
-              userName={user.displayName || '사용자'} 
+              userName={financialResult?.name || user.displayName || '사용자'} 
               adjustedBudget={adjustedBudget}
               financialResult={financialResult}
               onMoreDetail={handleMoreDetail}
@@ -497,7 +497,7 @@ function App() {
           )}
           {currentTab === 'ai-spend' && (
             <AISpendPage
-              userName={user.displayName || '사용자'}
+              userName={financialResult?.name || user.displayName || '사용자'}
               adjustedBudget={adjustedBudget}
               financialResult={financialResult}
               onFAQMore={handleFAQMore}
@@ -507,13 +507,13 @@ function App() {
             <FinancialHouseProvider userId={user.uid}>
               {financialHouseStep === 'disclaimer' && (
                 <FinancialHouseDisclaimer
-                  userName={user.displayName || '사용자'}
+                  userName={financialResult?.name || user.displayName || '사용자'}
                   onStart={() => setFinancialHouseStep('basic')}
                 />
               )}
               {financialHouseStep === 'basic' && (
                 <FinancialHouseBasic
-                  userName={user.displayName || '사용자'}
+                  userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={() => {
                     setFinancialHouseStep('design');
                   }}
@@ -524,14 +524,14 @@ function App() {
               )}
               {financialHouseStep === 'design' && (
                 <FinancialHouseDesign
-                  userName={user.displayName || '사용자'}
+                  userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={handleFinancialHouseComplete}
                   onBack={() => setFinancialHouseStep('basic')}
                 />
               )}
               {financialHouseStep === 'result' && (
                 <FinancialHouseResult
-                  userName={user.displayName || '사용자'}
+                  userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
                   onNavigate={(path) => {
                     if (path === 'mypage-consulting') {
@@ -550,7 +550,7 @@ function App() {
           )}
           {currentTab === 'mypage' && (
             <MyPage
-              userName={user.displayName || '사용자'}
+              userName={financialResult?.name || user.displayName || '사용자'}
               userEmail={user.email || ''}
               userPhoto={user.photoURL}
               financialResult={financialResult}
