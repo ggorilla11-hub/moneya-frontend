@@ -1,6 +1,9 @@
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface LoginPageProps {
   onLogin: () => void;
 }
@@ -52,9 +55,11 @@ function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-sm">
         
         <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white text-3xl font-bold">M</span>
-          </div>
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-20 h-20 mx-auto mb-4 shadow-lg"
+          />
           <h1 className="text-2xl font-bold text-gray-800 mb-2">AI머니야</h1>
           <p className="text-gray-500">AI 금융집사와 함께하는 똑똑한 돈관리</p>
         </div>
