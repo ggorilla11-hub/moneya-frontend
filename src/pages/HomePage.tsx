@@ -3,6 +3,9 @@ import type { AdjustedBudget } from './BudgetAdjustPage';
 import { useSpend } from '../context/SpendContext';
 import { inferCategory, getCategoryInfo } from '../utils/categoryUtils';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -159,9 +162,11 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
       {/* 헤더 */}
       <div className="bg-white px-4 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-xl">M</span>
-          </div>
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-11 h-11 shadow-md"
+          />
           <div>
             <h1 className="font-bold text-lg text-gray-800">안녕하세요, {displayName}님 👋</h1>
             <p className="text-sm text-gray-500">오늘도 현명한 지출 함께해요</p>
