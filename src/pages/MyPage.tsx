@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
@@ -15,6 +15,22 @@ interface FinancialResult {
   houseImage: string;
   message: string;
 }
+
+// DESIRE 단계별 집/날씨 정의
+const DESIRE_STAGES = [
+  { stage: 1, label: 'D', name: 'Debt Free', house: '🏚️', houseName: '초가집', weather: '⛈️', weatherName: '폭풍우', color: 'text-red-600', bgColor: 'from-red-100 to-red-200' },
+  { stage: 2, label: 'E', name: 'Emergency Fund', house: '🏡', houseName: '나무집', weather: '☁️', weatherName: '흐림', color: 'text-orange-600', bgColor: 'from-orange-100 to-orange-200' },
+  { stage: 3, label: 'S', name: 'Savings', house: '🏠', houseName: '벽돌집', weather: '⛅', weatherName: '구름', color: 'text-yellow-600', bgColor: 'from-yellow-100 to-yellow-200' },
+  { stage: 4, label: 'I', name: 'Investment', house: '🏢', houseName: '콘크리트', weather: '☀️', weatherName: '맑음', color: 'text-blue-600', bgColor: 'from-blue-100 to-blue-200' },
+  { stage: 5, label: 'R', name: 'Retirement', house: '🏛️', houseName: '대리석', weather: '🌤️', weatherName: '화창', color: 'text-purple-600', bgColor: 'from-purple-100 to-purple-200' },
+  { stage: 6, label: 'E', name: 'Enjoy & Estate', house: '🏰', houseName: '고급주택', weather: '🌈', weatherName: '무지개', color: 'text-emerald-600', bgColor: 'from-emerald-100 to-emerald-200' },
+];
+
+// 로마숫자 변환
+const toRoman = (num: number): string => {
+  const romans = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'];
+  return romans[num - 1] || '';
+};
 
 interface MyPageProps {
   userName: string;
@@ -36,6 +52,28 @@ export default function MyPage({
   onReset
 }: MyPageProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [desireStage, setDesireStage] = useState<number | null>(null);
+
+  // 금융집짓기 DESIRE 단계 데이터 로드
+  useEffect(() => {
+    const loadDesireStage = () => {
+      try {
+        const savedData = localStorage.getItem('financialHouseData');
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          if (parsed.desireStage && parsed.desireStage.stage) {
+            setDesireStage(parsed.desireStage.stage);
+          }
+        }
+      } catch (error) {
+        console.error('DESIRE 단계 로드 오류:', error);
+      }
+    };
+    loadDesireStage();
+  }, []);
+
+  // 현재 DESIRE 단계 정보 가져오기
+  const currentStageInfo = desireStage ? DESIRE_STAGES[desireStage - 1] : null;
 
   // 1:1 문의 이메일 열기
   const handleInquiry = () => {
@@ -63,17 +101,73 @@ export default function MyPage({
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* 프로필 영역 */}
       <div className="bg-white p-5 border-b border-gray-200">
-        <div className="flex items-center gap-4 mb-4">
-          <img 
-            src={LOGO_URL}
-            alt="AI머니야 로고"
-            className="w-14 h-14"
-          />
-          <div className="flex-1">
-            <p className="font-extrabold text-lg text-gray-900">{userName}님</p>
-            <p className="text-sm text-gray-500">{userEmail}</p>
+        <div className="flex items-start gap-4 mb-4">
+          {/* 왼쪽: 로고 + 이름/이메일 */}
+          <div className="flex items-center gap-3 flex-1">
+            <img 
+              src={LOGO_URL}
+              alt="AI머니야 로고"
+              className="w-14 h-14"
+            />
+            <div>
+              <p className="font-extrabold text-lg text-gray-900">{userName}님</p>
+              <p className="text-sm text-gray-500">{userEmail}</p>
+            </div>
+          </div>
+          
+          {/* 오른쪽: 금융집짓기 일러스트 + DESIRE 진행바 */}
+          <div className="flex flex-col items-center gap-2 min-w-[100px]">
+            {currentStageInfo ? (
+              <>
+                {/* 일러스트 집 + 날씨 */}
+                <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentStageInfo.bgColor} flex flex-col items-center justify-center shadow-sm border border-gray-100`}>
+                  <span className="text-xs mb-0.5">{currentStageInfo.weather}</span>
+                  <span className="text-3xl">{currentStageInfo.house}</span>
+                  <span className="text-[9px] text-gray-600 font-medium mt-0.5">{currentStageInfo.houseName}</span>
+                </div>
+                
+                {/* DESIRE 진행바 */}
+                <div className="w-full">
+                  <div className="flex items-center justify-center gap-0.5 mb-1">
+                    <span className={`text-[10px] font-bold ${currentStageInfo.color}`}>DESIRE</span>
+                    <span className="text-[10px] text-gray-500">{desireStage}단계</span>
+                  </div>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5, 6].map((step) => (
+                      <div
+                        key={step}
+                        className={`h-1.5 flex-1 rounded-full ${
+                          step <= (desireStage || 0)
+                            ? step <= 2 ? 'bg-red-400' : step <= 4 ? 'bg-yellow-400' : 'bg-emerald-400'
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-0.5">
+                    {[1, 2, 3, 4, 5, 6].map((step) => (
+                      <span
+                        key={step}
+                        className={`text-[8px] ${
+                          step === desireStage ? 'font-bold text-gray-700' : 'text-gray-400'
+                        }`}
+                      >
+                        {toRoman(step)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* 데이터 없는 경우 */
+              <div className="w-20 h-20 rounded-2xl bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
+                <span className="text-2xl mb-1">🏠</span>
+                <span className="text-[9px] text-gray-500 text-center px-1">재무설계<br/>필요</span>
+              </div>
+            )}
           </div>
         </div>
+        
         {/* 구독 상태 배지 */}
         <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
           <span className="text-base">⭐</span>
