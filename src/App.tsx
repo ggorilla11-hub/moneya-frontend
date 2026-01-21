@@ -29,6 +29,9 @@ import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
+// AI머니야 로고 URL (Firebase Storage)
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -303,9 +306,11 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-green-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <span className="text-white text-2xl font-bold">M</span>
-          </div>
+          <img 
+            src={LOGO_URL}
+            alt="AI머니야 로고"
+            className="w-16 h-16 mx-auto mb-4 animate-pulse"
+          />
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
