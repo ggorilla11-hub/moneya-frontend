@@ -1,6 +1,7 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
 // UI 수정: 10가지 수정사항 반영
+// 수정 (2026-01-22): 저작권/상표권/특허권 박스 클릭 시 자격증 이미지 표시 기능 추가
 
 import { useState } from 'react';
 
@@ -10,6 +11,9 @@ const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.fireb
 // 금융집 이미지 URL (Firebase Storage)
 const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png.png?alt=media&token=e1651823-af8e-4ed3-9b3d-557a1bf0eb10';
 const INTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%EC%8B%A4%EC%82%AC%20%EB%82%B4%EB%B6%80%EC%9B%90%EB%B3%B8.png?alt=media&token=0d287c6b-2ba3-45ea-ac66-319e630ea11b';
+
+// 저작권/상표권/특허권 자격증 이미지 URL (Firebase Storage)
+const CERTIFICATE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%A0%80%EC%9E%91%EA%B6%8C%EC%83%81%ED%91%9C%EA%B6%8C%ED%8A%B9%ED%97%88%EA%B6%8C.png?alt=media&token=2ad30230-ccc5-481d-89d7-82c421ee3759';
 
 interface FinancialHouseResultProps {
   userName?: string;
@@ -43,6 +47,8 @@ const FinancialHouseResult = ({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [exteriorLoaded, setExteriorLoaded] = useState(false);
   const [interiorLoaded, setInteriorLoaded] = useState(false);
+  const [showCertificates, setShowCertificates] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   // 기본값 설정
   const data = {
@@ -106,6 +112,18 @@ const FinancialHouseResult = ({
     if (onRestart) {
       onRestart();
     }
+  };
+
+  const handleCertificateToggle = () => {
+    setShowCertificates(!showCertificates);
+  };
+
+  const handleCertificateImageClick = () => {
+    setShowCertificateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCertificateModal(false);
   };
 
   return (
@@ -289,16 +307,76 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
-        {/* 3. 저작권 정보 - 배너에서 떼고 여백 두고 공간 중간쯤 */}
-        <div className="mt-6 mb-4 text-center px-3">
+        {/* 3. 저작권 정보 - 클릭 가능하게 변경 */}
+        <button 
+          onClick={handleCertificateToggle}
+          className="w-full mt-6 mb-2 text-center px-3 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.99]"
+        >
           <p className="text-xs font-bold text-gray-600">
             © 2017 오원트금융연구소 All rights reserved.
           </p>
           <p className="text-[11px] font-semibold text-gray-500 mt-1">
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
-        </div>
+          <p className="text-[10px] text-teal-600 mt-1 flex items-center justify-center gap-1">
+            <span>{showCertificates ? '▲' : '▼'}</span>
+            <span>{showCertificates ? '접기' : '관련 자격증 보기'}</span>
+          </p>
+        </button>
+
+        {/* 자격증 이미지 영역 - 토글 */}
+        {showCertificates && (
+          <div className="mx-3 mb-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-fadeIn">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <span>📜</span>
+                <span>관련 저작권·상표권·특허권</span>
+              </h3>
+            </div>
+            <div className="p-3">
+              <button
+                onClick={handleCertificateImageClick}
+                className="w-full rounded-lg overflow-hidden border border-gray-100 hover:border-teal-300 transition-colors active:scale-[0.99]"
+              >
+                <img 
+                  src={CERTIFICATE_IMAGE_URL}
+                  alt="저작권, 상표권, 특허권 자격증"
+                  className="w-full h-auto object-contain"
+                />
+              </button>
+              <p className="text-[10px] text-gray-400 text-center mt-2">
+                이미지를 클릭하면 확대됩니다
+              </p>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* 자격증 이미지 확대 모달 */}
+      {showCertificateModal && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseModal}
+        >
+          <div className="relative max-w-full max-h-full">
+            <button
+              onClick={handleCloseModal}
+              className="absolute -top-10 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-600 font-bold shadow-lg"
+            >
+              ✕
+            </button>
+            <img 
+              src={CERTIFICATE_IMAGE_URL}
+              alt="저작권, 상표권, 특허권 자격증 (확대)"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-center text-white text-sm mt-3 font-medium">
+              관련 저작권·상표권·특허권
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 1. 마이크 입력바 - "지출전에" 글씨만큼 위로 올림 (bottom: 72px → 85px) */}
       <div className="fixed bottom-[85px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
@@ -342,6 +420,17 @@ const FinancialHouseResult = ({
           ))}
         </div>
       </nav>
+
+      {/* 애니메이션 스타일 */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
