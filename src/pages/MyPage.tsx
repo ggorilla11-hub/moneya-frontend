@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
+// 오상열 대표 사진 URL (Firebase Storage)
+const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%98%A4%EC%83%81%EC%97%B4%20%EC%82%AC%EC%A7%84.png?alt=media&token=63eaf15e-9d0b-4d72-8fbb-ee03d6ecc8e5';
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -183,10 +186,12 @@ export default function MyPage({
           className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-2xl p-4 flex gap-4 items-center cursor-pointer"
           onClick={() => onNavigate('consulting')}
         >
-          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-lg flex-shrink-0 bg-gray-200">
-            <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-yellow-300 to-yellow-400">
-              👨‍💼
-            </div>
+          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-lg flex-shrink-0">
+            <img 
+              src={PROFILE_IMAGE_URL} 
+              alt="오상열 대표" 
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
