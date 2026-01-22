@@ -302,14 +302,15 @@ export default function MyPage({
           <span className="text-gray-400 text-sm">›</span>
         </button>
 
-        {/* 머니야 목소리 설정 */}
+        {/* 금융감독원 전문가 강의영상 */}
         <button 
+          onClick={() => window.open('https://www.fss.or.kr/fss/ntcn/fncsusvPrMng/view.do?dataSlno=78&dataTrgtCode=02&menuNo=200266', '_blank')}
           className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
         >
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center text-base">
-            🎤
+            🎬
           </div>
-          <span className="flex-1 text-left text-sm font-semibold text-gray-900">머니야 목소리 설정</span>
+          <span className="flex-1 text-left text-sm font-semibold text-gray-900">금융감독원 전문가 강의영상</span>
           <span className="text-gray-400 text-sm">›</span>
         </button>
 
