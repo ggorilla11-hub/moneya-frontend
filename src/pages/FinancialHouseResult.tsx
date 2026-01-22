@@ -27,6 +27,7 @@ interface FinancialHouseResultProps {
   userName?: string;
   onRestart?: () => void;
   onNavigate?: (path: string) => void;
+  onBack?: () => void;
   // 데이터 연동용 props
   financialData?: {
     currentAge?: number;
@@ -50,6 +51,7 @@ const FinancialHouseResult = ({
   userName = '',
   onRestart,
   onNavigate,
+  onBack,
   financialData = {}
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -152,6 +154,13 @@ const FinancialHouseResult = ({
       {/* 헤더 - 로고 + 고객 이름 */}
       <header className="bg-white border-b border-gray-200 px-4 py-2 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-2">
+          {/* 뒤로가기 버튼 */}
+          <button
+            onClick={onBack}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600 active:scale-95 transition-transform"
+          >
+            ←
+          </button>
           <img 
             src={LOGO_URL}
             alt="AI머니야 로고"
