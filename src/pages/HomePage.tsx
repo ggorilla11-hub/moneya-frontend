@@ -6,6 +6,9 @@ import { inferCategory, getCategoryInfo } from '../utils/categoryUtils';
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
+// 오상열 대표 사진 URL (Firebase Storage)
+const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%98%A4%EC%83%81%EC%97%B4%20%EC%82%AC%EC%A7%84.png?alt=media&token=63eaf15e-9d0b-4d72-8fbb-ee03d6ecc8e5';
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -26,9 +29,10 @@ interface HomePageProps {
   onMoreDetail: () => void;
   onReDiagnosis: () => void;
   onReAnalysis: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onReDiagnosis, onReAnalysis }: HomePageProps) {
+function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onReDiagnosis, onReAnalysis, onNavigate }: HomePageProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   
   // SpendContext에서 실제 데이터 가져오기
@@ -156,21 +160,46 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     setCurrentSlide(prev => (prev === budgetCards.length - 1 ? 0 : prev + 1));
   };
 
+  // 강의상담 버튼 클릭
+  const handleConsultation = () => {
+    if (onNavigate) {
+      onNavigate('consulting');
+    } else {
+      alert('강의상담 신청 페이지로 이동합니다.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       
       {/* 헤더 */}
       <div className="bg-white px-4 py-4 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <img 
-            src={LOGO_URL}
-            alt="AI머니야 로고"
-            className="w-11 h-11 shadow-md"
-          />
-          <div>
-            <h1 className="font-bold text-lg text-gray-800">안녕하세요, {displayName}님 👋</h1>
-            <p className="text-sm text-gray-500">오늘도 현명한 지출 함께해요</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img 
+              src={LOGO_URL}
+              alt="AI머니야 로고"
+              className="w-11 h-11 shadow-md"
+            />
+            <div>
+              <h1 className="font-bold text-lg text-gray-800">안녕하세요, {displayName}님 👋</h1>
+              <p className="text-sm text-gray-500">오늘도 현명한 지출 함께해요</p>
+            </div>
           </div>
+          {/* 강의상담 버튼 */}
+          <button
+            onClick={handleConsultation}
+            className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+          >
+            <div className="w-9 h-9 rounded-full overflow-hidden shadow-md">
+              <img 
+                src={PROFILE_IMAGE_URL} 
+                alt="오상열 대표" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <span className="text-[9px] text-gray-600 font-medium">강의상담</span>
+          </button>
         </div>
       </div>
 
