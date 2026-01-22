@@ -1,5 +1,8 @@
 import type { ConsultingProduct } from './ConsultingApplyPage';
 
+// 오상열 대표 사진 URL (Firebase Storage)
+const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%98%A4%EC%83%81%EC%97%B4%20%EC%82%AC%EC%A7%84.png?alt=media&token=63eaf15e-9d0b-4d72-8fbb-ee03d6ecc8e5';
+
 // 상품 목록 (Payple 결제 URL 포함)
 export const CONSULTING_PRODUCTS: ConsultingProduct[] = [
   {
@@ -84,8 +87,12 @@ export default function ConsultingPage({ onBack, onApply }: ConsultingPageProps)
       <div className="p-4">
         {/* 전문가 배너 */}
         <div className="bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-2xl p-5 mb-5 flex gap-4 items-center">
-          <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-white shadow-lg flex-shrink-0 bg-gradient-to-br from-yellow-300 to-yellow-400 flex items-center justify-center text-3xl">
-            👨‍💼
+          <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-white shadow-lg flex-shrink-0">
+            <img 
+              src={PROFILE_IMAGE_URL} 
+              alt="오상열 대표" 
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-0.5">
