@@ -3,11 +3,15 @@
 // UI 수정: 10가지 수정사항 반영
 // 수정 (2026-01-22): 저작권/상표권/특허권 박스 클릭 시 자격증 이미지 표시 기능 추가
 // 수정 (2026-01-22): 내부 이미지 → 애니메이션 영상 슬라이드 추가
+// 수정 (2026-01-22): 강의상담 버튼 오상열 대표 사진으로 교체
 
 import { useState, useRef } from 'react';
 
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
+
+// 오상열 대표 사진 URL (Firebase Storage)
+const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%98%A4%EC%83%81%EC%97%B4%20%EC%82%AC%EC%A7%84.png?alt=media&token=63eaf15e-9d0b-4d72-8fbb-ee03d6ecc8e5';
 
 // 금융집 이미지 URL (Firebase Storage)
 const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png.png?alt=media&token=e1651823-af8e-4ed3-9b3d-557a1bf0eb10';
@@ -171,8 +175,12 @@ const FinancialHouseResult = ({
             onClick={handleConsultation}
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white text-[10px] font-bold">
-              오
+            <div className="w-7 h-7 rounded-full overflow-hidden">
+              <img 
+                src={PROFILE_IMAGE_URL} 
+                alt="오상열 대표" 
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-[8px] text-gray-600 font-medium">강의상담</span>
           </button>
