@@ -541,6 +541,7 @@ function App() {
                 <FinancialHouseResult
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
+                  onBack={() => setFinancialHouseStep('design')}
                   onNavigate={(path) => {
                     if (path === 'mypage-consulting') {
                       setCurrentStep('consulting');
