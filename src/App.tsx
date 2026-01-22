@@ -241,6 +241,13 @@ function App() {
     }
   };
 
+  // 홈페이지에서 강의상담 이동 핸들러
+  const handleHomeNavigate = (page: string) => {
+    if (page === 'consulting') {
+      setCurrentStep('consulting');
+    }
+  };
+
   const handleSubscriptionBack = () => {
     setCurrentStep('main');
     setCurrentTab('mypage');
@@ -493,6 +500,7 @@ function App() {
               onMoreDetail={handleMoreDetail}
               onReDiagnosis={handleReDiagnosis}
               onReAnalysis={handleReAnalysis}
+              onNavigate={handleHomeNavigate}
             />
           )}
           {currentTab === 'ai-spend' && (
