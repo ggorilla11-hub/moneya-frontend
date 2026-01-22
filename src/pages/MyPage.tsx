@@ -101,42 +101,50 @@ export default function MyPage({
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* 프로필 영역 */}
       <div className="bg-white p-5 border-b border-gray-200">
-        <div className="flex items-start gap-4 mb-4">
-          {/* 왼쪽: 로고 + 이름/이메일 */}
-          <div className="flex items-center gap-3 flex-1">
-            <img 
-              src={LOGO_URL}
-              alt="AI머니야 로고"
-              className="w-14 h-14"
-            />
-            <div>
-              <p className="font-extrabold text-lg text-gray-900">{userName}님</p>
-              <p className="text-sm text-gray-500">{userEmail}</p>
+        <div className="flex gap-4">
+          {/* 왼쪽: 로고 + 이름/이메일 + 구독상태 */}
+          <div className="flex-1 flex flex-col justify-between">
+            <div className="flex items-center gap-3 mb-3">
+              <img 
+                src={LOGO_URL}
+                alt="AI머니야 로고"
+                className="w-14 h-14"
+              />
+              <div>
+                <p className="font-extrabold text-lg text-gray-900">{userName}님</p>
+                <p className="text-sm text-gray-500">{userEmail}</p>
+              </div>
+            </div>
+            {/* 구독 상태 배지 */}
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl self-start">
+              <span className="text-base">⭐</span>
+              <span className="text-sm font-bold text-blue-600">베이직 이용 중</span>
+              <span className="text-xs text-gray-500 ml-2">무료 체험</span>
             </div>
           </div>
           
-          {/* 오른쪽: 금융집짓기 일러스트 + DESIRE 진행바 */}
-          <div className="flex flex-col items-center gap-2 min-w-[100px]">
+          {/* 오른쪽: 금융집짓기 일러스트 + DESIRE 진행바 (확대) */}
+          <div className="flex flex-col items-center justify-center w-32">
             {currentStageInfo ? (
               <>
-                {/* 일러스트 집 + 날씨 */}
-                <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentStageInfo.bgColor} flex flex-col items-center justify-center shadow-sm border border-gray-100`}>
-                  <span className="text-xs mb-0.5">{currentStageInfo.weather}</span>
-                  <span className="text-3xl">{currentStageInfo.house}</span>
-                  <span className="text-[9px] text-gray-600 font-medium mt-0.5">{currentStageInfo.houseName}</span>
+                {/* 일러스트 집 + 날씨 (확대) */}
+                <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${currentStageInfo.bgColor} flex flex-col items-center justify-center shadow-md border border-gray-100`}>
+                  <span className="text-base mb-0.5">{currentStageInfo.weather}</span>
+                  <span className="text-4xl">{currentStageInfo.house}</span>
+                  <span className="text-[10px] text-gray-600 font-semibold mt-0.5">{currentStageInfo.houseName}</span>
                 </div>
                 
-                {/* DESIRE 진행바 */}
-                <div className="w-full">
-                  <div className="flex items-center justify-center gap-0.5 mb-1">
-                    <span className={`text-[10px] font-bold ${currentStageInfo.color}`}>DESIRE</span>
-                    <span className="text-[10px] text-gray-500">{desireStage}단계</span>
+                {/* DESIRE 진행바 (확대) */}
+                <div className="w-full mt-2">
+                  <div className="flex items-center justify-center gap-1 mb-1.5">
+                    <span className={`text-xs font-bold ${currentStageInfo.color}`}>DESIRE</span>
+                    <span className="text-xs text-gray-600 font-semibold">{desireStage}단계</span>
                   </div>
-                  <div className="flex gap-0.5">
+                  <div className="flex gap-1">
                     {[1, 2, 3, 4, 5, 6].map((step) => (
                       <div
                         key={step}
-                        className={`h-1.5 flex-1 rounded-full ${
+                        className={`h-2 flex-1 rounded-full ${
                           step <= (desireStage || 0)
                             ? step <= 2 ? 'bg-red-400' : step <= 4 ? 'bg-yellow-400' : 'bg-emerald-400'
                             : 'bg-gray-200'
@@ -144,11 +152,11 @@ export default function MyPage({
                       />
                     ))}
                   </div>
-                  <div className="flex justify-between mt-0.5">
+                  <div className="flex justify-between mt-1">
                     {[1, 2, 3, 4, 5, 6].map((step) => (
                       <span
                         key={step}
-                        className={`text-[8px] ${
+                        className={`text-[9px] ${
                           step === desireStage ? 'font-bold text-gray-700' : 'text-gray-400'
                         }`}
                       >
@@ -159,20 +167,13 @@ export default function MyPage({
                 </div>
               </>
             ) : (
-              /* 데이터 없는 경우 */
-              <div className="w-20 h-20 rounded-2xl bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
-                <span className="text-2xl mb-1">🏠</span>
-                <span className="text-[9px] text-gray-500 text-center px-1">재무설계<br/>필요</span>
+              /* 데이터 없는 경우 (확대) */
+              <div className="w-24 h-24 rounded-2xl bg-gray-100 flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
+                <span className="text-3xl mb-1">🏠</span>
+                <span className="text-[10px] text-gray-500 text-center font-medium px-2">재무설계<br/>필요</span>
               </div>
             )}
           </div>
-        </div>
-        
-        {/* 구독 상태 배지 */}
-        <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-          <span className="text-base">⭐</span>
-          <span className="text-sm font-bold text-blue-600">베이직 이용 중</span>
-          <span className="text-xs text-gray-500 ml-2">무료 체험</span>
         </div>
       </div>
 
