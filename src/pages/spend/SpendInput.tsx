@@ -4,10 +4,9 @@ interface SpendInputProps {
   isOpen: boolean;
   onClose: () => void;
   onManualInput: () => void;
-  onVoiceInput: () => void;
 }
 
-function SpendInput({ isOpen, onClose, onManualInput, onVoiceInput: _onVoiceInput }: SpendInputProps) {
+function SpendInput({ isOpen, onClose, onManualInput }: SpendInputProps) {
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => {
@@ -23,11 +22,6 @@ function SpendInput({ isOpen, onClose, onManualInput, onVoiceInput: _onVoiceInpu
     setTimeout(() => {
       onManualInput();
     }, 250);
-  };
-
-  const handleVoiceClick = () => {
-    handleClose();
-    // 음성 입력 기능은 추후 구현
   };
 
   if (!isOpen) return null;
