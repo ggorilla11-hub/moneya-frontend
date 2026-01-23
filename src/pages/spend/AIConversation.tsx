@@ -100,7 +100,7 @@ function AIConversation({
   todaySaved,
   todayInvestment,
   remainingBudget,
-  onFAQMore,
+  onFAQMore: _onFAQMore,
   onPlusClick,
   children,
 }: AIConversationProps) {
