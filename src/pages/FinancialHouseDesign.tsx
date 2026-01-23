@@ -37,7 +37,6 @@ const DESIGN_TABS = [
 export default function FinancialHouseDesign({ userName: _userName, onComplete, onBack }: FinancialHouseDesignProps) {
   const [currentTab, setCurrentTab] = useState('retire');
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
 
   const currentStep = DESIGN_TABS.findIndex(tab => tab.id === currentTab) + 1;
 
@@ -92,8 +91,8 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         })}
       </div>
 
-      {/* 컨텐츠 영역 - 마이크버튼바 + 버튼 공간 확보 (pb-44) */}
-      <div className="flex-1 overflow-y-auto p-4 pb-44">
+      {/* 컨텐츠 영역 - 하단 여백 조정 (pb-24로 축소) */}
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
         {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
         {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
@@ -103,42 +102,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
         {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
       </div>
 
-      {/* 마이크버튼바 - 네비바 위로 올림 */}
-      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-30">
-        <div className="flex items-center gap-2">
-          {/* + 버튼 */}
-          <button className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center hover:bg-amber-500 transition-all">
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-          </button>
-          
-          {/* 마이크 버튼 */}
-          <button className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center hover:bg-amber-500 transition-all">
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
-            </svg>
-          </button>
-          
-          {/* 입력창 */}
-          <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="지출 전에 물어보세요..."
-              className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-            />
-          </div>
-          
-          {/* 전송 버튼 */}
-          <button className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-all">
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
+      {/* 마이크버튼바 - 앱스토어 제출용 숨김 처리 (2026-01-24) */}
     </div>
   );
 }
@@ -1119,7 +1083,3 @@ function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
     </div>
   );
 }
-
-// ============================================
-// 플레이스홀더 (삭제 - 더이상 필요없음)
-// ============================================
