@@ -217,9 +217,11 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
               <p className="text-xs text-blue-600">예산 주기 <span className="font-bold text-blue-700">D+0</span> ({month}/1~{month}/{new Date(year, month, 0).getDate()})</p>
             </div>
           </div>
+          {/* 앱스토어 제출용 숨김: 더보기 버튼
           <button className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">
             더보기
           </button>
+          */}
         </div>
 
         {/* 예산 캐러셀 */}
