@@ -27,9 +27,11 @@ function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
           </svg>
         </button>
         <span className="flex-1 font-bold text-gray-800">📊 상세 리포트</span>
+        {/* 앱스토어 제출용 숨김: 내보내기 버튼
         <button className="px-3 py-1.5 bg-blue-100 text-blue-600 rounded-lg text-sm font-semibold">
           📤 내보내기
         </button>
+        */}
       </div>
 
       {/* 기간 선택 */}
@@ -309,12 +311,14 @@ function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
             </div>
           </div>
 
+          {/* 앱스토어 제출용 숨김: 친구에게 공유하기 버튼
           <button className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-xl flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
             </svg>
             🏆 상위 11% 달성! 친구에게 공유하기
           </button>
+          */}
         </div>
 
         {/* AI 인사이트 */}
@@ -332,6 +336,7 @@ function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
             다만, 이번 달 <strong className="text-purple-700">식비가 전월 대비 15% 증가</strong>했어요. 외식 빈도를 주 2회로 줄이면 월 <strong className="text-purple-700">₩30만 추가 저축</strong>이 가능해요.<br/><br/>
             지금 페이스라면 <strong className="text-purple-700">6개월 후 순자산 1.5억</strong> 달성 가능합니다! 🎯
           </p>
+          {/* 앱스토어 제출용 숨김: 절약 팁 보기, 목표 수정 버튼
           <div className="flex gap-2">
             <button className="flex-1 py-2.5 bg-purple-600 text-white font-semibold rounded-xl text-sm">
               절약 팁 보기
@@ -340,6 +345,7 @@ function DetailReportPage({ adjustedBudget, onBack }: DetailReportPageProps) {
               목표 수정
             </button>
           </div>
+          */}
         </div>
 
       </div>
