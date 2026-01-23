@@ -4,6 +4,7 @@
 // 수정 (2026-01-22): 저작권/상표권/특허권 박스 클릭 시 자격증 이미지 표시 기능 추가
 // 수정 (2026-01-22): 내부 이미지 → 애니메이션 영상 슬라이드 추가
 // 수정 (2026-01-22): 강의상담 버튼 오상열 대표 사진으로 교체
+// 수정 (2026-01-24): 앱스토어 제출용 - 은퇴~보험 탭버튼, 메타버스 버튼, 마이크 입력바 삭제
 
 import { useState, useRef } from 'react';
 
@@ -78,27 +79,6 @@ const FinancialHouseResult = ({
     preparedMonthly: financialData.preparedMonthly || 130,
     shortfallMonthly: financialData.shortfallMonthly || 170,
   };
-
-  // 앱스토어 제출용 숨김: 은퇴~보험 탭버튼
-  const tabs: { emoji: string; label: string }[] = [];
-  /*
-  const tabs = [
-    { emoji: '🏖️', label: '은퇴' },
-    { emoji: '💳', label: '부채' },
-    { emoji: '💰', label: '저축' },
-    { emoji: '📈', label: '투자' },
-    { emoji: '💸', label: '세금' },
-    { emoji: '🏠', label: '부동산' },
-    { emoji: '🛡️', label: '보험' },
-  ];
-  */
-
-  // 앱스토어 제출용 숨김: 메타버스 기능
-  /*
-  const handleMetaverse = () => {
-    alert('메타버스 기능은 준비 중입니다.');
-  };
-  */
 
   const handleConsultation = () => {
     if (onNavigate) {
@@ -178,17 +158,6 @@ const FinancialHouseResult = ({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* 앱스토어 제출용 숨김: 메타버스 버튼
-          <button
-            onClick={handleMetaverse}
-            className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
-          >
-            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-sm">
-              🏘️
-            </div>
-            <span className="text-[8px] text-gray-600 font-medium">메타버스</span>
-          </button>
-          */}
           <button
             onClick={handleConsultation}
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
@@ -205,26 +174,8 @@ const FinancialHouseResult = ({
         </div>
       </header>
 
-      {/* 탭 네비게이션 - 축소 */}
-      <div className="bg-white border-b border-gray-200 px-2 py-1.5 overflow-x-auto">
-        <div className="flex gap-1 min-w-max">
-          {tabs.map((tab, index) => (
-            <div
-              key={index}
-              className="flex-shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold flex items-center gap-0.5 bg-green-100 text-green-700"
-            >
-              <span>{tab.emoji}</span>
-              <span>{tab.label}</span>
-              <span className="w-3 h-3 rounded-full bg-green-500 text-white text-[7px] flex items-center justify-center">
-                ✓
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* 메인 컨텐츠 - 스크롤 가능 영역 */}
-      <main className="flex-1 overflow-y-auto pb-40">
+      <main className="flex-1 overflow-y-auto pb-20">
         {/* 이미지 스와이프 영역 - 크게 (3개 슬라이드) */}
         <div className="relative bg-white mx-2 mt-2 rounded-xl overflow-hidden shadow-lg" style={{ height: '50vh', minHeight: '300px' }}>
           <div 
@@ -472,26 +423,6 @@ const FinancialHouseResult = ({
           </div>
         </div>
       )}
-
-      {/* 마이크 입력바 */}
-      <div className="fixed bottom-[85px] left-0 right-0 bg-white border-t border-gray-200 px-3 py-2 z-20">
-        <div className="flex items-center gap-2 max-w-screen-sm mx-auto">
-          <button className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-400 flex items-center justify-center text-white font-bold text-base active:scale-95 transition-transform">
-            +
-          </button>
-          <button className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-400 flex items-center justify-center text-base active:scale-95 transition-transform">
-            🎤
-          </button>
-          <input
-            type="text"
-            placeholder="지출 전에 물어보세요..."
-            className="flex-1 px-3 py-2 rounded-full border border-gray-200 bg-gray-50 text-xs outline-none focus:border-teal-500 focus:bg-white transition-colors"
-          />
-          <button className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-base active:scale-95 transition-transform">
-            ➤
-          </button>
-        </div>
-      </div>
 
       {/* 하단 네비게이션 */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
