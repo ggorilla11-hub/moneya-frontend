@@ -104,6 +104,9 @@ function App() {
           const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
           if (financialHouseCompleted) {
             setFinancialHouseStep('result');
+          } else {
+            // 수정: 완성되지 않은 경우 명시적으로 disclaimer로 초기화
+            setFinancialHouseStep('disclaimer');
           }
           setCurrentStep('main');
           setCurrentTab('home');
@@ -113,6 +116,8 @@ function App() {
       } else {
         setCurrentStep('login');
         setCurrentTab('home');
+        // 수정: 로그아웃 시 금융집짓기 스텝 초기화
+        setFinancialHouseStep('disclaimer');
       }
     });
 
@@ -187,11 +192,14 @@ function App() {
 
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
-    // 금융집짓기 탭 클릭 시 완성 여부 확인
+    // 수정: 금융집짓기 탭 클릭 시 완성 여부에 따라 스텝 설정
     if (tab === 'financial-house' && user) {
       const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
       if (financialHouseCompleted) {
         setFinancialHouseStep('result');
+      } else {
+        // 수정: 완성되지 않은 경우 disclaimer로 초기화
+        setFinancialHouseStep('disclaimer');
       }
     }
   };
