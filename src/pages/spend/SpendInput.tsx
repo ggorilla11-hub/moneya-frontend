@@ -1,5 +1,6 @@
 // src/pages/spend/SpendInput.tsx
 // 지출 입력 방식 선택 모달 + 수동입력 연동
+// 수정 (2026-01-24): 모달 위치 조정 - 내비바 위로 올림
 
 import { useState } from 'react';
 import ManualInputModal from './ManualInputModal';
@@ -21,9 +22,9 @@ function SpendInput({ isInputMethodOpen, setIsInputMethodOpen }: SpendInputProps
     <>
       {/* 입력 방식 선택 모달 */}
       {isInputMethodOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setIsInputMethodOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center pb-24" onClick={() => setIsInputMethodOpen(false)}>
           <div 
-            className="w-full max-w-md bg-white rounded-t-[24px] overflow-hidden"
+            className="w-full max-w-md bg-white rounded-[24px] overflow-hidden mx-4"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'slideUp 0.3s ease-out' }}
           >
