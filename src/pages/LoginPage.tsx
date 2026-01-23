@@ -1,4 +1,5 @@
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { useEffect } from 'react';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 // AI머니야 로고 URL (Firebase Storage)
@@ -9,16 +10,45 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
+  // iOS Safari 감지
+  const isIOS = () => {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  };
+
+  // Safari 브라우저 감지
+  const isSafari = () => {
+    const ua = navigator.userAgent;
+    return /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(ua);
+  };
+
+  // 인앱브라우저 감지
   const isInAppBrowser = () => {
     const ua = navigator.userAgent || navigator.vendor;
     return /KAKAOTALK|NAVER|LINE|Instagram|FBAN|FBAV/i.test(ua);
   };
 
+  // 리다이렉트 결과 처리 (iOS Safari용)
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log('리다이렉트 로그인 성공:', result.user);
+          onLogin();
+        }
+      } catch (error: any) {
+        console.error('리다이렉트 결과 처리 에러:', error);
+      }
+    };
+    handleRedirectResult();
+  }, [onLogin]);
+
   const handleGoogleLogin = async () => {
+    // 인앱브라우저 처리
     if (isInAppBrowser()) {
       const currentUrl = window.location.href;
       
-      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      if (isIOS()) {
         window.location.href = currentUrl;
         setTimeout(() => {
           alert('Safari에서 열어주세요.\n\n우측 하단 ··· 메뉴 → Safari로 열기');
@@ -31,17 +61,36 @@ function LoginPage({ onLogin }: LoginPageProps) {
       return;
     }
 
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
+    // iOS Safari는 리다이렉트 방식 사용 (팝업 차단 문제 해결)
+    if (isIOS() && isSafari()) {
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (error: any) {
+        console.error('리다이렉트 로그인 에러:', error);
+        alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+      }
+      return;
+    }
+
+    // 그 외 브라우저는 팝업 방식 사용
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
       await signInWithPopup(auth, provider);
       onLogin();
     } catch (error: any) {
       console.error('로그인 에러:', error);
       if (error.code === 'auth/popup-blocked') {
-        alert('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.');
+        // 팝업 차단 시 리다이렉트 방식으로 재시도
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch (redirectError) {
+          console.error('리다이렉트 로그인 에러:', redirectError);
+          alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+        }
       } else if (error.code === 'auth/cancelled-popup-request') {
         console.log('로그인 취소됨');
       } else {
