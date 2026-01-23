@@ -341,7 +341,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex gap-1">
-              {DESIRE_STAGES.map((stage, idx) => (
+              {DESIRE_STAGES.map((_stage, idx) => (
                 <div
                   key={idx}
                   className={`flex-1 h-2 rounded-full ${
