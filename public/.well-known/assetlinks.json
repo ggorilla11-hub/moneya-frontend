@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "net.ohwant.aimoneya",
+        "sha256_cert_fingerprints": ["EE:98:FE:A3:ED:D4:99:87:29:3A:58:0C:91:81:2F:69:97:96:ED:B4:4E:A3:55:42:8F:79:A4:6D:E7:87:76:C2"]
+      }
+    }]
