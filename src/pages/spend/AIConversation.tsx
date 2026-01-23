@@ -100,7 +100,7 @@ function AIConversation({
   todaySaved,
   todayInvestment,
   remainingBudget,
-  onFAQMore: _onFAQMore,
+  onFAQMore,
   onPlusClick,
   children,
 }: AIConversationProps) {
@@ -490,7 +490,7 @@ function AIConversation({
       <div className="px-4 mt-3">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-gray-400"># 자주 묻는 질문</span>
-          {/* 더보기 버튼 - 앱스토어 제출용 숨김 처리 (2026-01-23) */}
+          <button onClick={onFAQMore} className="text-xs font-semibold text-blue-600">더보기 &gt;</button>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {faqChips.map((chip, index) => (
@@ -532,7 +532,7 @@ function AIConversation({
       </div>
 
       {/* 입력 영역 - 하단 네비게이션 위에 완전 고정 */}
-      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50">
+      <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50">
         <div className="flex items-center gap-2 max-w-md mx-auto">
           <button onClick={onPlusClick} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
             <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
