@@ -490,7 +490,7 @@ function AIConversation({
       <div className="px-4 mt-3">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-gray-400"># 자주 묻는 질문</span>
-          <button onClick={onFAQMore} className="text-xs font-semibold text-blue-600">더보기 &gt;</button>
+          {/* 더보기 버튼 - 앱스토어 제출용 숨김 처리 (2026-01-23) */}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {faqChips.map((chip, index) => (
