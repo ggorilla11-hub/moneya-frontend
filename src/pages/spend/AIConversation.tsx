@@ -90,6 +90,19 @@ interface AIConversationProps {
 const API_URL = 'https://moneya-server.onrender.com';
 const WS_URL = 'wss://moneya-server.onrender.com';
 
+// ★★★ 3차 금융집짓기 데이터 로드 함수 ★★★
+const loadFinancialHouseDesignData = () => {
+  try {
+    const saved = localStorage.getItem('financialHouseDesignData');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('[AIConversation] 금융집짓기 데이터 로드 실패:', e);
+  }
+  return null;
+};
+
 function AIConversation({
   userName: _userName,
   displayName,
@@ -130,8 +143,13 @@ function AIConversation({
     { emoji: '📊', text: '이번 주 현황' },
   ];
 
+  // ★★★ 수정된 getFullFinancialContext - 3차 금융집짓기 데이터 포함 ★★★
   const getFullFinancialContext = () => {
+    // 3차 금융집짓기 데이터 로드
+    const designData = loadFinancialHouseDesignData();
+    
     return {
+      // 1차 재무진단 데이터
       name: financialResult?.name || displayName,
       age: financialResult?.age || 0,
       monthlyIncome: financialResult?.income || 0,
@@ -141,17 +159,41 @@ function AIConversation({
       wealthIndex: financialResult?.wealthIndex || 0,
       financialLevel: financialResult?.level || 0,
       houseName: financialResult?.houseName || '',
+      
+      // 2차 예산조정 데이터
       livingExpense: adjustedBudget?.livingExpense || 0,
       savings: adjustedBudget?.savings || 0,
       pension: adjustedBudget?.pension || 0,
       insurance: adjustedBudget?.insurance || 0,
       loanPayment: adjustedBudget?.loanPayment || 0,
       surplus: adjustedBudget?.surplus || 0,
+      
+      // 오늘 예산 현황
       dailyBudget,
       todaySpent,
       todaySaved,
       todayInvestment,
       remainingBudget,
+      
+      // ★★★ 3차 금융집짓기 재무설계 데이터 ★★★
+      financialHouseDesign: designData ? {
+        // 은퇴설계
+        retire: designData.retire || null,
+        // 부채설계
+        debt: designData.debt || null,
+        // 저축설계
+        save: designData.save || null,
+        // 투자설계
+        invest: designData.invest || null,
+        // 세금설계
+        tax: designData.tax || null,
+        // 부동산설계
+        estate: designData.estate || null,
+        // 보험설계
+        insurance: designData.insurance || null,
+        // 마지막 업데이트
+        lastUpdated: designData.lastUpdated || null,
+      } : null,
     };
   };
 
@@ -286,7 +328,7 @@ function AIConversation({
           budgetInfo: { remainingBudget, dailyBudget, todaySpent }
         };
         ws.send(JSON.stringify(startMessage));
-        console.log('start_app 메시지 전송 완료');
+        console.log('start_app 메시지 전송 완료 (3차 데이터 포함):', financialContext.financialHouseDesign ? '있음' : '없음');
       };
       ws.onmessage = (event) => {
         try {
