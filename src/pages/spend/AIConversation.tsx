@@ -90,6 +90,19 @@ interface AIConversationProps {
 const API_URL = 'https://moneya-server.onrender.com';
 const WS_URL = 'wss://moneya-server.onrender.com';
 
+// ★★★ 3차 금융집짓기 데이터 로드 함수 ★★★
+const loadFinancialHouseDesignData = () => {
+  try {
+    const saved = localStorage.getItem('financialHouseDesignData');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('[AIConversation] 금융집짓기 데이터 로드 실패:', e);
+  }
+  return null;
+};
+
 function AIConversation({
   userName: _userName,
   displayName,
@@ -130,8 +143,10 @@ function AIConversation({
     { emoji: '📊', text: '이번 주 현황' },
   ];
 
+  // ★★★ 1차/2차 재무 컨텍스트 ★★★
   const getFullFinancialContext = () => {
     return {
+      // 1차 재무진단 데이터
       name: financialResult?.name || displayName,
       age: financialResult?.age || 0,
       monthlyIncome: financialResult?.income || 0,
@@ -141,12 +156,16 @@ function AIConversation({
       wealthIndex: financialResult?.wealthIndex || 0,
       financialLevel: financialResult?.level || 0,
       houseName: financialResult?.houseName || '',
+      
+      // 2차 예산조정 데이터
       livingExpense: adjustedBudget?.livingExpense || 0,
       savings: adjustedBudget?.savings || 0,
       pension: adjustedBudget?.pension || 0,
       insurance: adjustedBudget?.insurance || 0,
       loanPayment: adjustedBudget?.loanPayment || 0,
       surplus: adjustedBudget?.surplus || 0,
+      
+      // 오늘 예산 현황
       dailyBudget,
       todaySpent,
       todaySaved,
@@ -278,15 +297,21 @@ function AIConversation({
       wsRef.current = ws;
       ws.onopen = () => {
         console.log('WebSocket 연결됨!');
+        
+        // ★★★ 서버 v3.5에 맞게 designData 별도 전송 ★★★
         const financialContext = getFullFinancialContext();
+        const designData = loadFinancialHouseDesignData();
+        
         const startMessage = { 
           type: 'start_app',
           userName: displayName,
           financialContext,
-          budgetInfo: { remainingBudget, dailyBudget, todaySpent }
+          budgetInfo: { remainingBudget, dailyBudget, todaySpent },
+          designData: designData  // ★★★ 3차 데이터 별도 전송 ★★★
         };
         ws.send(JSON.stringify(startMessage));
         console.log('start_app 메시지 전송 완료');
+        console.log('- 3차 금융집짓기 데이터:', designData ? '있음' : '없음');
       };
       ws.onmessage = (event) => {
         try {
@@ -361,7 +386,10 @@ function AIConversation({
     setInputText('');
     setIsLoading(true);
     try {
+      // ★★★ 텍스트 채팅에도 3차 데이터 전송 ★★★
       const financialContext = getFullFinancialContext();
+      const designData = loadFinancialHouseDesignData();
+      
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -370,6 +398,7 @@ function AIConversation({
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget, dailyBudget, todaySpent },
+          designData: designData  // ★★★ 3차 데이터 전송 ★★★
         }),
       });
       const data = await response.json();
