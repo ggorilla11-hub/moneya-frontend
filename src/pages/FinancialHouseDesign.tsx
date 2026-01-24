@@ -1,6 +1,6 @@
 // src/pages/FinancialHouseDesign.tsx
 // 7단계 완성: 은퇴 + 부채 + 저축 + 투자 + 세금 + 부동산 + 보험 (전체 완성!)
-// ★★★ 수정: 모든 탭 데이터를 localStorage에 저장 ★★★
+// ★★★ v3.7: 모든 금액 입력 박스 오른쪽에 "만원" 단위 추가 ★★★
 
 import { useState, useEffect } from 'react';
 
@@ -179,7 +179,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
 }
 
 // ============================================
-// 1. 은퇴설계 카드 (localStorage 저장 추가)
+// 1. 은퇴설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -229,68 +229,86 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
         
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">현재 나이</label>
-          <input 
-            type="number" 
-            value={formData.currentAge} 
-            onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.currentAge} 
+              onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-8">세</span>
+          </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">은퇴 예정 나이</label>
-          <input 
-            type="number" 
-            value={formData.retireAge} 
-            onChange={(e) => setFormData({...formData, retireAge: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.retireAge} 
+              onChange={(e) => setFormData({...formData, retireAge: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-8">세</span>
+          </div>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">예상 수명</label>
-          <input 
-            type="number" 
-            value={formData.lifeExpectancy} 
-            onChange={(e) => setFormData({...formData, lifeExpectancy: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.lifeExpectancy} 
+              onChange={(e) => setFormData({...formData, lifeExpectancy: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-8">세</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월 생활비 (만원)</label>
-          <input 
-            type="number" 
-            value={formData.monthlyExpense} 
-            onChange={(e) => setFormData({...formData, monthlyExpense: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <label className="text-sm font-semibold text-gray-700">월 생활비</label>
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.monthlyExpense} 
+              onChange={(e) => setFormData({...formData, monthlyExpense: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">예상 국민연금 (만원)</label>
-          <input 
-            type="number" 
-            value={formData.nationalPension} 
-            onChange={(e) => setFormData({...formData, nationalPension: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <label className="text-sm font-semibold text-gray-700">예상 국민연금</label>
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.nationalPension} 
+              onChange={(e) => setFormData({...formData, nationalPension: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">예상 개인연금 (만원)</label>
-          <input 
-            type="number" 
-            value={formData.personalPension} 
-            onChange={(e) => setFormData({...formData, personalPension: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <label className="text-sm font-semibold text-gray-700">예상 개인연금</label>
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.personalPension} 
+              onChange={(e) => setFormData({...formData, personalPension: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
       </div>
 
@@ -338,7 +356,7 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 2. 부채설계 카드 (localStorage 저장 추가)
+// 2. 부채설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function DebtPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -403,51 +421,63 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
         <h3 className="text-base font-bold text-gray-800 mb-3">부채 정보 입력</h3>
         
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월소득 (만원)</label>
-          <input 
-            type="number" 
-            value={formData.monthlyIncome} 
-            onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} 
-            onFocus={handleFocus}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-          />
+          <label className="text-sm font-semibold text-gray-700">월소득</label>
+          <div className="flex items-center gap-2">
+            <input 
+              type="number" 
+              value={formData.monthlyIncome} 
+              onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} 
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+            />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="border-t border-gray-200 pt-3 mt-3">
           <h4 className="text-sm font-bold text-gray-700 mb-2">담보대출</h4>
           
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700">잔액 (만원)</label>
-            <input 
-              type="number" 
-              value={formData.mortgageBalance} 
-              onChange={(e) => setFormData({...formData, mortgageBalance: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">잔액</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                value={formData.mortgageBalance} 
+                onChange={(e) => setFormData({...formData, mortgageBalance: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+            </div>
           </div>
 
           <div className="space-y-2 mt-2">
-            <label className="text-sm font-semibold text-gray-700">금리 (%)</label>
-            <input 
-              type="number" 
-              step="0.1"
-              value={formData.mortgageRate} 
-              onChange={(e) => setFormData({...formData, mortgageRate: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">금리</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                step="0.1"
+                value={formData.mortgageRate} 
+                onChange={(e) => setFormData({...formData, mortgageRate: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-8">%</span>
+            </div>
           </div>
 
           <div className="space-y-2 mt-2">
-            <label className="text-sm font-semibold text-gray-700">월상환액 (만원)</label>
-            <input 
-              type="number" 
-              value={formData.mortgageMonthly} 
-              onChange={(e) => setFormData({...formData, mortgageMonthly: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">월상환액</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                value={formData.mortgageMonthly} 
+                onChange={(e) => setFormData({...formData, mortgageMonthly: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+            </div>
           </div>
         </div>
 
@@ -455,37 +485,46 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
           <h4 className="text-sm font-bold text-gray-700 mb-2">신용대출</h4>
           
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700">잔액 (만원)</label>
-            <input 
-              type="number" 
-              value={formData.creditBalance} 
-              onChange={(e) => setFormData({...formData, creditBalance: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">잔액</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                value={formData.creditBalance} 
+                onChange={(e) => setFormData({...formData, creditBalance: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+            </div>
           </div>
 
           <div className="space-y-2 mt-2">
-            <label className="text-sm font-semibold text-gray-700">금리 (%)</label>
-            <input 
-              type="number" 
-              step="0.1"
-              value={formData.creditRate} 
-              onChange={(e) => setFormData({...formData, creditRate: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">금리</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                step="0.1"
+                value={formData.creditRate} 
+                onChange={(e) => setFormData({...formData, creditRate: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-8">%</span>
+            </div>
           </div>
 
           <div className="space-y-2 mt-2">
-            <label className="text-sm font-semibold text-gray-700">월상환액 (만원)</label>
-            <input 
-              type="number" 
-              value={formData.creditMonthly} 
-              onChange={(e) => setFormData({...formData, creditMonthly: Number(e.target.value)})} 
-              onFocus={handleFocus}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
-            />
+            <label className="text-sm font-semibold text-gray-700">월상환액</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                value={formData.creditMonthly} 
+                onChange={(e) => setFormData({...formData, creditMonthly: Number(e.target.value)})} 
+                onFocus={handleFocus}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+              />
+              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+            </div>
           </div>
         </div>
       </div>
@@ -529,7 +568,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 3. 저축설계 카드 (localStorage 저장 추가)
+// 3. 저축설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function SavePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -594,18 +633,27 @@ function SavePlanCard({ onNext, onPrev }: CardProps) {
         <h3 className="text-base font-bold text-gray-800 mb-3">저축 정보 입력</h3>
         
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월 소득 (만원)</label>
-          <input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">월 소득</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월 저축액 (만원)</label>
-          <input type="number" value={formData.monthlySaving} onChange={(e) => setFormData({...formData, monthlySaving: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">월 저축액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.monthlySaving} onChange={(e) => setFormData({...formData, monthlySaving: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">목표 저축률 (%)</label>
-          <input type="number" value={formData.targetRate} onChange={(e) => setFormData({...formData, targetRate: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">목표 저축률</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.targetRate} onChange={(e) => setFormData({...formData, targetRate: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-8">%</span>
+          </div>
         </div>
       </div>
 
@@ -652,7 +700,7 @@ function SavePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 4. 투자설계 카드 (localStorage 저장 추가)
+// 4. 투자설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -719,22 +767,34 @@ function InvestPlanCard({ onNext, onPrev }: CardProps) {
         
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">현재 나이</label>
-          <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-8">세</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">현재 자산 (만원)</label>
-          <input type="number" value={formData.currentAssets} onChange={(e) => setFormData({...formData, currentAssets: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">현재 자산</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.currentAssets} onChange={(e) => setFormData({...formData, currentAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월 투자액 (만원)</label>
-          <input type="number" value={formData.monthlyInvestment} onChange={(e) => setFormData({...formData, monthlyInvestment: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">월 투자액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.monthlyInvestment} onChange={(e) => setFormData({...formData, monthlyInvestment: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">예상 수익률 (%)</label>
-          <input type="number" step="0.1" value={formData.expectedReturn} onChange={(e) => setFormData({...formData, expectedReturn: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">예상 수익률</label>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.1" value={formData.expectedReturn} onChange={(e) => setFormData({...formData, expectedReturn: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-8">%</span>
+          </div>
         </div>
       </div>
 
@@ -775,7 +835,7 @@ function InvestPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 5. 세금설계 카드 (localStorage 저장 추가)
+// 5. 세금설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function TaxPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -852,25 +912,37 @@ function TaxPlanCard({ onNext, onPrev }: CardProps) {
         <h3 className="text-base font-bold text-gray-800 mb-3">세금 정보 입력</h3>
         
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">연간 소득 (만원)</label>
-          <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">연간 소득</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">연금저축 납입액 (만원/연)</label>
-          <input type="number" value={formData.pensionSaving} onChange={(e) => setFormData({...formData, pensionSaving: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">연금저축 납입액 (연)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.pensionSaving} onChange={(e) => setFormData({...formData, pensionSaving: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
           <p className="text-xs text-gray-500">최대 400만원까지 공제</p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">IRP 납입액 (만원/연)</label>
-          <input type="number" value={formData.irpContribution} onChange={(e) => setFormData({...formData, irpContribution: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">IRP 납입액 (연)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.irpContribution} onChange={(e) => setFormData({...formData, irpContribution: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
           <p className="text-xs text-gray-500">추가 최대 300만원까지 공제</p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">주택청약 납입액 (만원/연)</label>
-          <input type="number" value={formData.housingSubscription} onChange={(e) => setFormData({...formData, housingSubscription: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">주택청약 납입액 (연)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.housingSubscription} onChange={(e) => setFormData({...formData, housingSubscription: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
           <p className="text-xs text-gray-500">최대 240만원까지 공제</p>
         </div>
       </div>
@@ -919,7 +991,7 @@ function TaxPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 6. 부동산설계 카드 (localStorage 저장 추가)
+// 6. 부동산설계 카드 (v3.7: 단위 박스 오른쪽에 추가)
 // ============================================
 function EstatePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -989,28 +1061,43 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
         <h3 className="text-base font-bold text-gray-800 mb-3">부동산 정보 입력</h3>
         
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">현재 주택 가격 (만원)</label>
-          <input type="number" value={formData.currentPrice} onChange={(e) => setFormData({...formData, currentPrice: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">현재 주택 가격</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.currentPrice} onChange={(e) => setFormData({...formData, currentPrice: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">대출 잔액 (만원)</label>
-          <input type="number" value={formData.loanBalance} onChange={(e) => setFormData({...formData, loanBalance: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">대출 잔액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.loanBalance} onChange={(e) => setFormData({...formData, loanBalance: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월세 수입 (만원, 없으면 0)</label>
-          <input type="number" value={formData.monthlyRent} onChange={(e) => setFormData({...formData, monthlyRent: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">월세 수입 (없으면 0)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.monthlyRent} onChange={(e) => setFormData({...formData, monthlyRent: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">보유 예정 기간 (년)</label>
-          <input type="number" value={formData.holdingYears} onChange={(e) => setFormData({...formData, holdingYears: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">보유 예정 기간</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.holdingYears} onChange={(e) => setFormData({...formData, holdingYears: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-8">년</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">예상 상승률 (%/연)</label>
-          <input type="number" step="0.1" value={formData.expectedGrowth} onChange={(e) => setFormData({...formData, expectedGrowth: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">예상 상승률 (연)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.1" value={formData.expectedGrowth} onChange={(e) => setFormData({...formData, expectedGrowth: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-8">%</span>
+          </div>
         </div>
       </div>
 
@@ -1063,7 +1150,7 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 7. 보험설계 카드 (localStorage 저장 추가 - 마지막!)
+// 7. 보험설계 카드 (v3.7: 단위 박스 오른쪽에 추가 - 마지막!)
 // ============================================
 function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
   const [formData, setFormData] = useState({
@@ -1145,18 +1232,27 @@ function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         <h3 className="text-base font-bold text-gray-800 mb-3">보험 정보 입력</h3>
         
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">월 보험료 총액 (만원)</label>
-          <input type="number" value={formData.monthlyPremium} onChange={(e) => setFormData({...formData, monthlyPremium: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">월 보험료 총액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.monthlyPremium} onChange={(e) => setFormData({...formData, monthlyPremium: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">사망보장 금액 (억원)</label>
-          <input type="number" step="0.1" value={formData.deathCoverage} onChange={(e) => setFormData({...formData, deathCoverage: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">사망보장 금액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.1" value={formData.deathCoverage} onChange={(e) => setFormData({...formData, deathCoverage: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">억원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">질병보장 금액 (억원)</label>
-          <input type="number" step="0.1" value={formData.diseaseCoverage} onChange={(e) => setFormData({...formData, diseaseCoverage: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">질병보장 금액</label>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.1" value={formData.diseaseCoverage} onChange={(e) => setFormData({...formData, diseaseCoverage: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">억원</span>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -1178,8 +1274,11 @@ function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-700">연금보험 납입액 (만원/월)</label>
-          <input type="number" value={formData.pensionInsurance} onChange={(e) => setFormData({...formData, pensionInsurance: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          <label className="text-sm font-semibold text-gray-700">연금보험 납입액 (월)</label>
+          <div className="flex items-center gap-2">
+            <input type="number" value={formData.pensionInsurance} onChange={(e) => setFormData({...formData, pensionInsurance: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
         </div>
       </div>
 
