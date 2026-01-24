@@ -1,7 +1,42 @@
 // src/pages/FinancialHouseDesign.tsx
 // 7단계 완성: 은퇴 + 부채 + 저축 + 투자 + 세금 + 부동산 + 보험 (전체 완성!)
+// ★★★ 수정: 모든 탭 데이터를 localStorage에 저장 ★★★
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// ============================================
+// localStorage 키
+// ============================================
+const STORAGE_KEY = 'financialHouseDesignData';
+
+// ============================================
+// 데이터 저장/불러오기 함수
+// ============================================
+const saveDesignData = (tabId: string, data: any) => {
+  try {
+    const existingData = localStorage.getItem(STORAGE_KEY);
+    const allData = existingData ? JSON.parse(existingData) : {};
+    allData[tabId] = data;
+    allData.lastUpdated = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    console.log(`[금융집짓기] ${tabId} 데이터 저장 완료:`, data);
+  } catch (e) {
+    console.error('[금융집짓기] 데이터 저장 실패:', e);
+  }
+};
+
+const loadDesignData = (tabId: string) => {
+  try {
+    const existingData = localStorage.getItem(STORAGE_KEY);
+    if (existingData) {
+      const allData = JSON.parse(existingData);
+      return allData[tabId] || null;
+    }
+  } catch (e) {
+    console.error('[금융집짓기] 데이터 로드 실패:', e);
+  }
+  return null;
+};
 
 // ============================================
 // 인터페이스
@@ -144,7 +179,7 @@ export default function FinancialHouseDesign({ userName: _userName, onComplete, 
 }
 
 // ============================================
-// 1. 은퇴설계 카드 (입력 필드 수정)
+// 1. 은퇴설계 카드 (localStorage 저장 추가)
 // ============================================
 function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -156,6 +191,19 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
     personalPension: 50,
   });
 
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('retire');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('retire', formData);
+  }, [formData]);
+
   const yearsToRetire = formData.retireAge - formData.currentAge;
   const retirementYears = formData.lifeExpectancy - formData.retireAge;
   const totalNeeded = formData.monthlyExpense * 12 * retirementYears / 10000;
@@ -163,7 +211,6 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const gap = totalNeeded - totalPension;
   const monthlyRequired = gap > 0 ? Math.round((gap * 10000) / yearsToRetire / 12) : 0;
 
-  // 입력 필드 포커스 시 전체 선택
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.select();
   };
@@ -291,7 +338,7 @@ function RetirePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 2. 부채설계 카드 (입력 필드 수정)
+// 2. 부채설계 카드 (localStorage 저장 추가)
 // ============================================
 function DebtPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -303,6 +350,19 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
     creditRate: 5.5,
     creditMonthly: 50,
   });
+
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('debt');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('debt', formData);
+  }, [formData]);
 
   const totalMonthlyPayment = formData.mortgageMonthly + formData.creditMonthly;
   const dsr = formData.monthlyIncome > 0 ? (totalMonthlyPayment / formData.monthlyIncome * 100) : 0;
@@ -326,7 +386,6 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
     dsrMessage = '부채 비율이 매우 높습니다. 상환 계획이 필요합니다!';
   }
 
-  // 입력 필드 포커스 시 전체 선택
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.select();
   };
@@ -470,7 +529,7 @@ function DebtPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 3. 저축설계 카드 (신규)
+// 3. 저축설계 카드 (localStorage 저장 추가)
 // ============================================
 function SavePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -478,6 +537,19 @@ function SavePlanCard({ onNext, onPrev }: CardProps) {
     monthlySaving: 100,
     targetRate: 20,
   });
+
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('save');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('save', formData);
+  }, [formData]);
 
   const currentRate = formData.monthlyIncome > 0 ? (formData.monthlySaving / formData.monthlyIncome * 100) : 0;
   const yearlyAmount = formData.monthlySaving * 12;
@@ -580,7 +652,7 @@ function SavePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 4. 투자설계 카드 (신규)
+// 4. 투자설계 카드 (localStorage 저장 추가)
 // ============================================
 function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -589,6 +661,19 @@ function InvestPlanCard({ onNext, onPrev }: CardProps) {
     monthlyInvestment: 50,
     expectedReturn: 7,
   });
+
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('invest');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('invest', formData);
+  }, [formData]);
 
   const yearlyInvestment = formData.monthlyInvestment * 12;
   const tenYearAmount = (formData.currentAssets + yearlyInvestment * 10) * Math.pow(1 + formData.expectedReturn / 100, 10) / 10000;
@@ -690,7 +775,7 @@ function InvestPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 5. 세금설계 카드 (신규)
+// 5. 세금설계 카드 (localStorage 저장 추가)
 // ============================================
 function TaxPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -700,13 +785,24 @@ function TaxPlanCard({ onNext, onPrev }: CardProps) {
     housingSubscription: 240,
   });
 
-  // 세액공제 계산
-  const pensionDeduction = Math.min(formData.pensionSaving, 400) * 0.165; // 연금저축 16.5%
-  const irpDeduction = Math.min(formData.irpContribution, 300) * 0.165; // IRP 추가 16.5%
-  const housingDeduction = Math.min(formData.housingSubscription, 240) * 0.165; // 주택청약 16.5%
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('tax');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('tax', formData);
+  }, [formData]);
+
+  const pensionDeduction = Math.min(formData.pensionSaving, 400) * 0.165;
+  const irpDeduction = Math.min(formData.irpContribution, 300) * 0.165;
+  const housingDeduction = Math.min(formData.housingSubscription, 240) * 0.165;
   const totalDeduction = pensionDeduction + irpDeduction + housingDeduction;
 
-  // 소득세 간이 계산 (누진세율)
   let estimatedTax = 0;
   if (formData.annualIncome <= 1200) {
     estimatedTax = formData.annualIncome * 0.06;
@@ -823,7 +919,7 @@ function TaxPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 6. 부동산설계 카드 (신규)
+// 6. 부동산설계 카드 (localStorage 저장 추가)
 // ============================================
 function EstatePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
@@ -834,18 +930,24 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
     expectedGrowth: 3,
   });
 
-  // 예상 미래 가치
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('estate');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('estate', formData);
+  }, [formData]);
+
   const futureValue = formData.currentPrice * Math.pow(1 + formData.expectedGrowth / 100, formData.holdingYears);
   const valueIncrease = futureValue - formData.currentPrice;
-  
-  // 보유세 예상 (간이 계산: 공시가격의 0.15% 가정)
   const yearlyTax = formData.currentPrice * 0.0015;
   const totalTax = yearlyTax * formData.holdingYears;
-  
-  // 순자산
   const netEquity = formData.currentPrice - formData.loanBalance;
-  
-  // LTV (Loan to Value)
   const ltv = formData.currentPrice > 0 ? (formData.loanBalance / formData.currentPrice * 100) : 0;
 
   let ltvLevel = '';
@@ -961,7 +1063,7 @@ function EstatePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 7. 보험설계 카드 (신규 - 마지막!)
+// 7. 보험설계 카드 (localStorage 저장 추가 - 마지막!)
 // ============================================
 function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
   const [formData, setFormData] = useState({
@@ -972,10 +1074,21 @@ function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
     pensionInsurance: 20,
   });
 
+  // ★ localStorage에서 데이터 로드
+  useEffect(() => {
+    const saved = loadDesignData('insurance');
+    if (saved) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // ★ 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    saveDesignData('insurance', formData);
+  }, [formData]);
+
   const yearlyPremium = formData.monthlyPremium * 12;
   const totalCoverage = formData.deathCoverage + formData.diseaseCoverage;
-  
-  // 보험료 소득 대비 비율 (가정: 월소득 500만원)
   const assumedIncome = 500;
   const premiumRatio = (formData.monthlyPremium / assumedIncome) * 100;
 
@@ -1119,7 +1232,3 @@ function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
     </div>
   );
 }
-
-// ============================================
-// 플레이스홀더 (삭제 - 더이상 필요없음)
-// ============================================
