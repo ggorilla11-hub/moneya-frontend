@@ -218,8 +218,8 @@ function AIConversation({
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
   
-  // 🆕 v3: SpendContext에서 addSpendItem, spendItems 가져오기
-  const { addSpendItem, spendItems, getTodayItems } = useSpend();
+  // 🆕 v3: SpendContext에서 addSpendItem, getTodayItems 가져오기
+  const { addSpendItem, getTodayItems } = useSpend();
   
   // 🆕 v2: 영수증 OCR 관련 상태
   const [showInputMethodModal, setShowInputMethodModal] = useState(false);
