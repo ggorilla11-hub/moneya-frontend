@@ -112,6 +112,7 @@ interface Message {
   type: 'ai' | 'user';
   text: string;
   timestamp: Date;
+  imageUrl?: string;  // OCR 이미지 썸네일용 (URL.createObjectURL)
 }
 
 // ============================================
@@ -146,6 +147,20 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   
   // OCR 모달 상태
   const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
+  const [, setIsAnalyzing] = useState(false);
+  
+  // ★★★ OCR 분석 결과 컨텍스트 (음성 대화 시 AI머니야가 기억) ★★★
+  const [analysisContext, setAnalysisContext] = useState<{
+    fileName: string;
+    fileType: string;
+    analysis: string;
+    timestamp: string;
+  } | null>(null);
+  
+  // ★★★ OCR 파일 입력 refs ★★★
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // ★★★ Refs (AIConversation.tsx와 동일) ★★★
   const wsRef = useRef<WebSocket | null>(null);
@@ -318,10 +333,12 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget: 0, dailyBudget: 0, todaySpent: 0 },
-          designData: designData
+          designData: designData,
+          // ★★★ OCR 분석 컨텍스트 전달 (AI머니야가 기억) ★★★
+          analysisContext: analysisContext
         };
         ws.send(JSON.stringify(startMessage));
-        console.log('[금융집짓기] start_app 메시지 전송 완료');
+        console.log('[금융집짓기] start_app 메시지 전송 완료', analysisContext ? '(분석 컨텍스트 포함)' : '');
       };
       
       ws.onmessage = (event) => {
@@ -480,27 +497,165 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   };
 
   // ============================================
-  // OCR 관련 함수
+  // OCR 관련 함수 (FormData 파일 직접 전송 - BASE64 금지)
   // ============================================
+  
+  // 카메라 촬영 버튼 클릭
   const handleCameraCapture = () => {
     setIsOCRModalOpen(false);
-    const msg: Message = { id: Date.now().toString(), type: 'ai', text: '사진을 촬영하면 자동으로 갤러리에 저장되고, OCR 분석을 시작할게요!', timestamp: new Date() };
-    setMessages(prev => [...prev, msg]);
-    if (!isVoiceMode) setIsVoiceMode(true);
+    cameraInputRef.current?.click();
   };
 
+  // 갤러리 선택 버튼 클릭
   const handleGallerySelect = () => {
     setIsOCRModalOpen(false);
-    const msg: Message = { id: Date.now().toString(), type: 'ai', text: '갤러리에서 보험증권이나 세금자료 이미지를 선택해주세요!', timestamp: new Date() };
-    setMessages(prev => [...prev, msg]);
-    if (!isVoiceMode) setIsVoiceMode(true);
+    galleryInputRef.current?.click();
   };
 
+  // 파일첨부 버튼 클릭
   const handleFileSelect = () => {
     setIsOCRModalOpen(false);
-    const msg: Message = { id: Date.now().toString(), type: 'ai', text: 'PDF나 문서 파일을 선택해주시면 분석해드릴게요!', timestamp: new Date() };
-    setMessages(prev => [...prev, msg]);
+    fileInputRef.current?.click();
+  };
+
+  // 파일 선택 후 처리 (FormData로 직접 전송 - BASE64 금지!)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'gallery' | 'file') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 타입 확인
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+    
+    if (!isImage && !isPDF) {
+      const errorMsg: Message = { 
+        id: Date.now().toString(), 
+        type: 'ai', 
+        text: '❌ 지원하지 않는 파일 형식입니다. 이미지(JPG, PNG) 또는 PDF 파일만 업로드 가능합니다.', 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      return;
+    }
+
+    // 파일 크기 제한 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      const errorMsg: Message = { 
+        id: Date.now().toString(), 
+        type: 'ai', 
+        text: '❌ 파일 크기가 10MB를 초과합니다. 더 작은 파일을 선택해주세요.', 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      return;
+    }
+
+    // 대화창으로 전환
     if (!isVoiceMode) setIsVoiceMode(true);
+
+    // ★★★ 이미지 썸네일 URL 생성 (BASE64 금지! URL.createObjectURL 사용) ★★★
+    let imagePreviewUrl: string | undefined;
+    if (isImage) {
+      imagePreviewUrl = URL.createObjectURL(file);
+    }
+
+    // ★★★ 사용자 메시지에 이미지 썸네일 표시 ★★★
+    const sourceText = source === 'camera' ? '📷 사진 촬영' : source === 'gallery' ? '🖼️ 이미지 선택' : '📎 파일 첨부';
+    const userMsg: Message = { 
+      id: Date.now().toString(), 
+      type: 'user', 
+      text: `${sourceText}: ${file.name}`,
+      timestamp: new Date(),
+      imageUrl: imagePreviewUrl  // 이미지 썸네일 URL (PDF는 undefined)
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    // 분석 중 메시지
+    const analyzingMsg: Message = { 
+      id: (Date.now() + 1).toString(), 
+      type: 'ai', 
+      text: '🔍 AI머니야가 분석 중입니다... 잠시만 기다려주세요!', 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, analyzingMsg]);
+    setIsAnalyzing(true);
+
+    try {
+      // FormData로 파일 직접 전송 (BASE64 변환 금지!)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileName', file.name);
+      formData.append('fileType', isImage ? 'image' : 'pdf');
+      formData.append('currentTab', currentTab);
+
+      const response = await fetch(`${API_URL}/api/analyze-file`, {
+        method: 'POST',
+        body: formData, // FormData 직접 전송
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.analysis) {
+        // ★★★ 분석 결과를 컨텍스트에 저장 (음성 대화 시 AI머니야가 기억) ★★★
+        const contextData = {
+          fileName: file.name,
+          fileType: isImage ? 'image' : 'pdf',
+          analysis: data.analysis,
+          timestamp: new Date().toISOString()
+        };
+        setAnalysisContext(contextData);
+        console.log('📋 [금융집짓기] 분석 컨텍스트 저장:', contextData.fileName);
+
+        // ★★★ 음성 모드 중이면 WebSocket으로 컨텍스트 즉시 전달 ★★★
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'update_context',
+            analysisContext: contextData
+          }));
+          console.log('📤 [금융집짓기] 분석 컨텍스트를 서버에 전달');
+        }
+
+        // 분석 성공 메시지
+        const analysisMsg: Message = { 
+          id: (Date.now() + 2).toString(), 
+          type: 'ai', 
+          text: `✅ 분석 완료!\n\n${data.analysis}`, 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, analysisMsg]);
+
+        // 추가 질문 안내
+        const guideMsg: Message = { 
+          id: (Date.now() + 3).toString(), 
+          type: 'ai', 
+          text: '💬 분석 결과에 대해 궁금한 점이 있으시면 음성 또는 텍스트로 질문해주세요! AI머니야가 분석 내용을 기억하고 있습니다.', 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, guideMsg]);
+      } else {
+        // 분석 실패
+        const errorMsg: Message = { 
+          id: (Date.now() + 2).toString(), 
+          type: 'ai', 
+          text: `❌ 분석 중 오류가 발생했습니다: ${data.error || '알 수 없는 오류'}`, 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      }
+    } catch (error) {
+      console.error('[금융집짓기] OCR 분석 에러:', error);
+      const errorMsg: Message = { 
+        id: (Date.now() + 2).toString(), 
+        type: 'ai', 
+        text: '❌ 서버 연결 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsAnalyzing(false);
+      // 파일 입력 초기화 (같은 파일 다시 선택 가능)
+      e.target.value = '';
+    }
   };
 
   // ============================================
@@ -597,6 +752,16 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
                   <div className={`px-3 py-2 rounded-2xl text-sm ${
                     message.type === 'ai' ? 'bg-white border border-gray-200 text-gray-800' : 'bg-blue-600 text-white'
                   }`}>
+                    {/* ★★★ 이미지 썸네일 표시 ★★★ */}
+                    {message.imageUrl && (
+                      <div className="mb-2">
+                        <img 
+                          src={message.imageUrl} 
+                          alt="업로드된 이미지" 
+                          className="w-32 h-32 object-cover rounded-lg border border-white/30"
+                        />
+                      </div>
+                    )}
                     {message.type === 'ai' ? convertKoreanAmountInText(message.text) : message.text}
                   </div>
                 </div>
@@ -746,6 +911,33 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
           </div>
         </div>
       )}
+
+      {/* 숨겨진 파일 입력 요소들 (OCR용) */}
+      {/* 카메라 촬영 - 폰 갤러리에 자동 저장됨 */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handleFileChange(e, 'camera')}
+        className="hidden"
+      />
+      {/* 갤러리 선택 */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleFileChange(e, 'gallery')}
+        className="hidden"
+      />
+      {/* 파일첨부 (PDF, 이미지) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf"
+        onChange={(e) => handleFileChange(e, 'file')}
+        className="hidden"
+      />
 
       <style>{`
         @keyframes slideUp {
