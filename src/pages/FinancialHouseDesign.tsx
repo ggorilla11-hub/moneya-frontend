@@ -400,7 +400,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
 
   const stopVoiceMode = () => {
     cleanupVoiceMode();
-    setIsMicActive(false);  // 마이크만 비활성화, 대화창은 유지
+    setIsMicActive(false);
+    setIsChatMode(false);  // ★★★ 1번 수정: 마이크 OFF 시 대화창도 닫기 ★★★
     setStatus('대기중');
   };
 
