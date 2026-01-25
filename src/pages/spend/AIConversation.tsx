@@ -72,6 +72,27 @@ interface Message {
   timestamp: Date;
 }
 
+// 🆕 v2: 영수증 OCR 결과 타입
+interface ReceiptOCRResult {
+  storeName: string;
+  amount: number;
+  category: string;
+  categoryEmoji: string;
+  date: string;
+}
+
+// 🆕 v2: 지출 항목 타입
+interface ExpenseItem {
+  id: string;
+  storeName: string;
+  amount: number;
+  category: string;
+  categoryEmoji: string;
+  expenseType: 'variable' | 'fixed' | 'emotion';
+  timestamp: Date;
+  isOCR: boolean;
+}
+
 interface AIConversationProps {
   userName: string;
   displayName: string;
@@ -84,6 +105,7 @@ interface AIConversationProps {
   remainingBudget: number;
   onFAQMore: () => void;
   onPlusClick: () => void;
+  onAddExpense?: (expense: ExpenseItem) => void;  // 🆕 v2: 지출 추가 콜백
   children?: React.ReactNode;
 }
 
@@ -103,6 +125,77 @@ const loadFinancialHouseDesignData = () => {
   return null;
 };
 
+// 🆕 v2: 카테고리 자동 분류 함수
+const detectCategory = (storeName: string): { category: string; emoji: string } => {
+  const lowerName = storeName.toLowerCase();
+  
+  // 편의점
+  if (/이마트24|gs25|cu\b|세븐일레븐|미니스톱|편의점/i.test(lowerName)) {
+    return { category: '편의점', emoji: '🛒' };
+  }
+  // 카페
+  if (/스타벅스|투썸|이디야|메가커피|빽다방|카페|커피/i.test(lowerName)) {
+    return { category: '카페', emoji: '☕' };
+  }
+  // 식비
+  if (/식당|레스토랑|치킨|피자|배달|맛집|김밥|분식/i.test(lowerName)) {
+    return { category: '식비', emoji: '🍱' };
+  }
+  // 교통
+  if (/택시|지하철|버스|주유소|주차/i.test(lowerName)) {
+    return { category: '교통', emoji: '🚇' };
+  }
+  // 쇼핑
+  if (/마트|백화점|쇼핑|의류|옷/i.test(lowerName)) {
+    return { category: '쇼핑', emoji: '🛍️' };
+  }
+  
+  return { category: '기타', emoji: '📦' };
+};
+
+// 🆕 v2: OCR 결과 파싱 함수
+const parseReceiptOCR = (ocrText: string): ReceiptOCRResult => {
+  let storeName = '알 수 없음';
+  let amount = 0;
+  let category = '기타';
+  let categoryEmoji = '📦';
+  
+  try {
+    // JSON 형식 시도
+    const jsonMatch = ocrText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      storeName = parsed.storeName || parsed.store || parsed.상호명 || '알 수 없음';
+      amount = parseInt(String(parsed.amount || parsed.금액 || '0').replace(/[^0-9]/g, '')) || 0;
+      category = parsed.category || parsed.카테고리 || '기타';
+    } else {
+      // 텍스트에서 추출
+      const storeMatch = ocrText.match(/상호[명]?\s*[:\-]?\s*(.+)/i) || ocrText.match(/가게[명]?\s*[:\-]?\s*(.+)/i);
+      if (storeMatch) storeName = storeMatch[1].trim().split('\n')[0];
+      
+      const amountMatch = ocrText.match(/(?:합계|총액|결제|금액)[:\s]*([0-9,]+)\s*원?/i) || 
+                          ocrText.match(/([0-9,]+)\s*원/);
+      if (amountMatch) amount = parseInt(amountMatch[1].replace(/,/g, '')) || 0;
+    }
+    
+    // 카테고리 자동 분류
+    const detected = detectCategory(storeName);
+    category = detected.category;
+    categoryEmoji = detected.emoji;
+    
+  } catch (e) {
+    console.error('[OCR 파싱] 에러:', e);
+  }
+  
+  return {
+    storeName,
+    amount,
+    category,
+    categoryEmoji,
+    date: new Date().toISOString().split('T')[0]
+  };
+};
+
 function AIConversation({
   userName: _userName,
   displayName,
@@ -115,6 +208,7 @@ function AIConversation({
   remainingBudget,
   onFAQMore,
   onPlusClick,
+  onAddExpense,
   children,
 }: AIConversationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,6 +220,16 @@ function AIConversation({
 
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
+  
+  // 🆕 v2: 영수증 OCR 관련 상태
+  const [showInputMethodModal, setShowInputMethodModal] = useState(false);
+  const [showReceiptUploadModal, setShowReceiptUploadModal] = useState(false);
+  const [showReceiptResultModal, setShowReceiptResultModal] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [ocrResult, setOcrResult] = useState<ReceiptOCRResult | null>(null);
+  const [selectedExpenseType, setSelectedExpenseType] = useState<'variable' | 'fixed' | 'emotion'>('variable');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -146,7 +250,6 @@ function AIConversation({
   // ★★★ 1차/2차 재무 컨텍스트 ★★★
   const getFullFinancialContext = () => {
     return {
-      // 1차 재무진단 데이터
       name: financialResult?.name || displayName,
       age: financialResult?.age || 0,
       monthlyIncome: financialResult?.income || 0,
@@ -156,16 +259,12 @@ function AIConversation({
       wealthIndex: financialResult?.wealthIndex || 0,
       financialLevel: financialResult?.level || 0,
       houseName: financialResult?.houseName || '',
-      
-      // 2차 예산조정 데이터
       livingExpense: adjustedBudget?.livingExpense || 0,
       savings: adjustedBudget?.savings || 0,
       pension: adjustedBudget?.pension || 0,
       insurance: adjustedBudget?.insurance || 0,
       loanPayment: adjustedBudget?.loanPayment || 0,
       surplus: adjustedBudget?.surplus || 0,
-      
-      // 오늘 예산 현황
       dailyBudget,
       todaySpent,
       todaySaved,
@@ -297,21 +396,17 @@ function AIConversation({
       wsRef.current = ws;
       ws.onopen = () => {
         console.log('WebSocket 연결됨!');
-        
-        // ★★★ 서버 v3.5에 맞게 designData 별도 전송 ★★★
         const financialContext = getFullFinancialContext();
         const designData = loadFinancialHouseDesignData();
-        
         const startMessage = { 
           type: 'start_app',
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget, dailyBudget, todaySpent },
-          designData: designData  // ★★★ 3차 데이터 별도 전송 ★★★
+          designData: designData
         };
         ws.send(JSON.stringify(startMessage));
         console.log('start_app 메시지 전송 완료');
-        console.log('- 3차 금융집짓기 데이터:', designData ? '있음' : '없음');
       };
       ws.onmessage = (event) => {
         try {
@@ -386,10 +481,8 @@ function AIConversation({
     setInputText('');
     setIsLoading(true);
     try {
-      // ★★★ 텍스트 채팅에도 3차 데이터 전송 ★★★
       const financialContext = getFullFinancialContext();
       const designData = loadFinancialHouseDesignData();
-      
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -398,7 +491,7 @@ function AIConversation({
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget, dailyBudget, todaySpent },
-          designData: designData  // ★★★ 3차 데이터 전송 ★★★
+          designData: designData
         }),
       });
       const data = await response.json();
@@ -433,20 +526,125 @@ function AIConversation({
     }
   };
 
+  // 🆕 v2: +버튼 클릭 핸들러
+  const handlePlusClick = () => {
+    setShowInputMethodModal(true);
+  };
+
+  // 🆕 v2: 영수증 촬영 선택
+  const handleReceiptClick = () => {
+    setShowInputMethodModal(false);
+    setShowReceiptUploadModal(true);
+  };
+
+  // 🆕 v2: 파일 선택 핸들러
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'gallery') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    console.log(`[영수증 OCR] ${source}에서 파일 선택:`, file.name);
+    setShowReceiptUploadModal(false);
+    setShowReceiptResultModal(true);
+    setIsAnalyzing(true);
+    setOcrResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileName', file.name);
+      formData.append('fileType', 'image');
+      formData.append('currentTab', 'receipt');  // 영수증 전용
+      
+      const response = await fetch(`${API_URL}/api/analyze-file`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.analysis) {
+        console.log('[영수증 OCR] 분석 완료:', data.analysis.substring(0, 100));
+        const parsed = parseReceiptOCR(data.analysis);
+        setOcrResult(parsed);
+      } else {
+        console.error('[영수증 OCR] 분석 실패:', data.error);
+        setOcrResult({
+          storeName: '분석 실패',
+          amount: 0,
+          category: '기타',
+          categoryEmoji: '❌',
+          date: new Date().toISOString().split('T')[0]
+        });
+      }
+    } catch (error) {
+      console.error('[영수증 OCR] 에러:', error);
+      setOcrResult({
+        storeName: '오류 발생',
+        amount: 0,
+        category: '기타',
+        categoryEmoji: '❌',
+        date: new Date().toISOString().split('T')[0]
+      });
+    } finally {
+      setIsAnalyzing(false);
+      // input 초기화
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
+  };
+
+  // 🆕 v2: 지출 저장
+  const handleSaveExpense = () => {
+    if (!ocrResult || ocrResult.amount === 0) {
+      alert('금액을 확인해주세요.');
+      return;
+    }
+    
+    const newExpense: ExpenseItem = {
+      id: Date.now().toString(),
+      storeName: ocrResult.storeName,
+      amount: ocrResult.amount,
+      category: ocrResult.category,
+      categoryEmoji: ocrResult.categoryEmoji,
+      expenseType: selectedExpenseType,
+      timestamp: new Date(),
+      isOCR: true
+    };
+    
+    // 부모 컴포넌트로 전달
+    if (onAddExpense) {
+      onAddExpense(newExpense);
+    }
+    
+    // 채팅에도 추가
+    const confirmMsg: Message = {
+      id: Date.now().toString(),
+      type: 'ai',
+      text: `✅ ${ocrResult.storeName}에서 ${ocrResult.amount.toLocaleString()}원 지출이 기록되었어요!`,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, confirmMsg]);
+    
+    // 모달 닫기 및 초기화
+    setShowReceiptResultModal(false);
+    setOcrResult(null);
+    setSelectedExpenseType('variable');
+    
+    console.log('[영수증 OCR] 지출 저장 완료:', newExpense);
+  };
+
   useEffect(() => {
     const greetingText = `안녕하세요, ${displayName}님! 머니야예요. 무엇을 도와드릴까요?`;
     setMessages([{ id: '1', type: 'ai', text: greetingText, timestamp: new Date() }]);
     return () => { cleanupVoiceMode(); };
   }, []);
 
-  // 스크롤을 맨 아래로 이동하는 함수
   const scrollToBottom = () => {
     if (chatAreaRef.current) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
   };
 
-  // 메시지 변경 시 스크롤
   useEffect(() => {
     scrollToBottom();
     const timer = setTimeout(scrollToBottom, 100);
@@ -528,7 +726,7 @@ function AIConversation({
         </div>
       </div>
 
-      {/* 채팅 영역 - 고정 높이, 내부 스크롤 */}
+      {/* 채팅 영역 */}
       <div 
         ref={chatAreaRef} 
         className="mx-4 mt-3 overflow-y-auto space-y-4 bg-gray-50 rounded-xl p-3"
@@ -560,10 +758,10 @@ function AIConversation({
         )}
       </div>
 
-      {/* 입력 영역 - 하단 네비게이션 위에 완전 고정 */}
+      {/* 입력 영역 */}
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50">
         <div className="flex items-center gap-2 max-w-md mx-auto">
-          <button onClick={onPlusClick} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
+          <button onClick={handlePlusClick} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center">
             <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </button>
           <button onClick={toggleVoiceMode} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isVoiceMode ? 'bg-red-500 animate-pulse scale-110' : 'bg-amber-400'}`}>
@@ -578,7 +776,238 @@ function AIConversation({
         </div>
       </div>
 
-      <style>{`.scrollbar-hide::-webkit-scrollbar { display: none; }`}</style>
+      {/* 🆕 v2: 입력 방식 선택 모달 */}
+      {showInputMethodModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
+          <div className="bg-white w-full max-w-md rounded-t-3xl p-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">지출 입력 방식</h3>
+              <button onClick={() => setShowInputMethodModal(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">✕</button>
+            </div>
+            
+            <div className="space-y-3">
+              {/* 수동 입력 */}
+              <button 
+                onClick={() => { setShowInputMethodModal(false); onPlusClick(); }}
+                className="w-full flex items-center gap-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+              >
+                <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center text-xl">✏️</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold">수동 입력</p>
+                  <p className="text-xs text-gray-500">지출 또는 참음 직접 입력</p>
+                </div>
+                <span className="text-gray-400">›</span>
+              </button>
+              
+              {/* 영수증 촬영 */}
+              <button 
+                onClick={handleReceiptClick}
+                className="w-full flex items-center gap-3 p-4 bg-amber-50 border-2 border-amber-400 rounded-xl hover:bg-amber-100 transition-all"
+              >
+                <div className="w-11 h-11 bg-amber-200 rounded-xl flex items-center justify-center text-xl">📷</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-amber-800">영수증 촬영</p>
+                  <p className="text-xs text-amber-600">OCR 자동 인식</p>
+                </div>
+                <span className="text-amber-600">›</span>
+              </button>
+              
+              {/* 음성 입력 */}
+              <button 
+                onClick={() => { setShowInputMethodModal(false); startVoiceMode(); }}
+                className="w-full flex items-center gap-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl hover:border-pink-400 hover:bg-pink-50 transition-all"
+              >
+                <div className="w-11 h-11 bg-pink-100 rounded-xl flex items-center justify-center text-xl">🎤</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold">음성 입력</p>
+                  <p className="text-xs text-gray-500">머니야에게 말하기</p>
+                </div>
+                <span className="text-gray-400">›</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 v2: 영수증 업로드 모달 */}
+      {showReceiptUploadModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
+          <div className="bg-white w-full max-w-md rounded-t-3xl p-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">📷 영수증 업로드</h3>
+              <button onClick={() => setShowReceiptUploadModal(false)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">✕</button>
+            </div>
+            
+            <div className="space-y-3">
+              {/* 사진 촬영 */}
+              <button 
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-full flex items-center gap-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl hover:border-green-400 hover:bg-green-50 transition-all"
+              >
+                <div className="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center text-xl">📸</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold">사진 촬영</p>
+                  <p className="text-xs text-gray-500">카메라로 영수증 촬영</p>
+                </div>
+                <span className="text-gray-400">›</span>
+              </button>
+              
+              {/* 사진/이미지 업로드 */}
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center gap-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all"
+              >
+                <div className="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center text-xl">🖼️</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold">사진/이미지</p>
+                  <p className="text-xs text-gray-500">갤러리에서 선택</p>
+                </div>
+                <span className="text-gray-400">›</span>
+              </button>
+            </div>
+            
+            {/* 숨겨진 파일 입력 */}
+            <input 
+              ref={cameraInputRef}
+              type="file" 
+              accept="image/*" 
+              capture="environment"
+              onChange={(e) => handleFileSelect(e, 'camera')}
+              className="hidden" 
+            />
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              accept="image/*"
+              onChange={(e) => handleFileSelect(e, 'gallery')}
+              className="hidden" 
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 v2: 영수증 분석 결과 모달 */}
+      {showReceiptResultModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">🧾 영수증 분석 결과</h3>
+              <button onClick={() => { setShowReceiptResultModal(false); setOcrResult(null); }} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">✕</button>
+            </div>
+            
+            {isAnalyzing ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-lg font-bold text-gray-700">🔍 영수증 분석 중...</p>
+                <p className="text-sm text-gray-500 mt-2">잠시만 기다려주세요</p>
+              </div>
+            ) : ocrResult ? (
+              <div className="space-y-4">
+                {/* 분석 완료 배지 */}
+                <div className="bg-green-100 border border-green-400 rounded-xl p-3 flex items-center gap-2">
+                  <span className="text-2xl">✅</span>
+                  <div>
+                    <p className="font-bold text-green-800">OCR 분석 완료!</p>
+                    <p className="text-xs text-green-600">아래 내용이 자동으로 입력되었습니다</p>
+                  </div>
+                </div>
+                
+                {/* 내용 (상호명) */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600 mb-1 block">내용 (상호명)</label>
+                  <input 
+                    type="text" 
+                    value={ocrResult.storeName}
+                    onChange={(e) => setOcrResult({ ...ocrResult, storeName: e.target.value })}
+                    className="w-full border-2 border-green-400 bg-green-50 rounded-xl px-4 py-3 font-medium"
+                  />
+                  <p className="text-xs text-green-600 mt-1">✨ OCR 자동 인식 (수정 가능)</p>
+                </div>
+                
+                {/* 금액 */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600 mb-1 block">금액</label>
+                  <input 
+                    type="number" 
+                    value={ocrResult.amount}
+                    onChange={(e) => setOcrResult({ ...ocrResult, amount: parseInt(e.target.value) || 0 })}
+                    className="w-full border-2 border-green-400 bg-green-50 rounded-xl px-4 py-3 font-bold text-xl text-right"
+                  />
+                  <p className="text-xs text-green-600 mt-1">✨ OCR 자동 인식 (수정 가능)</p>
+                </div>
+                
+                {/* 카테고리 */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600 mb-1 block">카테고리</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { name: '식비', emoji: '🍱' },
+                      { name: '편의점', emoji: '🛒' },
+                      { name: '카페', emoji: '☕' },
+                      { name: '교통', emoji: '🚇' },
+                      { name: '쇼핑', emoji: '🛍️' },
+                      { name: '기타', emoji: '📦' },
+                    ].map((cat) => (
+                      <button 
+                        key={cat.name}
+                        onClick={() => setOcrResult({ ...ocrResult, category: cat.name, categoryEmoji: cat.emoji })}
+                        className={`p-2 rounded-lg text-center text-sm transition-all ${ocrResult.category === cat.name ? 'bg-green-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                      >
+                        {cat.emoji} {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">✨ "{ocrResult.storeName}" → {ocrResult.category} 자동 분류</p>
+                </div>
+                
+                {/* 지출 유형 */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600 mb-1 block">지출 유형</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => setSelectedExpenseType('variable')}
+                      className={`p-3 rounded-xl text-center font-medium transition-all ${selectedExpenseType === 'variable' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                    >
+                      📊 변동지출
+                    </button>
+                    <button 
+                      onClick={() => setSelectedExpenseType('fixed')}
+                      className={`p-3 rounded-xl text-center font-medium transition-all ${selectedExpenseType === 'fixed' ? 'bg-blue-500 text-white' : 'bg-gray-100'}`}
+                    >
+                      📌 고정지출
+                    </button>
+                    <button 
+                      onClick={() => setSelectedExpenseType('emotion')}
+                      className={`p-3 rounded-xl text-center font-medium transition-all ${selectedExpenseType === 'emotion' ? 'bg-pink-500 text-white' : 'bg-gray-100'}`}
+                    >
+                      💜 감정지출
+                    </button>
+                  </div>
+                </div>
+                
+                {/* 저장 버튼 */}
+                <button 
+                  onClick={handleSaveExpense}
+                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-opacity mt-4"
+                >
+                  저장하기
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease;
+        }
+      `}</style>
     </>
   );
 }
