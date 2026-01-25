@@ -148,6 +148,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   // OCR 모달 상태
   const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
   const [, setIsAnalyzing] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);  // 🆕 개인정보 동의 상태
   
   // ★★★ OCR 분석 결과 컨텍스트 (음성 대화 시 AI머니야가 기억) ★★★
   const [analysisContext, setAnalysisContext] = useState<{
@@ -523,9 +524,18 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 🆕 카메라 촬영 시 MIME 타입이 빈 경우 처리
+    let fileType = file.type;
+    if (!fileType && source === 'camera') {
+      // 카메라 촬영 시 MIME 타입이 없으면 기본값 설정
+      fileType = 'image/jpeg';
+    }
+    
     // 파일 타입 확인
-    const isImage = file.type.startsWith('image/');
-    const isPDF = file.type === 'application/pdf';
+    const isImage = fileType.startsWith('image/') || source === 'camera';
+    const isPDF = fileType === 'application/pdf';
+    
+    console.log(`[OCR] 파일 정보 - 이름: ${file.name}, 타입: ${fileType}, 소스: ${source}, 크기: ${file.size}`);
     
     if (!isImage && !isPDF) {
       const errorMsg: Message = { 
@@ -583,8 +593,15 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
     try {
       // FormData로 파일 직접 전송 (BASE64 변환 금지!)
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('fileName', file.name);
+      
+      // 🆕 카메라 촬영 시 Blob으로 재생성하여 MIME 타입 보장
+      let fileToSend: File | Blob = file;
+      if (source === 'camera' && !file.type) {
+        fileToSend = new Blob([file], { type: 'image/jpeg' });
+      }
+      
+      formData.append('file', fileToSend);
+      formData.append('fileName', file.name || `camera_${Date.now()}.jpg`);
       formData.append('fileType', isImage ? 'image' : 'pdf');
       formData.append('currentTab', currentTab);
 
@@ -840,21 +857,21 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         </div>
       </div>
 
-      {/* OCR 모달 (라이트 모드) */}
+      {/* OCR 모달 (라이트 모드) - 위치 올림 + 개인정보 동의 추가 */}
       {isOCRModalOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
-          onClick={() => setIsOCRModalOpen(false)}
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          onClick={() => { setIsOCRModalOpen(false); setPrivacyAgreed(false); }}
         >
           <div 
-            className="bg-white w-full rounded-t-3xl p-6 pb-8"
+            className="bg-white w-[90%] max-w-md rounded-3xl p-6 mx-4"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'slideUp 0.3s ease-out' }}
+            style={{ animation: 'fadeIn 0.2s ease-out' }}
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800">📎 파일 첨부</h3>
               <button 
-                onClick={() => setIsOCRModalOpen(false)}
+                onClick={() => { setIsOCRModalOpen(false); setPrivacyAgreed(false); }}
                 className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
               >
                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -862,51 +879,88 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
                 </svg>
               </button>
             </div>
+
+            {/* 개인정보 수집이용 동의 */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyAgreed}
+                  onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600 leading-relaxed">
+                  <span className="font-semibold text-gray-800">[필수] 개인정보 수집·이용 동의</span><br/>
+                  첨부하신 서류(보험증권, 연금자료 등)는 AI 분석 목적으로만 사용되며, 분석 완료 후 즉시 삭제됩니다.
+                </span>
+              </label>
+            </div>
             
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               {/* 사진촬영 */}
               <button 
                 onClick={handleCameraCapture}
-                className="flex flex-col items-center gap-3 p-4 bg-purple-50 rounded-2xl border-2 border-purple-100 hover:border-purple-300 transition-all"
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-purple-50 border-purple-100 hover:border-purple-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-purple-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-purple-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-gray-700">사진촬영</span>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진촬영</span>
               </button>
               
               {/* 사진/이미지 */}
               <button 
                 onClick={handleGallerySelect}
-                className="flex flex-col items-center gap-3 p-4 bg-amber-50 rounded-2xl border-2 border-amber-100 hover:border-amber-300 transition-all"
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-amber-50 border-amber-100 hover:border-amber-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-amber-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-amber-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-gray-700">사진/이미지</span>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진/이미지</span>
               </button>
               
               {/* 파일첨부 */}
               <button 
                 onClick={handleFileSelect}
-                className="flex flex-col items-center gap-3 p-4 bg-blue-50 rounded-2xl border-2 border-blue-100 hover:border-blue-300 transition-all"
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-blue-50 border-blue-100 hover:border-blue-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-blue-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-gray-700">파일첨부</span>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>파일첨부</span>
               </button>
             </div>
             
             <p className="text-center text-xs text-gray-400 mt-4">
-              보험증권, 세금자료, 국민연금자료 등을 첨부해주세요
+              보험증권, 연금자료, 세금자료 등을 첨부해주세요
             </p>
           </div>
         </div>
@@ -943,6 +997,10 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         @keyframes slideUp {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>
