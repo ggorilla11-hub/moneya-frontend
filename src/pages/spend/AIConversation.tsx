@@ -218,8 +218,28 @@ function AIConversation({
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
   
-  // 🆕 v3: SpendContext에서 addSpendItem, getTodayItems 가져오기
-  const { addSpendItem, getTodayItems } = useSpend();
+  // 🆕 v4: SpendContext에서 addSpendItem, spendItems 가져오기
+  const { addSpendItem, spendItems } = useSpend();
+  
+  // 🆕 v4: 오늘 지출 내역 계산 함수
+  const getSpendDataForServer = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayItems = spendItems.filter(item => {
+      const itemDate = new Date(item.timestamp);
+      itemDate.setHours(0, 0, 0, 0);
+      return itemDate.getTime() === today.getTime();
+    });
+    
+    return todayItems.map(item => ({
+      memo: item.memo,
+      amount: item.amount,
+      category: item.category,
+      emotionType: item.emotionType,
+      time: new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    }));
+  };
   
   // 🆕 v2: 영수증 OCR 관련 상태
   const [showInputMethodModal, setShowInputMethodModal] = useState(false);
@@ -400,14 +420,8 @@ function AIConversation({
         const designData = loadFinancialHouseDesignData();
         
         // 🆕 v4: 오늘 지출 내역 전송
-        const todayItems = getTodayItems();
-        const spendData = todayItems.map(item => ({
-          memo: item.memo,
-          amount: item.amount,
-          category: item.category,
-          emotionType: item.emotionType,
-          time: new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-        }));
+        const spendData = getSpendDataForServer();
+        console.log('[음성모드] 지출 내역 전송:', spendData.length, '건');
         
         const startMessage = { 
           type: 'start_app',
@@ -497,14 +511,8 @@ function AIConversation({
       const designData = loadFinancialHouseDesignData();
       
       // 🆕 v4: 오늘 지출 내역 전송
-      const todayItems = getTodayItems();
-      const spendData = todayItems.map(item => ({
-        memo: item.memo,
-        amount: item.amount,
-        category: item.category,
-        emotionType: item.emotionType,
-        time: new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-      }));
+      const spendData = getSpendDataForServer();
+      console.log('[텍스트채팅] 지출 내역 전송:', spendData.length, '건');
       
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
