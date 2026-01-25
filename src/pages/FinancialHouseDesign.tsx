@@ -508,15 +508,15 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   // ============================================
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      {/* 헤더 - 상단 고정 */}
+      <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 z-50">
         <button onClick={goToPrevTab} className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-lg text-lg">←</button>
         <h1 className="flex-1 text-lg font-bold">7개 재무설계</h1>
         <span className="text-xs text-gray-400 font-semibold bg-gray-100 px-2.5 py-1 rounded-xl">{currentStep}/7</span>
       </header>
 
-      {/* 탭 네비게이션 */}
-      <div className="bg-white border-b border-gray-200 px-3 py-2 flex gap-1.5 overflow-x-auto flex-shrink-0">
+      {/* 탭 네비게이션 - 헤더 아래 고정 (top-14 = 56px) */}
+      <div className="fixed top-14 left-0 right-0 bg-white border-b border-gray-200 px-3 py-2 flex gap-1.5 overflow-x-auto z-50">
         {DESIGN_TABS.map((tab) => {
           const isActive = currentTab === tab.id;
           const isDone = completedTabs.includes(tab.id);
@@ -537,8 +537,9 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         })}
       </div>
 
-      {/* 메인 콘텐츠 영역 - 하단에 버튼바+내비바 높이만큼 패딩 */}
-      <div className="flex-1 flex flex-col overflow-hidden pb-32">
+      {/* 메인 콘텐츠 영역 - 상단(헤더+탭) 고정 높이 + 하단(버튼바+내비바) 높이만큼 패딩 */}
+      {/* pt-28 = 헤더(56px) + 탭(56px), pb-36 = 버튼바(64px) + 내비바(64px) + 여유 */}
+      <div className="flex-1 flex flex-col mt-28 mb-36 overflow-hidden">
         
         {/* 입력 폼 영역 (토글 시 위로 접힘) */}
         <div 
@@ -621,8 +622,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         )}
       </div>
 
-      {/* 하단 입력 영역 - 내비바(약 64px) 위에 고정 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
+      {/* 하단 입력 영역 - 내비바 위에 고정 (bottom-20 = 80px) */}
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
         <div className="flex items-center gap-2">
           {/* + 버튼 (노란색) */}
           <button 
