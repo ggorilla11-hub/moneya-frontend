@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AdjustedBudget } from '../BudgetAdjustPage';
+import { useSpend } from '../../context/SpendContext';  // 🆕 v3: 지출 Context
 
 // 한글 금액 → 숫자 변환 함수
 const koreanNumbers: { [key: string]: number } = {
@@ -81,17 +82,15 @@ interface ReceiptOCRResult {
   date: string;
 }
 
-// 🆕 v2: 지출 항목 타입
-interface ExpenseItem {
-  id: string;
-  storeName: string;
-  amount: number;
-  category: string;
-  categoryEmoji: string;
-  expenseType: 'variable' | 'fixed' | 'emotion';
-  timestamp: Date;
-  isOCR: boolean;
-}
+// 🆕 v3: 지출 유형 → emotionType 매핑
+const expenseTypeToEmotionType = (type: 'variable' | 'fixed' | 'emotion'): '충동' | '선택' | '필수' | undefined => {
+  switch (type) {
+    case 'emotion': return '충동';
+    case 'variable': return '선택';
+    case 'fixed': return '필수';
+    default: return undefined;
+  }
+};
 
 interface AIConversationProps {
   userName: string;
@@ -105,7 +104,6 @@ interface AIConversationProps {
   remainingBudget: number;
   onFAQMore: () => void;
   onPlusClick: () => void;
-  onAddExpense?: (expense: ExpenseItem) => void;  // 🆕 v2: 지출 추가 콜백
   children?: React.ReactNode;
 }
 
@@ -208,7 +206,6 @@ function AIConversation({
   remainingBudget,
   onFAQMore,
   onPlusClick,
-  onAddExpense,
   children,
 }: AIConversationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -217,6 +214,12 @@ function AIConversation({
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [serverReady, setServerReady] = useState(false);
   const chatAreaRef = useRef<HTMLDivElement>(null);
+
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [status, setStatus] = useState('대기중');
+  
+  // 🆕 v3: SpendContext에서 addSpendItem 가져오기
+  const { addSpendItem } = useSpend();
 
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
@@ -593,30 +596,26 @@ function AIConversation({
     }
   };
 
-  // 🆕 v2: 지출 저장
+  // 🆕 v3: 지출 저장 (SpendContext 사용)
   const handleSaveExpense = () => {
     if (!ocrResult || ocrResult.amount === 0) {
       alert('금액을 확인해주세요.');
       return;
     }
     
-    const newExpense: ExpenseItem = {
-      id: Date.now().toString(),
-      storeName: ocrResult.storeName,
+    // SpendContext에 추가 (타임라인에 자동 반영)
+    addSpendItem({
+      userId: 'default',
       amount: ocrResult.amount,
+      type: 'spent',
       category: ocrResult.category,
-      categoryEmoji: ocrResult.categoryEmoji,
-      expenseType: selectedExpenseType,
+      emotionType: expenseTypeToEmotionType(selectedExpenseType),
+      memo: ocrResult.storeName,
+      inputMethod: 'ocr',
       timestamp: new Date(),
-      isOCR: true
-    };
+    });
     
-    // 부모 컴포넌트로 전달
-    if (onAddExpense) {
-      onAddExpense(newExpense);
-    }
-    
-    // 채팅에도 추가
+    // 채팅에 확인 메시지 추가
     const confirmMsg: Message = {
       id: Date.now().toString(),
       type: 'ai',
@@ -630,7 +629,7 @@ function AIConversation({
     setOcrResult(null);
     setSelectedExpenseType('variable');
     
-    console.log('[영수증 OCR] 지출 저장 완료:', newExpense);
+    console.log('[영수증 OCR] 지출 저장 완료 - SpendContext에 추가됨');
   };
 
   useEffect(() => {
