@@ -137,8 +137,9 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   
-  // ★★★ 음성 모드 관련 상태 (AIConversation.tsx와 동일) ★★★
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  // ★★★ 대화 모드 상태 분리 (v2.0) ★★★
+  const [isChatMode, setIsChatMode] = useState(false);    // 대화창 표시 여부
+  const [isMicActive, setIsMicActive] = useState(false);  // 마이크 활성화 여부
   const [status, setStatus] = useState('대기중');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -317,7 +318,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
     if (isConnectedRef.current) return;
     try {
       setStatus('연결중...');
-      setIsVoiceMode(true);
+      setIsChatMode(true);    // 대화창 열기
+      setIsMicActive(true);   // 마이크 활성화
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } 
       });
@@ -378,32 +380,32 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         console.error('[금융집짓기] WebSocket 에러:', error);
         setStatus('연결 실패');
         cleanupVoiceMode();
-        setIsVoiceMode(false);
+        setIsMicActive(false);  // 마이크만 비활성화, 대화창은 유지
       };
       
       ws.onclose = () => {
         console.log('[금융집짓기] WebSocket 연결 종료');
         isConnectedRef.current = false;
         setStatus('대기중');
-        setIsVoiceMode(false);
+        setIsMicActive(false);  // 마이크만 비활성화, 대화창은 유지
       };
     } catch (error) {
       console.error('[금융집짓기] 마이크 에러:', error);
       alert('마이크 권한이 필요합니다.');
       cleanupVoiceMode();
-      setIsVoiceMode(false);
+      setIsMicActive(false);
       setStatus('대기중');
     }
   };
 
   const stopVoiceMode = () => {
     cleanupVoiceMode();
-    setIsVoiceMode(false);
+    setIsMicActive(false);  // 마이크만 비활성화, 대화창은 유지
     setStatus('대기중');
   };
 
   const toggleVoiceMode = () => {
-    if (isVoiceMode) {
+    if (isMicActive) {
       stopVoiceMode();
     } else {
       startVoiceMode();
@@ -415,6 +417,10 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   // ============================================
   const sendTextMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+    
+    // ★★★ 텍스트 입력 시 대화창 열기 (마이크는 활성화 안함) ★★★
+    if (!isChatMode) setIsChatMode(true);
+    
     const userMessage: Message = { id: Date.now().toString(), type: 'user', text: text.trim(), timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
@@ -560,8 +566,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
       return;
     }
 
-    // 대화창으로 전환
-    if (!isVoiceMode) setIsVoiceMode(true);
+    // ★★★ 대화창만 열기 (마이크는 활성화 안함) ★★★
+    if (!isChatMode) setIsChatMode(true);
 
     // ★★★ 이미지 썸네일 URL 생성 (BASE64 금지! URL.createObjectURL 사용) ★★★
     let imagePreviewUrl: string | undefined;
@@ -594,14 +600,18 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
       // FormData로 파일 직접 전송 (BASE64 변환 금지!)
       const formData = new FormData();
       
-      // 🆕 카메라 촬영 시 Blob으로 재생성하여 MIME 타입 보장
-      let fileToSend: File | Blob = file;
-      if (source === 'camera' && !file.type) {
-        fileToSend = new Blob([file], { type: 'image/jpeg' });
+      // ★★★ 1번 수정: 카메라 촬영 시 ArrayBuffer로 읽어서 새 File 생성 ★★★
+      if (source === 'camera') {
+        const arrayBuffer = await file.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+        const newFile = new File([blob], file.name || `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        formData.append('file', newFile);
+        formData.append('fileName', newFile.name);
+      } else {
+        formData.append('file', file);
+        formData.append('fileName', file.name);
       }
       
-      formData.append('file', fileToSend);
-      formData.append('fileName', file.name || `camera_${Date.now()}.jpg`);
       formData.append('fileType', isImage ? 'image' : 'pdf');
       formData.append('currentTab', currentTab);
 
@@ -716,7 +726,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         {/* 입력 폼 영역 (토글 시 위로 접힘) */}
         <div 
           className={`overflow-y-auto p-4 transition-all duration-300 ${
-            isVoiceMode ? 'max-h-32 overflow-hidden' : 'flex-1'
+            isChatMode ? 'max-h-32 overflow-hidden' : 'flex-1'
           }`}
           style={{ scrollbarWidth: 'thin' }}
         >
@@ -730,23 +740,36 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         </div>
 
         {/* 대화 영역 (토글 시 중간에 나타남) */}
-        {isVoiceMode && (
+        {isChatMode && (
           <div className="flex-1 flex flex-col mx-4 bg-gray-100 rounded-xl border border-gray-200 overflow-hidden">
-            {/* 음성 모드 인디케이터 */}
-            <div className="p-3 bg-green-50 border-b border-green-200 flex items-center justify-between flex-shrink-0">
+            {/* 대화 모드 인디케이터 */}
+            <div className={`p-3 border-b flex items-center justify-between flex-shrink-0 ${
+              isMicActive ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="w-1 bg-green-500 rounded-full animate-pulse" 
-                      style={{ height: `${12 + Math.random() * 8}px`, animationDelay: `${i * 100}ms` }}
-                    />
-                  ))}
-                </div>
-                <span className="text-green-700 font-semibold text-sm">머니야와 대화중... "{status}"</span>
+                {isMicActive ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <div 
+                          key={i} 
+                          className="w-1 bg-green-500 rounded-full animate-pulse" 
+                          style={{ height: `${12 + Math.random() * 8}px`, animationDelay: `${i * 100}ms` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-green-700 font-semibold text-sm">머니야와 대화중... "{status}"</span>
+                  </>
+                ) : (
+                  <span className="text-blue-700 font-semibold text-sm">💬 머니야와 대화</span>
+                )}
               </div>
-              <button onClick={stopVoiceMode} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
+              <button 
+                onClick={() => { stopVoiceMode(); setIsChatMode(false); }} 
+                className={`px-3 py-1 text-white text-xs font-bold rounded-full ${
+                  isMicActive ? 'bg-green-500' : 'bg-blue-500'
+                }`}
+              >
                 종료
               </button>
             </div>
@@ -821,7 +844,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
           <button 
             onClick={toggleVoiceMode}
             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${
-              isVoiceMode ? 'bg-red-500 animate-pulse' : 'bg-amber-400 hover:bg-amber-500'
+              isMicActive ? 'bg-red-500 animate-pulse' : 'bg-amber-400 hover:bg-amber-500'
             }`}
           >
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -838,16 +861,16 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
               onKeyPress={handleKeyPress}
               placeholder="지출 전에 물어보세요..."
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-              disabled={isLoading || isVoiceMode}
+              disabled={isLoading || isMicActive}
             />
           </div>
           
           {/* 전송 버튼 */}
           <button 
             onClick={() => sendTextMessage(inputMessage)}
-            disabled={!inputMessage.trim() || isLoading || isVoiceMode}
+            disabled={!inputMessage.trim() || isLoading || isMicActive}
             className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
-              inputMessage.trim() && !isLoading && !isVoiceMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
+              inputMessage.trim() && !isLoading && !isMicActive ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300'
             }`}
           >
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
