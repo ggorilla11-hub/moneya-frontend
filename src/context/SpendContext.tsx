@@ -1,12 +1,13 @@
 // src/context/SpendContext.tsx
 // 지출 데이터 전역 상태 관리 (공용 서랍장)
+// v2: addSpendItem에서 userId 자동 설정
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { SpendItem } from '../types/spend';
 
 interface SpendContextType {
   spendItems: SpendItem[];
-  addSpendItem: (item: Omit<SpendItem, 'id' | 'createdAt'>) => void;
+  addSpendItem: (item: Omit<SpendItem, 'id' | 'createdAt' | 'userId'>) => void;  // 🆕 v2: userId 제외
   deleteSpendItem: (id: string) => void;
   updateSpendItem: (id: string, updates: Partial<SpendItem>) => void;
   getTodayItems: () => SpendItem[];
@@ -54,14 +55,16 @@ export function SpendProvider({ children, userId = 'default' }: SpendProviderPro
     }
   }, [spendItems, storageKey]);
 
-  // 지출 추가
-  const addSpendItem = (item: Omit<SpendItem, 'id' | 'createdAt'>) => {
+  // 🆕 v2: 지출 추가 (userId 자동 설정)
+  const addSpendItem = (item: Omit<SpendItem, 'id' | 'createdAt' | 'userId'>) => {
     const newItem: SpendItem = {
       ...item,
+      userId: userId,  // 🆕 v2: Provider의 userId 자동 사용
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date(),
     };
     setSpendItems(prev => [newItem, ...prev]);
+    console.log('[SpendContext] 지출 추가됨:', newItem.memo, newItem.amount);
   };
 
   // 지출 삭제
