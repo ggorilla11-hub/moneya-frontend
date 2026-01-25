@@ -652,6 +652,28 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         };
         setMessages(prev => [...prev, analysisMsg]);
 
+        // ★★★ 방안 2: 머니야가 자동으로 분석 결과 요약을 음성으로 안내 ★★★
+        const summaryText = `대표님, 방금 업로드하신 서류를 분석했습니다. ${data.analysis.substring(0, 200).replace(/\n/g, ' ')}`;
+        
+        try {
+          const ttsResponse = await fetch(`${API_URL}/api/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: summaryText, voice: 'shimmer' }),
+          });
+          const ttsData = await ttsResponse.json();
+          if (ttsData.success && ttsData.audio) {
+            const audioBlob = new Blob([Uint8Array.from(atob(ttsData.audio), c => c.charCodeAt(0))], { type: 'audio/mp3' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.onended = () => URL.revokeObjectURL(audioUrl);
+            await audio.play();
+            console.log('🔊 [금융집짓기] 분석 결과 음성 안내 완료');
+          }
+        } catch (ttsError) {
+          console.error('[금융집짓기] TTS 에러:', ttsError);
+        }
+
         // 추가 질문 안내
         const guideMsg: Message = { 
           id: (Date.now() + 3).toString(), 
