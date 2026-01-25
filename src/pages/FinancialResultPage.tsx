@@ -63,8 +63,8 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
   // 현재 보여줄 집 레벨 (1-5)
   const [displayLevel, setDisplayLevel] = useState(result.level);
   
-  // 자동 복귀 타이머 ID
-  const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
+  // 자동 복귀 타이머 ID (number 타입으로 수정)
+  const [timerId, setTimerId] = useState<number | null>(null);
 
   // 현재 표시할 집 정보
   const currentHouse = HOUSE_IMAGES[displayLevel - 1];
@@ -81,7 +81,7 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
 
     // 본인 집이 아닌 경우에만 1초 후 자동 복귀
     if (level !== result.level) {
-      const newTimerId = setTimeout(() => {
+      const newTimerId = window.setTimeout(() => {
         setDisplayLevel(result.level);
       }, 1000);
       setTimerId(newTimerId);
