@@ -1,6 +1,5 @@
 // src/pages/spend/ManualInputModal.tsx
 // 수동 입력 모달 - 지출/감정저축 직접 입력 + 고정지출 카테고리 추가
-// v2: userId 제거 (SpendContext에서 자동 설정)
 
 import { useState } from 'react';
 import { useSpend } from '../../context/SpendContext';
@@ -64,7 +63,6 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
       categoryName = varCat?.name || category;
     }
 
-    // 🆕 v2: userId 제거 (SpendContext에서 자동 설정)
     addSpendItem({
       amount: numAmount,
       type: spendType,
@@ -207,7 +205,7 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {type === '충동' ? '🔥' : type === '🤔' ? '🤔' : '✅'} {type}
+                    {type === '충동' ? '🔥' : type === '선택' ? '🤔' : '✅'} {type}
                   </button>
                 ))}
               </div>
