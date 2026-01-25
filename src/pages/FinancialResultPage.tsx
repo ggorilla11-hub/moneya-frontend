@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // 5개 집 이미지 URL (Vercel assets)
 const HOUSE_IMAGES = [
@@ -63,8 +63,8 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
   // 현재 보여줄 집 레벨 (1-5)
   const [displayLevel, setDisplayLevel] = useState(result.level);
   
-  // 자동 복귀 타이머 ID (number 타입으로 수정)
-  const [timerId, setTimerId] = useState<number | null>(null);
+  // 자동 복귀 타이머 ref 사용 (타입 에러 방지)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 현재 표시할 집 정보
   const currentHouse = HOUSE_IMAGES[displayLevel - 1];
@@ -72,8 +72,8 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
   // 점 클릭 시 해당 집으로 전환
   const handleDotClick = (level: number) => {
     // 기존 타이머 제거
-    if (timerId) {
-      clearTimeout(timerId);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
     }
 
     // 해당 레벨로 전환
@@ -81,21 +81,20 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
 
     // 본인 집이 아닌 경우에만 1초 후 자동 복귀
     if (level !== result.level) {
-      const newTimerId = window.setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         setDisplayLevel(result.level);
       }, 1000);
-      setTimerId(newTimerId);
     }
   };
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
-      if (timerId) {
-        clearTimeout(timerId);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
       }
     };
-  }, [timerId]);
+  }, []);
 
   // result.level이 변경되면 displayLevel도 업데이트
   useEffect(() => {
