@@ -451,7 +451,36 @@ function AIConversation({
             setMessages(prev => [...prev, userMsg]);
           }
           if (msg.type === 'transcript' && msg.role === 'assistant') {
-            const aiMsg: Message = { id: (Date.now() + 1).toString(), type: 'ai', text: msg.text, timestamp: new Date() };
+            let displayText = msg.text;
+            
+            // 🆕 v5: 음성 지출 입력 감지 및 자동 저장
+            const spendMatch = msg.text.match(/\[SPEND_RECORD\](.*?)\[\/SPEND_RECORD\]/);
+            if (spendMatch) {
+              try {
+                const spendInfo = JSON.parse(spendMatch[1]);
+                console.log('[음성지출] 감지됨:', spendInfo);
+                
+                // 지출 자동 저장
+                addSpendItem({
+                  amount: spendInfo.amount,
+                  type: 'spent',
+                  category: spendInfo.category || '기타',
+                  emotionType: '선택',
+                  memo: spendInfo.memo,
+                  inputMethod: 'voice',
+                  timestamp: new Date(),
+                });
+                
+                console.log('[음성지출] 저장 완료:', spendInfo.memo, spendInfo.amount);
+                
+                // 태그 제거하고 표시
+                displayText = msg.text.replace(/\[SPEND_RECORD\].*?\[\/SPEND_RECORD\]\s*/g, '').trim();
+              } catch (e) {
+                console.error('[음성지출] 파싱 에러:', e);
+              }
+            }
+            
+            const aiMsg: Message = { id: (Date.now() + 1).toString(), type: 'ai', text: displayText, timestamp: new Date() };
             setMessages(prev => [...prev, aiMsg]);
           }
           if (msg.type === 'interrupt') {
@@ -527,7 +556,35 @@ function AIConversation({
         }),
       });
       const data = await response.json();
-      const aiText = data.success ? data.message : '다시 말씀해주세요!';
+      let aiText = data.success ? data.message : '다시 말씀해주세요!';
+      
+      // 🆕 v5: 텍스트 채팅에서도 음성 지출 입력 감지 및 자동 저장
+      const spendMatch = aiText.match(/\[SPEND_RECORD\](.*?)\[\/SPEND_RECORD\]/);
+      if (spendMatch) {
+        try {
+          const spendInfo = JSON.parse(spendMatch[1]);
+          console.log('[텍스트지출] 감지됨:', spendInfo);
+          
+          // 지출 자동 저장
+          addSpendItem({
+            amount: spendInfo.amount,
+            type: 'spent',
+            category: spendInfo.category || '기타',
+            emotionType: '선택',
+            memo: spendInfo.memo,
+            inputMethod: 'text',
+            timestamp: new Date(),
+          });
+          
+          console.log('[텍스트지출] 저장 완료:', spendInfo.memo, spendInfo.amount);
+          
+          // 태그 제거하고 표시
+          aiText = aiText.replace(/\[SPEND_RECORD\].*?\[\/SPEND_RECORD\]\s*/g, '').trim();
+        } catch (e) {
+          console.error('[텍스트지출] 파싱 에러:', e);
+        }
+      }
+      
       const aiResponse: Message = { id: (Date.now() + 1).toString(), type: 'ai', text: aiText, timestamp: new Date() };
       setMessages(prev => [...prev, aiResponse]);
       if (voiceEnabled) {
