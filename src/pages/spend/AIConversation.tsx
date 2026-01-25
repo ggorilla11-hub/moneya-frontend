@@ -218,8 +218,8 @@ function AIConversation({
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
   
-  // 🆕 v3: SpendContext에서 addSpendItem 가져오기
-  const { addSpendItem } = useSpend();
+  // 🆕 v3: SpendContext에서 addSpendItem, spendItems 가져오기
+  const { addSpendItem, spendItems, getTodayItems } = useSpend();
   
   // 🆕 v2: 영수증 OCR 관련 상태
   const [showInputMethodModal, setShowInputMethodModal] = useState(false);
@@ -398,12 +398,24 @@ function AIConversation({
         console.log('WebSocket 연결됨!');
         const financialContext = getFullFinancialContext();
         const designData = loadFinancialHouseDesignData();
+        
+        // 🆕 v4: 오늘 지출 내역 전송
+        const todayItems = getTodayItems();
+        const spendData = todayItems.map(item => ({
+          memo: item.memo,
+          amount: item.amount,
+          category: item.category,
+          emotionType: item.emotionType,
+          time: new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+        }));
+        
         const startMessage = { 
           type: 'start_app',
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget, dailyBudget, todaySpent },
-          designData: designData
+          designData: designData,
+          spendData: spendData  // 🆕 v4: 오늘 지출 내역
         };
         ws.send(JSON.stringify(startMessage));
         console.log('start_app 메시지 전송 완료');
@@ -483,6 +495,17 @@ function AIConversation({
     try {
       const financialContext = getFullFinancialContext();
       const designData = loadFinancialHouseDesignData();
+      
+      // 🆕 v4: 오늘 지출 내역 전송
+      const todayItems = getTodayItems();
+      const spendData = todayItems.map(item => ({
+        memo: item.memo,
+        amount: item.amount,
+        category: item.category,
+        emotionType: item.emotionType,
+        time: new Date(item.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+      }));
+      
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,7 +514,8 @@ function AIConversation({
           userName: displayName,
           financialContext,
           budgetInfo: { remainingBudget, dailyBudget, todaySpent },
-          designData: designData
+          designData: designData,
+          spendData: spendData  // 🆕 v4: 오늘 지출 내역
         }),
       });
       const data = await response.json();
