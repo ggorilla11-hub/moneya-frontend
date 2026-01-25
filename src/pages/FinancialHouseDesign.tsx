@@ -537,8 +537,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         })}
       </div>
 
-      {/* 메인 콘텐츠 영역 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* 메인 콘텐츠 영역 - 하단에 버튼바+내비바 높이만큼 패딩 */}
+      <div className="flex-1 flex flex-col overflow-hidden pb-32">
         
         {/* 입력 폼 영역 (토글 시 위로 접힘) */}
         <div 
@@ -558,7 +558,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
 
         {/* 대화 영역 (토글 시 중간에 나타남) */}
         {isVoiceMode && (
-          <div className="flex-1 flex flex-col mx-4 mb-2 bg-gray-100 rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex-1 flex flex-col mx-4 bg-gray-100 rounded-xl border border-gray-200 overflow-hidden">
             {/* 음성 모드 인디케이터 */}
             <div className="p-3 bg-green-50 border-b border-green-200 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -621,8 +621,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         )}
       </div>
 
-      {/* 하단 입력 영역 */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3 mb-16">
+      {/* 하단 입력 영역 - 내비바(약 64px) 위에 고정 */}
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-40">
         <div className="flex items-center gap-2">
           {/* + 버튼 (노란색) */}
           <button 
