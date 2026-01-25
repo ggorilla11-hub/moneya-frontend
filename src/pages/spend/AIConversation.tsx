@@ -220,9 +220,6 @@ function AIConversation({
   
   // 🆕 v3: SpendContext에서 addSpendItem 가져오기
   const { addSpendItem } = useSpend();
-
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [status, setStatus] = useState('대기중');
   
   // 🆕 v2: 영수증 OCR 관련 상태
   const [showInputMethodModal, setShowInputMethodModal] = useState(false);
