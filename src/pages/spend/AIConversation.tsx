@@ -602,7 +602,6 @@ function AIConversation({
     
     // SpendContext에 추가 (타임라인에 자동 반영)
     addSpendItem({
-      userId: 'default',
       amount: ocrResult.amount,
       type: 'spent',
       category: ocrResult.category,
