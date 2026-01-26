@@ -499,44 +499,295 @@ export function DebtPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 
+
 // ============================================
-// 3. 저축설계 카드 (기존 유지 - 다음 작업에서 수정)
+// 3. 저축설계 카드 (v2.0 - 목적자금별 저축 계획 + 포트폴리오 추천)
 // ============================================
+
+// 저축 목적 옵션
+const savingPurposeOptions = [
+  { id: 'house', label: '🏠 내집마련', icon: '🏠' },
+  { id: 'education', label: '🎓 자녀교육', icon: '🎓' },
+  { id: 'car', label: '🚗 자동차', icon: '🚗' },
+  { id: 'travel', label: '✈️ 여행', icon: '✈️' },
+  { id: 'wedding', label: '💍 결혼', icon: '💍' },
+  { id: 'emergency', label: '🆘 비상금', icon: '🆘' },
+  { id: 'retirement', label: '🏖️ 노후자금', icon: '🏖️' },
+  { id: 'other', label: '📝 기타목적', icon: '📝' },
+];
+
 export function SavePlanCard({ onNext, onPrev }: CardProps) {
-  const [formData, setFormData] = useState({ monthlyIncome: 500, monthlySaving: 100, targetRate: 20 });
-  useEffect(() => { const saved = loadDesignData('save'); if (saved) setFormData(saved); }, []);
-  useEffect(() => { saveDesignData('save', formData); }, [formData]);
-  const currentRate = formData.monthlyIncome > 0 ? (formData.monthlySaving / formData.monthlyIncome * 100) : 0;
-  const yearlyAmount = formData.monthlySaving * 12;
-  let rateColor = currentRate >= 20 ? 'text-green-600' : currentRate >= 10 ? 'text-yellow-600' : 'text-red-600';
+  const [showFormula, setShowFormula] = useState(false);
+  
+  // 입력 데이터
+  const [formData, setFormData] = useState({
+    purpose: 'house',
+    targetAmount: 10000, // 목표금액 (만원)
+    targetYears: 5,      // 목표기간 (년)
+  });
+  
+  // 기본정보에서 가져온 데이터
+  const [basicData, setBasicData] = useState({
+    age: 37,
+    savingsAmount: 0,    // 적금 (1~3년)
+    isaAmount: 0,        // ISA (3~5년)
+    fundAmount: 0,       // 펀드/ETF (10년+)
+  });
+
+  // 기본정보 데이터 불러오기
+  useEffect(() => {
+    const savedHouseData = localStorage.getItem('financialHouseData');
+    if (savedHouseData) {
+      try {
+        const parsed = JSON.parse(savedHouseData);
+        setBasicData({
+          age: parsed.personalInfo?.age || 37,
+          savingsAmount: parsed.expense?.savingsAmount || 0,
+          isaAmount: parsed.expense?.isaAmount || 0,
+          fundAmount: parsed.expense?.fundAmount || 0,
+        });
+      } catch (e) {
+        console.error('Failed to parse financialHouseData:', e);
+      }
+    }
+    
+    // 기존 저축설계 데이터 불러오기
+    const saved = loadDesignData('save');
+    if (saved?.purpose) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // 데이터 저장
+  useEffect(() => {
+    saveDesignData('save', formData);
+  }, [formData]);
+
+  // 계산 로직
+  const targetMonths = formData.targetYears * 12;
+  const monthlyRequired = Math.round(formData.targetAmount / targetMonths); // 월 필요 저축액
+  
+  // 목표 기간에 따른 현재 월 저축액 매칭
+  const getCurrentMonthlySaving = (): number => {
+    if (formData.targetYears <= 3) {
+      return basicData.savingsAmount; // 적금
+    } else if (formData.targetYears <= 5) {
+      return basicData.isaAmount; // ISA
+    } else {
+      return basicData.fundAmount; // 펀드/ETF
+    }
+  };
+  
+  const currentMonthlySaving = getCurrentMonthlySaving();
+  const additionalRequired = Math.max(0, monthlyRequired - currentMonthlySaving); // 월 추가 필요액
+
+  // 포트폴리오 추천 배분 로직 (보라색 버전 공식)
+  const age = Math.min(Math.max(basicData.age, 20), 70); // 20~70세로 제한
+  
+  const calculatePortfolio = () => {
+    const total = additionalRequired;
+    
+    if (formData.targetYears <= 5) {
+      // 5년 이하: 저축 100% (수시 50% + 적금 50%)
+      const halfAmount = Math.round(total / 2);
+      return [
+        { zone: '저축', term: '수시', purpose: '비상예비', amount: halfAmount, product: 'CMA' },
+        { zone: '저축', term: '1~3년', purpose: '단기목표', amount: total - halfAmount, product: '적금' },
+      ];
+    } else {
+      // 3~10년 이상: 저축 + 투자 (나이 비율)
+      const savingPart = Math.round(total * (age / 100));
+      const investPart = total - savingPart;
+      
+      const savingHalf = Math.round(savingPart / 2);
+      const investHalf = Math.round(investPart / 2);
+      
+      return [
+        { zone: '저축', term: '수시', purpose: '비상예비', amount: savingHalf, product: 'CMA' },
+        { zone: '저축', term: '1~3년', purpose: '단기목표', amount: savingPart - savingHalf, product: '적금' },
+        { zone: '투자', term: '3~5년', purpose: '목적자금', amount: investHalf, product: 'ISA' },
+        { zone: '투자', term: '10년+', purpose: '노후/자녀', amount: investPart - investHalf, product: '연금' },
+      ];
+    }
+  };
+
+  const portfolio = calculatePortfolio();
+  
+  // 목표금액 표시 (억원/만원)
+  const formatTargetAmount = (amount: number) => {
+    if (amount >= 10000) {
+      return `${(amount / 10000).toFixed(1)}억원`;
+    }
+    return `${amount.toLocaleString()}만원`;
+  };
+
+  // 현재 매칭 상품명
+  const getMatchedProduct = () => {
+    if (formData.targetYears <= 3) return '적금';
+    if (formData.targetYears <= 5) return 'ISA';
+    return '펀드/ETF';
+  };
+
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
   return (
     <div className="space-y-3">
+      {/* AI 메시지 */}
       <div className="flex gap-2.5">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">💰</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
-          <p>세 번째는 <span className="text-teal-600 font-bold">저축설계</span>입니다.</p>
+          <p>세 번째는 <span className="text-teal-600 font-bold">저축설계</span>입니다. 목적자금별로 저축 계획을 세워볼까요?</p>
         </div>
       </div>
-      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
-        <h3 className="text-base font-bold text-gray-800 mb-3">저축 정보 입력</h3>
-        <div className="space-y-2"><label className="text-sm font-semibold text-gray-700">월 소득</label><div className="flex items-center gap-2"><input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
-        <div className="space-y-2"><label className="text-sm font-semibold text-gray-700">월 저축액</label><div className="flex items-center gap-2"><input type="number" value={formData.monthlySaving} onChange={(e) => setFormData({...formData, monthlySaving: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
-        <div className="space-y-2"><label className="text-sm font-semibold text-gray-700">목표 저축률</label><div className="flex items-center gap-2"><input type="number" value={formData.targetRate} onChange={(e) => setFormData({...formData, targetRate: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" /><span className="text-sm text-gray-500 font-medium w-8">%</span></div></div>
+      
+      {/* 입력 폼 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">💰 저축설계</h3>
+        
+        {/* 저축 목적 선택 */}
+        <div className="mb-4">
+          <label className="text-sm font-semibold text-gray-700 block mb-2">🎯 저축 목적</label>
+          <div className="flex flex-wrap gap-2">
+            {savingPurposeOptions.map(option => (
+              <button
+                key={option.id}
+                onClick={() => setFormData({...formData, purpose: option.id})}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                  formData.purpose === option.id
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* 목표 금액 */}
+        <div className="mb-3">
+          <label className="text-sm font-semibold text-gray-700 block mb-1">💵 목표 금액</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={formData.targetAmount}
+              onChange={(e) => setFormData({...formData, targetAmount: Number(e.target.value)})}
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+            />
+            <span className="text-sm text-gray-500 font-medium w-10">만원</span>
+          </div>
+        </div>
+        
+        {/* 목표 기간 */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700 block mb-1">📅 목표 기간</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={formData.targetYears}
+              onChange={(e) => setFormData({...formData, targetYears: Number(e.target.value)})}
+              onFocus={handleFocus}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+            />
+            <span className="text-sm text-gray-500 font-medium w-8">년</span>
+          </div>
+        </div>
       </div>
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 space-y-2">
-        <h3 className="text-sm font-bold text-blue-800 mb-2">저축 분석 결과</h3>
-        <div className="flex justify-between text-sm"><span className="text-gray-700">현재 저축률</span><span className={`font-bold ${rateColor}`}>{currentRate.toFixed(1)}%</span></div>
-        <div className="flex justify-between text-sm"><span className="text-gray-700">연간 저축액</span><span className="font-bold text-blue-700">{yearlyAmount}만원</span></div>
+      
+      {/* 저축 계획 분석 결과 */}
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+        <h3 className="text-sm font-bold text-blue-800 mb-3">📊 저축 계획 분석</h3>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm py-1">
+            <span className="text-gray-700">목표 금액</span>
+            <span className="font-bold text-blue-700">{formatTargetAmount(formData.targetAmount)}</span>
+          </div>
+          <div className="flex justify-between text-sm py-1">
+            <span className="text-gray-700">목표 기간</span>
+            <span className="font-bold text-blue-700">{formData.targetYears}년 ({targetMonths}개월)</span>
+          </div>
+          <div className="flex justify-between text-sm py-1 border-t border-blue-200 pt-2">
+            <span className="text-gray-700">월 필요 저축액</span>
+            <span className="font-bold text-blue-600 text-lg">약 {monthlyRequired.toLocaleString()}만원</span>
+          </div>
+          <div className="flex justify-between text-sm py-1">
+            <span className="text-gray-700">현재 월 저축액 ({getMatchedProduct()})</span>
+            <span className="font-bold text-gray-700">{currentMonthlySaving.toLocaleString()}만원</span>
+          </div>
+          <div className="flex justify-between text-sm py-1 border-t border-blue-200 pt-2">
+            <span className="text-gray-700 font-bold">월 추가 필요액</span>
+            <span className={`font-bold text-lg ${additionalRequired > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {additionalRequired > 0 ? `${additionalRequired.toLocaleString()}만원` : '충분함 ✓'}
+            </span>
+          </div>
+        </div>
       </div>
+      
+      {/* 포트폴리오 추천 */}
+      {additionalRequired > 0 && (
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <h3 className="text-sm font-bold text-gray-800 mb-3">📊 저축/투자 포트폴리오 추천</h3>
+          
+          <div className="space-y-2">
+            {portfolio.filter(p => p.amount > 0).map((item, index) => (
+              <div key={index} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2.5">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                  item.zone === '저축' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                }`}>
+                  {item.zone}
+                </span>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-gray-800">{item.term} · {item.product}</div>
+                  <div className="text-[10px] text-gray-500">{item.purpose}</div>
+                </div>
+                <div className="text-sm font-bold text-gray-800">{item.amount.toLocaleString()}만원</div>
+              </div>
+            ))}
+          </div>
+          
+          {/* 면책조항 */}
+          <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-[10px] text-amber-700 text-center">
+              ⚠️ 이 포트폴리오는 이해를 돕기 위한 일반적인 예시이므로 참고만 하시기 바랍니다
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* 공식 보기 */}
+      <button 
+        onClick={() => setShowFormula(!showFormula)}
+        className="w-full text-left text-xs text-teal-600 font-medium flex items-center gap-1 hover:text-teal-800 transition-colors"
+      >
+        <span>📐 계산 방법 보기</span>
+        <span>{showFormula ? '▲' : '▼'}</span>
+      </button>
+      
+      {showFormula && (
+        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1 border border-gray-200">
+          <p><strong>월 필요 저축액:</strong></p>
+          <p>= 목표금액 ÷ 목표기간(개월)</p>
+          <p className="mt-2"><strong>현재 월 저축액 매칭:</strong></p>
+          <p>• 1~3년: 적금</p>
+          <p>• 3~5년: ISA</p>
+          <p>• 10년+: 펀드/ETF</p>
+          <p className="mt-2"><strong>포트폴리오 배분 (나이 {age}세 기준):</strong></p>
+          <p>• 저축 = 추가필요액 × ({age}/100)</p>
+          <p>• 투자 = 추가필요액 × ({100-age}/100)</p>
+        </div>
+      )}
+      
+      {/* 버튼 */}
       <div className="flex gap-2 pt-2">
-        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
-        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
+        <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors">← 이전</button>
+        <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm hover:from-teal-600 hover:to-teal-700 transition-colors">다음 →</button>
       </div>
     </div>
   );
 }
+
 
 // ============================================
 // 4. 투자설계 카드 (v2.0 - 부자지수 + 자산배분 테이블)
