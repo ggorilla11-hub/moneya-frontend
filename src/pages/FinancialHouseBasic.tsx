@@ -1,10 +1,12 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v2.0: 부채 입력 UI 개선 - 다중 대출 입력 지원 (+버튼으로 추가)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
 // 수정: normalizeToManwon 함수로 금액 단위 정규화 (수입/지출/자산/부채 모두 적용)
 // 추가: DESIRE 6단계 결과 표시
 // 수정 (2026-01-22): 자산 구조 변경 - 금융자산/부동산자산 분리, 예적금→예금+적금/적립금 분리
+// 수정 (2026-01-26): 부채 입력 UI 개선 - 담보대출/신용대출/기타부채 다중 입력 지원
 
 import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -40,6 +42,16 @@ interface AutoCalcRowProps {
   label: string;
   value: number;
   icon: string;
+}
+
+// ============================================
+// 대출 항목 인터페이스 (신규)
+// ============================================
+interface DebtItem {
+  id: string;
+  name: string;
+  amount: number;
+  rate: number;
 }
 
 // ============================================
@@ -84,6 +96,122 @@ const AutoCalcRow = ({ label, value, icon }: AutoCalcRowProps) => (
 );
 
 // ============================================
+// DebtItemRow 컴포넌트 (신규 - 개별 대출 항목)
+// ============================================
+interface DebtItemRowProps {
+  item: DebtItem;
+  onUpdate: (id: string, field: 'name' | 'amount' | 'rate', value: string | number) => void;
+  onDelete: (id: string) => void;
+}
+
+const DebtItemRow = ({ item, onUpdate, onDelete }: DebtItemRowProps) => (
+  <div className="flex items-center gap-2 py-2 px-2 bg-gray-50 rounded-lg mb-2">
+    <input
+      type="text"
+      value={item.name}
+      onChange={(e) => onUpdate(item.id, 'name', e.target.value)}
+      placeholder="대출명"
+      className="w-24 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-teal-500"
+    />
+    <div className="flex-1 relative">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={item.amount === 0 ? '' : String(item.amount)}
+        onChange={(e) => {
+          const val = e.target.value.replace(/[^0-9]/g, '');
+          onUpdate(item.id, 'amount', val ? parseInt(val, 10) : 0);
+        }}
+        placeholder="0"
+        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-right pr-8 focus:outline-none focus:border-teal-500"
+      />
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">만원</span>
+    </div>
+    <div className="w-16 relative">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={item.rate === 0 ? '' : String(item.rate)}
+        onChange={(e) => {
+          const val = e.target.value.replace(/[^0-9.]/g, '');
+          onUpdate(item.id, 'rate', val ? parseFloat(val) : 0);
+        }}
+        placeholder="0"
+        className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-right pr-5 focus:outline-none focus:border-teal-500"
+      />
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+    </div>
+    <button
+      onClick={() => onDelete(item.id)}
+      className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-500 text-xs hover:bg-red-200"
+    >
+      ×
+    </button>
+  </div>
+);
+
+// ============================================
+// DebtSection 컴포넌트 (신규 - 대출 섹션)
+// ============================================
+interface DebtSectionProps {
+  title: string;
+  icon: string;
+  items: DebtItem[];
+  onAdd: () => void;
+  onUpdate: (id: string, field: 'name' | 'amount' | 'rate', value: string | number) => void;
+  onDelete: (id: string) => void;
+  totalAmount: number;
+}
+
+const DebtSection = ({ title, icon, items, onAdd, onUpdate, onDelete, totalAmount }: DebtSectionProps) => (
+  <div className="mb-4">
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2">
+        <span className="text-base">{icon}</span>
+        <span className="text-sm font-semibold text-gray-700">{title}</span>
+      </div>
+      <button
+        onClick={onAdd}
+        className="w-7 h-7 flex items-center justify-center rounded-full bg-teal-100 text-teal-600 text-lg font-bold hover:bg-teal-200 transition-colors"
+      >
+        +
+      </button>
+    </div>
+    
+    {items.length === 0 ? (
+      <div className="text-center py-3 text-xs text-gray-400 bg-gray-50 rounded-lg">
+        + 버튼을 눌러 {title}을 추가하세요
+      </div>
+    ) : (
+      <>
+        <div className="text-[10px] text-gray-400 mb-1 px-2 flex">
+          <span className="w-24">대출명</span>
+          <span className="flex-1 text-right pr-8">금액</span>
+          <span className="w-16 text-right pr-5">이자율</span>
+          <span className="w-6"></span>
+        </div>
+        {items.map(item => (
+          <DebtItemRow
+            key={item.id}
+            item={item}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+          />
+        ))}
+      </>
+    )}
+    
+    {items.length > 0 && (
+      <div className="flex justify-between items-center pt-2 border-t border-gray-200 mt-2 px-2">
+        <span className="text-xs text-gray-500">{title} 합계</span>
+        <span className="text-sm font-bold text-red-500">{totalAmount.toLocaleString()}만원</span>
+      </div>
+    )}
+  </div>
+);
+
+// ============================================
 // 옵션 데이터
 // ============================================
 const interestOptions = [
@@ -117,6 +245,11 @@ const normalizeToManwon = (value: number): number => {
   }
   return value;
 };
+
+// ============================================
+// UUID 생성 함수
+// ============================================
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // ============================================
 // 메인 컴포넌트
@@ -191,13 +324,58 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [investmentRealEstate, setInvestmentRealEstate] = useState(0); // 투자용부동산
 
   // ============================================
-  // Step 5: 부채 (세부항목은 0으로 시작, 직접 입력)
+  // Step 5: 부채 (v2.0 - 다중 입력 지원)
   // ============================================
-  const [mortgageDebt, setMortgageDebt] = useState(0);
-  const [creditDebt, setCreditDebt] = useState(0);
-  const [otherDebt, setOtherDebt] = useState(0);
+  const [mortgageDebts, setMortgageDebts] = useState<DebtItem[]>([]); // 담보대출 배열
+  const [creditDebts, setCreditDebts] = useState<DebtItem[]>([]); // 신용대출 배열
+  const [otherDebts, setOtherDebts] = useState<DebtItem[]>([]); // 기타부채 배열
   const [emergencyFund, setEmergencyFund] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
+
+  // ============================================
+  // 부채 항목 추가/수정/삭제 함수
+  // ============================================
+  const addMortgageDebt = () => {
+    setMortgageDebts([...mortgageDebts, { id: generateId(), name: '', amount: 0, rate: 0 }]);
+  };
+  
+  const addCreditDebt = () => {
+    setCreditDebts([...creditDebts, { id: generateId(), name: '', amount: 0, rate: 0 }]);
+  };
+  
+  const addOtherDebt = () => {
+    setOtherDebts([...otherDebts, { id: generateId(), name: '', amount: 0, rate: 0 }]);
+  };
+  
+  const updateMortgageDebt = (id: string, field: 'name' | 'amount' | 'rate', value: string | number) => {
+    setMortgageDebts(mortgageDebts.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+  
+  const updateCreditDebt = (id: string, field: 'name' | 'amount' | 'rate', value: string | number) => {
+    setCreditDebts(creditDebts.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+  
+  const updateOtherDebt = (id: string, field: 'name' | 'amount' | 'rate', value: string | number) => {
+    setOtherDebts(otherDebts.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+  
+  const deleteMortgageDebt = (id: string) => {
+    setMortgageDebts(mortgageDebts.filter(item => item.id !== id));
+  };
+  
+  const deleteCreditDebt = (id: string) => {
+    setCreditDebts(creditDebts.filter(item => item.id !== id));
+  };
+  
+  const deleteOtherDebt = (id: string) => {
+    setOtherDebts(otherDebts.filter(item => item.id !== id));
+  };
 
   // ============================================
   // 계산값
@@ -217,7 +395,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   // 총 자산 = 금융자산 + 부동산자산
   const totalAsset = totalFinancialAsset + totalRealEstateAsset;
   
-  const totalDebt = mortgageDebt + creditDebt + otherDebt;
+  // 부채 합계 (v2.0 - 배열 합계)
+  const totalMortgageDebt = mortgageDebts.reduce((sum, item) => sum + item.amount, 0);
+  const totalCreditDebt = creditDebts.reduce((sum, item) => sum + item.amount, 0);
+  const totalOtherDebt = otherDebts.reduce((sum, item) => sum + item.amount, 0);
+  const totalDebt = totalMortgageDebt + totalCreditDebt + totalOtherDebt;
+  
   const progress = (currentStep / totalSteps) * 100;
 
   // ============================================
@@ -241,7 +424,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   // ============================================
   const getDesireStage = (): { stage: number; label: string; description: string; color: string } => {
     // 1단계: 신용대출이 있으면
-    if (creditDebt > 0) {
+    if (totalCreditDebt > 0) {
       return { stage: 1, label: 'D단계 (Debt Free)', description: '신용대출 상환이 필요합니다', color: 'text-red-600' };
     }
     // 2단계: 비상예비자금이 없으면
@@ -259,7 +442,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       return { stage: 4, label: 'I단계 (Investment)', description: '금융자산 10억 목표 달성 중', color: 'text-blue-600' };
     }
     // 5단계: 담보대출이 있으면
-    if (mortgageDebt > 0) {
+    if (totalMortgageDebt > 0) {
       return { stage: 5, label: 'R단계 (Retirement)', description: '담보대출 상환이 필요합니다', color: 'text-purple-600' };
     }
     // 6단계: 담보대출이 없으면 (모든 조건 충족)
@@ -302,7 +485,18 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       financialAssets: { cmaAsset, goldAsset, bondAsset, depositAsset, installmentAsset, pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset, insuranceRefundAsset },
       realEstateAssets: { residentialRealEstate, investmentRealEstate },
       totalFinancialAsset, totalRealEstateAsset, totalAsset,
-      debts: { mortgageDebt, creditDebt, otherDebt, emergencyFund },
+      // v2.0: 부채 배열로 저장
+      debts: { 
+        mortgageDebts, // 담보대출 배열
+        creditDebts,   // 신용대출 배열
+        otherDebts,    // 기타부채 배열
+        emergencyFund,
+        // 합계 (호환성 유지)
+        totalMortgageDebt,
+        totalCreditDebt,
+        totalOtherDebt,
+        totalDebt
+      },
       desireStage: desireResult,
     }));
   };
@@ -469,21 +663,59 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
           </>
         )}
 
-        {/* Step 5: 부채/요약 */}
+        {/* Step 5: 부채/요약 (v2.0 - 다중 대출 입력) */}
         {currentStep === 5 && (
           <>
             <div className="flex gap-3 mb-4"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">👨‍🏫</div><div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1"><p className="text-sm text-gray-700">마지막 <span className="text-teal-600 font-bold">부채</span> 입력! 📋</p></div></div>
             
-            {/* 부채 */}
+            {/* 부채 (v2.0 - 다중 입력) */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
-              <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div><div><h3 className="font-bold text-gray-900">부채</h3><p className="text-xs text-gray-400">현재 대출 잔액</p></div></div>
-              <InputRow label="담보대출" value={mortgageDebt} onChange={setMortgageDebt} icon="🏠" />
-              <InputRow label="신용대출" value={creditDebt} onChange={setCreditDebt} icon="💳" />
-              <InputRow label="기타부채" value={otherDebt} onChange={setOtherDebt} icon="📦" />
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
-                <span className="text-sm font-semibold text-gray-700">총 부채</span>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl">💳</div>
+                <div>
+                  <h3 className="font-bold text-gray-900">부채</h3>
+                  <p className="text-xs text-gray-400">현재 대출 잔액</p>
+                </div>
+              </div>
+              
+              {/* 담보대출 섹션 */}
+              <DebtSection
+                title="담보대출"
+                icon="🏠"
+                items={mortgageDebts}
+                onAdd={addMortgageDebt}
+                onUpdate={updateMortgageDebt}
+                onDelete={deleteMortgageDebt}
+                totalAmount={totalMortgageDebt}
+              />
+              
+              {/* 신용대출 섹션 */}
+              <DebtSection
+                title="신용대출"
+                icon="💳"
+                items={creditDebts}
+                onAdd={addCreditDebt}
+                onUpdate={updateCreditDebt}
+                onDelete={deleteCreditDebt}
+                totalAmount={totalCreditDebt}
+              />
+              
+              {/* 기타부채 섹션 */}
+              <DebtSection
+                title="기타부채(보증금)"
+                icon="📦"
+                items={otherDebts}
+                onAdd={addOtherDebt}
+                onUpdate={updateOtherDebt}
+                onDelete={deleteOtherDebt}
+                totalAmount={totalOtherDebt}
+              />
+              
+              {/* 총 부채 합계 */}
+              <div className="mt-4 pt-3 border-t-2 border-gray-300 flex justify-between items-center">
+                <span className="text-sm font-bold text-gray-700">총 부채</span>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-red-500">{displayDebt.toLocaleString()}만원</span>
+                  <span className="text-xl font-bold text-red-500">{displayDebt.toLocaleString()}만원</span>
                   {totalDebt === 0 && existingDebt > 0 && <span className="text-xs text-gray-400 ml-1">(기존)</span>}
                 </div>
               </div>
@@ -509,6 +741,17 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">부동산자산</span><span className="text-sm font-semibold text-amber-600">{totalRealEstateAsset.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 자산</span><span className="text-sm font-semibold text-indigo-600">{displayAsset.toLocaleString()}만원</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-sm text-gray-600">총 부채</span><span className="text-sm font-semibold text-red-500">{displayDebt.toLocaleString()}만원</span></div>
+                  
+                  {/* 부채 상세 (v2.0) */}
+                  {(mortgageDebts.length > 0 || creditDebts.length > 0 || otherDebts.length > 0) && (
+                    <div className="pt-2 border-t border-teal-200 mt-2">
+                      <p className="text-xs text-gray-500 mb-1">부채 상세:</p>
+                      {mortgageDebts.length > 0 && <p className="text-xs text-gray-600 pl-2">• 담보대출 {mortgageDebts.length}건 ({totalMortgageDebt.toLocaleString()}만원)</p>}
+                      {creditDebts.length > 0 && <p className="text-xs text-gray-600 pl-2">• 신용대출 {creditDebts.length}건 ({totalCreditDebt.toLocaleString()}만원)</p>}
+                      {otherDebts.length > 0 && <p className="text-xs text-gray-600 pl-2">• 기타부채 {otherDebts.length}건 ({totalOtherDebt.toLocaleString()}만원)</p>}
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between py-2 border-t border-teal-200 mt-2"><span className="text-sm font-bold text-gray-900">💎 순자산</span><span className="text-lg font-bold text-teal-600">{(displayAsset - displayDebt).toLocaleString()}만원</span></div>
                   
                   {/* DESIRE 6단계 결과 */}
