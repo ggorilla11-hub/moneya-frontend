@@ -851,37 +851,51 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
     highRiskAssets: 1000,
   });
 
-  // 기본정보에서 데이터 불러오기
+  // 기본정보에서 데이터 불러오기 (v2.2 수정: financialAssets 경로 사용)
   useEffect(() => {
     const savedHouseData = localStorage.getItem('financialHouseData');
     if (savedHouseData) {
       try {
         const parsed = JSON.parse(savedHouseData);
+        const fa = parsed.financialAssets || {};
         
-        // 유동성: CMA
-        const liquidAssets = (parsed.expense?.cmaAmount || 0);
+        // 유동성 = CMA + 금
+        const liquidAssets = (fa.cmaAsset || 0) + (fa.goldAsset || 0);
         
-        // 안전성: 예금 + 연금적립금 + 저축적립금 + 적금적립금
+        // 안전성 = 예금 + 채권 + 적금/적립금 + 연금적립금 + 저축적립금
         const safeAssets = 
-          (parsed.expense?.savingsAmount || 0) +      // 예금
-          (parsed.asset?.pensionReserve || 0) +       // 연금적립금
-          (parsed.asset?.savingsReserve || 0) +       // 저축적립금
-          (parsed.asset?.depositReserve || 0);        // 적금적립금
+          (fa.depositAsset || 0) +      // 예금
+          (fa.bondAsset || 0) +         // 채권
+          (fa.installmentAsset || 0) +  // 적금/적립금
+          (fa.pensionAsset || 0) +      // 연금적립금
+          (fa.savingsAsset || 0);       // 저축적립금
         
-        // 수익성: 펀드, ETF, ISA
+        // 수익성 = 펀드적립금 + ETF
         const growthAssets = 
-          (parsed.expense?.fundAmount || 0) + 
-          (parsed.expense?.isaAmount || 0);
+          (fa.fundSavingsAsset || 0) + 
+          (fa.etfAsset || 0);
+        
+        // 고수익 = 주식 + 가상화폐
+        const highRiskAssets = 
+          (fa.stockAsset || 0) + 
+          (fa.cryptoAsset || 0);
+        
+        // 월수입 계산 (본인 + 배우자)
+        const monthlyIncome = 
+          (parsed.income?.myIncome || 0) + 
+          (parsed.income?.spouseIncome || 0) + 
+          (parsed.income?.otherIncome || 0);
         
         setFormData(prev => ({
           ...prev,
-          currentAge: parsed.personalInfo?.age || 37,
-          monthlyIncome: parsed.income?.monthlyIncome || 500,
-          totalAssets: parsed.asset?.totalAssets || 25000,
-          totalDebt: parsed.debt?.totalDebt || 10000,
+          currentAge: parsed.personalInfo?.age || prev.currentAge,
+          monthlyIncome: monthlyIncome || prev.monthlyIncome,
+          totalAssets: parsed.totalAsset || prev.totalAssets,
+          totalDebt: parsed.debts?.totalDebt || prev.totalDebt,
           liquidAssets: liquidAssets || prev.liquidAssets,
           safeAssets: safeAssets || prev.safeAssets,
           growthAssets: growthAssets || prev.growthAssets,
+          highRiskAssets: highRiskAssets || prev.highRiskAssets,
         }));
       } catch (e) {
         console.error('Failed to parse financialHouseData:', e);
