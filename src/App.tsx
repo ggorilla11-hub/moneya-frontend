@@ -79,6 +79,9 @@ function App() {
   
   // 금융집짓기 스텝 관리
   const [financialHouseStep, setFinancialHouseStep] = useState<'disclaimer' | 'basic' | 'design' | 'result'>('disclaimer');
+  
+  // v2.0: 2단계 마지막 탭 위치 기억 (3단계에서 백 시 사용)
+  const [lastDesignTab, setLastDesignTab] = useState<string>('insurance');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -288,6 +291,7 @@ function App() {
       setIncomeExpenseData(null);
       setAdjustedBudget(null);
       setFinancialHouseStep('disclaimer');
+      setLastDesignTab('insurance'); // v2.0: 리셋 시 마지막 탭도 초기화
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
@@ -307,6 +311,18 @@ function App() {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
     }
     setFinancialHouseStep('disclaimer');
+    setLastDesignTab('insurance'); // v2.0: 다시 설계 시 마지막 탭 초기화
+  };
+
+  // v2.0: 2단계 탭 변경 핸들러 (마지막 탭 위치 기억)
+  const handleDesignTabChange = (tabId: string) => {
+    setLastDesignTab(tabId);
+  };
+
+  // v2.0: 3단계에서 백 시 2단계 마지막 탭으로 이동
+  const handleResultBack = () => {
+    setFinancialHouseStep('design');
+    // lastDesignTab은 이미 설정되어 있으므로 FinancialHouseDesign에서 사용
   };
 
   if (loading) {
@@ -535,13 +551,15 @@ function App() {
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={handleFinancialHouseComplete}
                   onBack={() => setFinancialHouseStep('basic')}
+                  onTabChange={handleDesignTabChange}
+                  initialTab={lastDesignTab}
                 />
               )}
               {financialHouseStep === 'result' && (
                 <FinancialHouseResult
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
-                  onBack={() => setFinancialHouseStep('design')}
+                  onBack={handleResultBack}
                   onNavigate={(path) => {
                     if (path === 'mypage-consulting') {
                       setCurrentStep('consulting');
