@@ -830,58 +830,59 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
 
 
 // ============================================
-// 4. 투자설계 카드 (v2.1 - 시뮬레이터 기반 + 가로 스크롤 테이블)
+// 4. 투자설계 카드 (v2.2 - UI 정리 + 안전성 자산 로직 수정)
 // ============================================
 export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
   
-  // 기본정보에서 가져온 데이터
-  const [basicData, setBasicData] = useState({
-    age: 37,
+  // 직접 입력 데이터
+  const [formData, setFormData] = useState({
+    currentAge: 37,
     monthlyIncome: 500,
-    // 유동성 자산 (CMA, 파킹통장, 금)
-    cmaAmount: 0,
-    // 안전성 자산 (예금, 채권, 연금)
-    savingsAmount: 0,   // 적금/예금
-    pensionAmount: 0,   // 연금
-    // 수익성 자산 (펀드, ETF)
-    fundAmount: 0,
-    isaAmount: 0,
-    // 고수익 자산 (주식, 가상화폐) - 기본정보에 없으면 직접 입력
-    stockAmount: 0,
-    cryptoAmount: 0,
-    // 총자산/부채
     totalAssets: 25000,
     totalDebt: 10000,
+    // 유동성 (CMA, 파킹통장, 금)
+    liquidAssets: 1500,
+    // 안전성 (예금, 채권, 연금적립금, 저축적립금, 적금적립금)
+    safeAssets: 10000,
+    // 수익성 (펀드, ETF)
+    growthAssets: 2500,
+    // 고수익 (주식, 가상화폐)
+    highRiskAssets: 1000,
   });
 
-  // 직접 입력 데이터 (기본정보에 없는 항목)
-  const [formData, setFormData] = useState({
-    goldAmount: 0,        // 금
-    bondAmount: 0,        // 채권
-    stockAmount: 0,       // 주식
-    cryptoAmount: 0,      // 가상화폐
-  });
-
-  // 기본정보 데이터 불러오기
+  // 기본정보에서 데이터 불러오기
   useEffect(() => {
     const savedHouseData = localStorage.getItem('financialHouseData');
     if (savedHouseData) {
       try {
         const parsed = JSON.parse(savedHouseData);
-        setBasicData({
-          age: parsed.personalInfo?.age || 37,
+        
+        // 유동성: CMA
+        const liquidAssets = (parsed.expense?.cmaAmount || 0);
+        
+        // 안전성: 예금 + 연금적립금 + 저축적립금 + 적금적립금
+        const safeAssets = 
+          (parsed.expense?.savingsAmount || 0) +      // 예금
+          (parsed.asset?.pensionReserve || 0) +       // 연금적립금
+          (parsed.asset?.savingsReserve || 0) +       // 저축적립금
+          (parsed.asset?.depositReserve || 0);        // 적금적립금
+        
+        // 수익성: 펀드, ETF, ISA
+        const growthAssets = 
+          (parsed.expense?.fundAmount || 0) + 
+          (parsed.expense?.isaAmount || 0);
+        
+        setFormData(prev => ({
+          ...prev,
+          currentAge: parsed.personalInfo?.age || 37,
           monthlyIncome: parsed.income?.monthlyIncome || 500,
-          cmaAmount: parsed.expense?.cmaAmount || 0,
-          savingsAmount: parsed.expense?.savingsAmount || 0,
-          pensionAmount: parsed.expense?.pensionAmount || 0,
-          fundAmount: parsed.expense?.fundAmount || 0,
-          isaAmount: parsed.expense?.isaAmount || 0,
-          stockAmount: 0,
-          cryptoAmount: 0,
           totalAssets: parsed.asset?.totalAssets || 25000,
           totalDebt: parsed.debt?.totalDebt || 10000,
-        });
+          liquidAssets: liquidAssets || prev.liquidAssets,
+          safeAssets: safeAssets || prev.safeAssets,
+          growthAssets: growthAssets || prev.growthAssets,
+        }));
       } catch (e) {
         console.error('Failed to parse financialHouseData:', e);
       }
@@ -889,7 +890,7 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
     
     // 기존 투자설계 데이터 불러오기
     const saved = loadDesignData('invest');
-    if (saved?.goldAmount !== undefined) {
+    if (saved?.currentAge) {
       setFormData(saved);
     }
   }, []);
@@ -899,21 +900,15 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
     saveDesignData('invest', formData);
   }, [formData]);
 
-  // 자산 계산
-  const liquidAssets = basicData.cmaAmount + formData.goldAmount; // 유동성: CMA, 파킹통장, 금
-  const safeAssets = basicData.savingsAmount + basicData.pensionAmount + formData.bondAmount; // 안전성: 예금, 채권, 연금
-  const growthAssets = basicData.fundAmount + basicData.isaAmount; // 수익성: 펀드, ETF
-  const highRiskAssets = formData.stockAmount + formData.cryptoAmount; // 고수익: 주식, 가상화폐
-  
   // 금융전체자산 (투자자산 합계)
-  const totalFinancialAssets = liquidAssets + safeAssets + growthAssets + highRiskAssets;
+  const totalFinancialAssets = formData.liquidAssets + formData.safeAssets + formData.growthAssets + formData.highRiskAssets;
   
   // 순자산 계산
-  const netAssets = basicData.totalAssets - basicData.totalDebt;
+  const netAssets = formData.totalAssets - formData.totalDebt;
   
   // 부자지수 계산: ((순자산 × 10) ÷ (나이 × 소득 × 12)) × 100
-  const wealthIndex = basicData.age > 0 && basicData.monthlyIncome > 0 
-    ? ((netAssets * 10) / (basicData.age * basicData.monthlyIncome * 12)) * 100 
+  const wealthIndex = formData.currentAge > 0 && formData.monthlyIncome > 0 
+    ? ((netAssets * 10) / (formData.currentAge * formData.monthlyIncome * 12)) * 100 
     : 0;
   
   // 부자지수 등급 및 아이콘
@@ -928,13 +923,7 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const wealthGrade = getWealthGrade(wealthIndex);
   
   // 기준 비율 및 기준금액
-  const targetRatios = {
-    liquid: 20,
-    safe: 50,
-    growth: 20,
-    highRisk: 10,
-  };
-  
+  const targetRatios = { liquid: 20, safe: 50, growth: 20, highRisk: 10 };
   const targetAmounts = {
     liquid: Math.round(totalFinancialAssets * 0.20),
     safe: Math.round(totalFinancialAssets * 0.50),
@@ -943,16 +932,14 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   };
   
   // 비상예비자금 (소득의 3~6배)
-  const emergencyFundMin = basicData.monthlyIncome * 3;
-  const emergencyFundMax = basicData.monthlyIncome * 6;
-  const emergencyGap = emergencyFundMin - liquidAssets;
-  const hasEmergencyFund = liquidAssets >= emergencyFundMin;
+  const emergencyFundMin = formData.monthlyIncome * 3;
+  const emergencyFundMax = formData.monthlyIncome * 6;
+  const emergencyGap = emergencyFundMin - formData.liquidAssets;
+  const hasEmergencyFund = formData.liquidAssets >= emergencyFundMin;
 
   // 금액 포맷팅
   const formatAmount = (amount: number) => {
-    if (amount >= 10000) {
-      return `${(amount / 10000).toFixed(1)}억`;
-    }
+    if (amount >= 10000) return `${(amount / 10000).toFixed(1)}억`;
     return `${amount.toLocaleString()}만`;
   };
 
@@ -960,46 +947,10 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
 
   // 자산배분 데이터
   const assetAllocation = [
-    {
-      type: '유동성',
-      icon: '💧',
-      iconBg: 'bg-blue-100',
-      current: liquidAssets,
-      ratio: targetRatios.liquid,
-      target: targetAmounts.liquid,
-      note: 'CMA, 파킹통장, 금',
-      status: liquidAssets >= targetAmounts.liquid ? 'ok' : 'under',
-    },
-    {
-      type: '안전성',
-      icon: '🔒',
-      iconBg: 'bg-green-100',
-      current: safeAssets,
-      ratio: targetRatios.safe,
-      target: targetAmounts.safe,
-      note: '예금, 채권, 연금',
-      status: safeAssets > targetAmounts.safe * 1.1 ? 'over' : 'ok',
-    },
-    {
-      type: '수익성',
-      icon: '📊',
-      iconBg: 'bg-orange-100',
-      current: growthAssets,
-      ratio: targetRatios.growth,
-      target: targetAmounts.growth,
-      note: '펀드, ETF',
-      status: growthAssets >= targetAmounts.growth ? 'ok' : 'under',
-    },
-    {
-      type: '고수익',
-      icon: '🚀',
-      iconBg: 'bg-red-100',
-      current: highRiskAssets,
-      ratio: targetRatios.highRisk,
-      target: targetAmounts.highRisk,
-      note: '주식, 가상화폐',
-      status: highRiskAssets > targetAmounts.highRisk * 1.5 ? 'over' : 'ok',
-    },
+    { type: '유동성', icon: '💧', iconBg: 'bg-blue-100', current: formData.liquidAssets, ratio: targetRatios.liquid, target: targetAmounts.liquid, note: 'CMA, 파킹통장, 금', status: formData.liquidAssets >= targetAmounts.liquid ? 'ok' : 'under' },
+    { type: '안전성', icon: '🔒', iconBg: 'bg-green-100', current: formData.safeAssets, ratio: targetRatios.safe, target: targetAmounts.safe, note: '예금, 채권, 연금', status: formData.safeAssets > targetAmounts.safe * 1.1 ? 'over' : 'ok' },
+    { type: '수익성', icon: '📊', iconBg: 'bg-orange-100', current: formData.growthAssets, ratio: targetRatios.growth, target: targetAmounts.growth, note: '펀드, ETF', status: formData.growthAssets >= targetAmounts.growth ? 'ok' : 'under' },
+    { type: '고수익', icon: '🚀', iconBg: 'bg-red-100', current: formData.highRiskAssets, ratio: targetRatios.highRisk, target: targetAmounts.highRisk, note: '주식, 가상화폐', status: formData.highRiskAssets > targetAmounts.highRisk * 1.5 ? 'over' : 'ok' },
   ];
 
   return (
@@ -1009,6 +960,67 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">📈</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
           <p>네 번째는 <span className="text-teal-600 font-bold">투자설계</span>입니다. 부자지수와 자산배분 포트폴리오를 분석해 드릴게요.</p>
+        </div>
+      </div>
+      
+      {/* 입력 폼 - 한 줄씩 정리 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h3 className="text-base font-bold text-gray-800 mb-3">📈 투자설계</h3>
+        
+        <div className="space-y-2">
+          <div className="flex items-center">
+            <label className="text-sm font-semibold text-gray-700 w-20">현재 나이</label>
+            <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+            <span className="text-sm text-gray-500 w-12 text-right">세</span>
+          </div>
+          <div className="flex items-center">
+            <label className="text-sm font-semibold text-gray-700 w-20">월 소득</label>
+            <input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+            <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+          </div>
+          <div className="flex items-center">
+            <label className="text-sm font-semibold text-gray-700 w-20">총 자산</label>
+            <input type="number" value={formData.totalAssets} onChange={(e) => setFormData({...formData, totalAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+            <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+          </div>
+          <div className="flex items-center">
+            <label className="text-sm font-semibold text-gray-700 w-20">총 부채</label>
+            <input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+            <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+          </div>
+        </div>
+        
+        <div className="border-t border-gray-200 pt-3 mt-3">
+          <h4 className="text-sm font-bold text-gray-700 mb-2">자산 배분 입력</h4>
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <label className="text-sm text-gray-700 w-20">💧 유동성</label>
+              <input type="number" value={formData.liquidAssets} onChange={(e) => setFormData({...formData, liquidAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+              <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+            </div>
+            <p className="text-[10px] text-gray-400 ml-20">CMA, 파킹통장, 금</p>
+            
+            <div className="flex items-center">
+              <label className="text-sm text-gray-700 w-20">🔒 안전성</label>
+              <input type="number" value={formData.safeAssets} onChange={(e) => setFormData({...formData, safeAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+              <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+            </div>
+            <p className="text-[10px] text-gray-400 ml-20">예금, 채권, 연금</p>
+            
+            <div className="flex items-center">
+              <label className="text-sm text-gray-700 w-20">📊 수익성</label>
+              <input type="number" value={formData.growthAssets} onChange={(e) => setFormData({...formData, growthAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+              <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+            </div>
+            <p className="text-[10px] text-gray-400 ml-20">펀드, ETF</p>
+            
+            <div className="flex items-center">
+              <label className="text-sm text-gray-700 w-20">🔥 고수익</label>
+              <input type="number" value={formData.highRiskAssets} onChange={(e) => setFormData({...formData, highRiskAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:border-teal-500 outline-none" />
+              <span className="text-sm text-gray-500 w-12 text-right">만원</span>
+            </div>
+            <p className="text-[10px] text-gray-400 ml-20">주식, 코인</p>
+          </div>
         </div>
       </div>
       
@@ -1022,18 +1034,18 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
             <span className={`font-bold ${wealthGrade.color}`}>{wealthGrade.grade}</span>
           </div>
           <p className="text-[10px] text-gray-500 mt-2">
-            ((순자산 {formatAmount(netAssets)} × 10) ÷ ({basicData.age}세 × {basicData.monthlyIncome}만원 × 12)) × 100
+            순자산 {formatAmount(netAssets)} 기준
           </p>
         </div>
       </div>
       
       {/* 부자지수 등급 안내 */}
       <div className="bg-gray-50 rounded-lg p-2 text-[10px] text-gray-600 flex flex-wrap gap-2 justify-center">
-        <span>🏕️ 0%↓ 텐트</span>
-        <span>🏠 50%↓ 2단계</span>
-        <span>🏡 100%↓ 3단계</span>
-        <span>🏘️ 200%↓ 4단계</span>
-        <span>🏰 200%↑ 궁전</span>
+        <span>🏕️ 0%↓</span>
+        <span>🏠 50%↓</span>
+        <span>🏡 100%↓</span>
+        <span>🏘️ 200%↓</span>
+        <span>🏰 200%↑</span>
       </div>
       
       {/* 자산배분 포트폴리오 테이블 (가로 스크롤) */}
@@ -1074,7 +1086,6 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
             </tbody>
           </table>
         </div>
-        {/* 스크롤 힌트 */}
         <div className="text-center py-1 bg-gray-50 border-t border-gray-100">
           <span className="text-[10px] text-gray-400">← 좌우로 스크롤하세요 →</span>
         </div>
@@ -1088,11 +1099,11 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
             비상예비자금: {hasEmergencyFund ? '확보 ✅' : '없음 ❌'}
           </p>
           <p className="text-xs text-gray-600">
-            필요액: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (가구소득 {basicData.monthlyIncome}만×3~6배)
+            필요액: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (소득의 3~6배)
           </p>
           {!hasEmergencyFund && (
             <p className="text-xs mt-1">
-              현재 유동성: {liquidAssets.toLocaleString()}만원 → <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원 부족</span>
+              현재 유동성: {formData.liquidAssets.toLocaleString()}만원 → <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원 부족</span>
             </p>
           )}
         </div>
@@ -1113,7 +1124,7 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
           <p>((순자산 × 10) ÷ (나이 × 월소득 × 12)) × 100</p>
           <p className="mt-2"><strong>자산배분 기준:</strong></p>
           <p>• 유동성 20%: CMA, 파킹통장, 금</p>
-          <p>• 안전성 50%: 예금, 채권, 연금</p>
+          <p>• 안전성 50%: 예금, 채권, 연금적립금, 저축적립금, 적금적립금</p>
           <p>• 수익성 20%: 펀드, ETF</p>
           <p>• 고수익 10%: 주식, 가상화폐</p>
         </div>
