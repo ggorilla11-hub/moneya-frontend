@@ -15,6 +15,17 @@ interface CardProps {
 }
 
 // ============================================
+// 면책조항 컴포넌트 (7개 탭 공통)
+// ============================================
+const DisclaimerBox = () => (
+  <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+    <p className="text-[10px] text-amber-700 text-center">
+      ⚠️ 본 설계는 이해를 돕기 위한 일반적인 예시이므로 참고만 하시기 바랍니다. 이해를 돕기 위해 원가계산방식을 사용하였습니다.
+    </p>
+  </div>
+);
+
+// ============================================
 // 1. 은퇴설계 카드 (v2.0 - 용어 변경 + 공식 접기/펼치기)
 // ============================================
 export function RetirePlanCard({ onNext, onPrev }: CardProps) {
@@ -227,6 +238,9 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
           </div>
         )}
       </div>
+      
+      {/* 면책조항 */}
+      <DisclaimerBox />
       
       {/* 버튼 */}
       <div className="flex gap-2 pt-2">
@@ -489,6 +503,9 @@ export function DebtPlanCard({ onNext, onPrev }: CardProps) {
         </div>
       )}
       
+      {/* 면책조항 */}
+      <DisclaimerBox />
+      
       {/* 버튼 */}
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors">← 이전</button>
@@ -501,7 +518,7 @@ export function DebtPlanCard({ onNext, onPrev }: CardProps) {
 
 
 // ============================================
-// 3. 저축설계 카드 (v2.0 - 목적자금별 저축 계획 + 포트폴리오 추천)
+// 3. 저축설계 카드 (v2.1 - 단순화된 로직 + 기간별 포트폴리오)
 // ============================================
 
 // 저축 목적 옵션
@@ -526,12 +543,15 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
     targetYears: 5,      // 목표기간 (년)
   });
   
-  // 기본정보에서 가져온 데이터
+  // 기본정보에서 가져온 데이터 (연금 제외한 모든 저축)
   const [basicData, setBasicData] = useState({
     age: 37,
+    cmaAmount: 0,        // CMA (수시)
     savingsAmount: 0,    // 적금 (1~3년)
+    fundAmount: 0,       // 펀드/ETF
+    housingSubAmount: 0, // 청약저축
     isaAmount: 0,        // ISA (3~5년)
-    fundAmount: 0,       // 펀드/ETF (10년+)
+    pensionAmount: 0,    // 개인연금 (장기, 제외됨)
   });
 
   // 기본정보 데이터 불러오기
@@ -542,9 +562,12 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
         const parsed = JSON.parse(savedHouseData);
         setBasicData({
           age: parsed.personalInfo?.age || 37,
+          cmaAmount: parsed.expense?.cmaAmount || 0,
           savingsAmount: parsed.expense?.savingsAmount || 0,
-          isaAmount: parsed.expense?.isaAmount || 0,
           fundAmount: parsed.expense?.fundAmount || 0,
+          housingSubAmount: parsed.expense?.housingSubAmount || 0,
+          isaAmount: parsed.expense?.isaAmount || 0,
+          pensionAmount: parsed.expense?.pensionAmount || 0,
         });
       } catch (e) {
         console.error('Failed to parse financialHouseData:', e);
@@ -563,55 +586,66 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
     saveDesignData('save', formData);
   }, [formData]);
 
-  // 계산 로직
+  // 계산 로직 (v2.1 - 단순화)
   const targetMonths = formData.targetYears * 12;
   const monthlyRequired = Math.round(formData.targetAmount / targetMonths); // 월 필요 저축액
   
-  // 목표 기간에 따른 현재 월 저축액 매칭
-  const getCurrentMonthlySaving = (): number => {
-    if (formData.targetYears <= 3) {
-      return basicData.savingsAmount; // 적금
-    } else if (formData.targetYears <= 5) {
-      return basicData.isaAmount; // ISA
-    } else {
-      return basicData.fundAmount; // 펀드/ETF
-    }
+  // 현재 월 저축액 = 연금 제외한 모든 저축 합계
+  const currentTotalSaving = basicData.cmaAmount + basicData.savingsAmount + basicData.fundAmount + basicData.housingSubAmount + basicData.isaAmount;
+  
+  // 월 추가 필요액
+  const additionalRequired = Math.max(0, monthlyRequired - currentTotalSaving);
+
+  // 목표기간에 따른 분류
+  const getTermCategory = (years: number) => {
+    if (years <= 1) return 'immediate'; // 수시
+    if (years <= 3) return 'short';     // 단기
+    if (years <= 5) return 'mid';       // 중기
+    return 'long';                       // 장기
   };
   
-  const currentMonthlySaving = getCurrentMonthlySaving();
-  const additionalRequired = Math.max(0, monthlyRequired - currentMonthlySaving); // 월 추가 필요액
+  const termCategory = getTermCategory(formData.targetYears);
 
-  // 포트폴리오 추천 배분 로직 (보라색 버전 공식)
-  const age = Math.min(Math.max(basicData.age, 20), 70); // 20~70세로 제한
-  
-  const calculatePortfolio = () => {
-    const total = additionalRequired;
+  // 포트폴리오 생성 (기존 금액 파랑 + 추가 금액 빨강)
+  const generatePortfolio = () => {
+    const items = [];
     
-    if (formData.targetYears <= 5) {
-      // 5년 이하: 저축 100% (수시 50% + 적금 50%)
-      const halfAmount = Math.round(total / 2);
-      return [
-        { zone: '저축', term: '수시', purpose: '비상예비', amount: halfAmount, product: 'CMA' },
-        { zone: '저축', term: '1~3년', purpose: '단기목표', amount: total - halfAmount, product: '적금' },
-      ];
-    } else {
-      // 3~10년 이상: 저축 + 투자 (나이 비율)
-      const savingPart = Math.round(total * (age / 100));
-      const investPart = total - savingPart;
-      
-      const savingHalf = Math.round(savingPart / 2);
-      const investHalf = Math.round(investPart / 2);
-      
-      return [
-        { zone: '저축', term: '수시', purpose: '비상예비', amount: savingHalf, product: 'CMA' },
-        { zone: '저축', term: '1~3년', purpose: '단기목표', amount: savingPart - savingHalf, product: '적금' },
-        { zone: '투자', term: '3~5년', purpose: '목적자금', amount: investHalf, product: 'ISA' },
-        { zone: '투자', term: '10년+', purpose: '노후/자녀', amount: investPart - investHalf, product: '연금' },
-      ];
-    }
+    // 초단기: 수시 (CMA)
+    items.push({
+      term: '수시',
+      product: 'CMA',
+      existing: basicData.cmaAmount,
+      additional: termCategory === 'immediate' ? additionalRequired : 0,
+    });
+    
+    // 단기: 1~3년 (적금)
+    items.push({
+      term: '1~3년',
+      product: '적금',
+      existing: basicData.savingsAmount,
+      additional: termCategory === 'short' ? additionalRequired : 0,
+    });
+    
+    // 중기: 3~5년 (ISA)
+    items.push({
+      term: '3~5년',
+      product: 'ISA',
+      existing: basicData.isaAmount,
+      additional: termCategory === 'mid' ? additionalRequired : 0,
+    });
+    
+    // 장기: 5년+ (연금, 펀드, ETF)
+    items.push({
+      term: '5년+',
+      product: '연금/펀드/ETF',
+      existing: basicData.pensionAmount + basicData.fundAmount,
+      additional: termCategory === 'long' ? additionalRequired : 0,
+    });
+    
+    return items;
   };
 
-  const portfolio = calculatePortfolio();
+  const portfolio = generatePortfolio();
   
   // 목표금액 표시 (억원/만원)
   const formatTargetAmount = (amount: number) => {
@@ -619,13 +653,6 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
       return `${(amount / 10000).toFixed(1)}억원`;
     }
     return `${amount.toLocaleString()}만원`;
-  };
-
-  // 현재 매칭 상품명
-  const getMatchedProduct = () => {
-    if (formData.targetYears <= 3) return '적금';
-    if (formData.targetYears <= 5) return 'ISA';
-    return '펀드/ETF';
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
@@ -713,8 +740,8 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
             <span className="font-bold text-blue-600 text-lg">약 {monthlyRequired.toLocaleString()}만원</span>
           </div>
           <div className="flex justify-between text-sm py-1">
-            <span className="text-gray-700">현재 월 저축액 ({getMatchedProduct()})</span>
-            <span className="font-bold text-gray-700">{currentMonthlySaving.toLocaleString()}만원</span>
+            <span className="text-gray-700">현재 월 저축액</span>
+            <span className="font-bold text-gray-700">{currentTotalSaving.toLocaleString()}만원</span>
           </div>
           <div className="flex justify-between text-sm py-1 border-t border-blue-200 pt-2">
             <span className="text-gray-700 font-bold">월 추가 필요액</span>
@@ -725,36 +752,46 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
       
-      {/* 포트폴리오 추천 */}
-      {additionalRequired > 0 && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <h3 className="text-sm font-bold text-gray-800 mb-3">📊 저축/투자 포트폴리오 추천</h3>
-          
-          <div className="space-y-2">
-            {portfolio.filter(p => p.amount > 0).map((item, index) => (
+      {/* 추천 배분 포트폴리오 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <h3 className="text-sm font-bold text-gray-800 mb-3">📊 추천 배분</h3>
+        
+        <div className="space-y-2">
+          {portfolio.map((item, index) => {
+            const hasExisting = item.existing > 0;
+            const hasAdditional = item.additional > 0;
+            if (!hasExisting && !hasAdditional) return null;
+            
+            return (
               <div key={index} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2.5">
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                  item.zone === '저축' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                  index < 2 ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
                 }`}>
-                  {item.zone}
+                  {index < 2 ? '저축' : '투자'}
                 </span>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-800">{item.term} · {item.product}</div>
-                  <div className="text-[10px] text-gray-500">{item.purpose}</div>
                 </div>
-                <div className="text-sm font-bold text-gray-800">{item.amount.toLocaleString()}만원</div>
+                <div className="text-right">
+                  {hasExisting && (
+                    <span className="text-sm font-bold text-blue-600">{item.existing.toLocaleString()}만원</span>
+                  )}
+                  {hasExisting && hasAdditional && <span className="text-gray-400 mx-1">+</span>}
+                  {hasAdditional && (
+                    <span className="text-sm font-bold text-red-600">{item.additional.toLocaleString()}만원</span>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-          
-          {/* 면책조항 */}
-          <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
-            <p className="text-[10px] text-amber-700 text-center">
-              ⚠️ 이 포트폴리오는 이해를 돕기 위한 일반적인 예시이므로 참고만 하시기 바랍니다
-            </p>
-          </div>
+            );
+          })}
         </div>
-      )}
+        
+        {/* 범례 */}
+        <div className="flex justify-center gap-4 mt-3 pt-2 border-t border-gray-100">
+          <span className="text-[10px] text-blue-600">● 기존 유지</span>
+          <span className="text-[10px] text-red-600">● 신규 추가</span>
+        </div>
+      </div>
       
       {/* 공식 보기 */}
       <button 
@@ -769,15 +806,18 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
         <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1 border border-gray-200">
           <p><strong>월 필요 저축액:</strong></p>
           <p>= 목표금액 ÷ 목표기간(개월)</p>
-          <p className="mt-2"><strong>현재 월 저축액 매칭:</strong></p>
+          <p className="mt-2"><strong>현재 월 저축액:</strong></p>
+          <p>= CMA + 적금 + 펀드 + 청약 + ISA (연금 제외)</p>
+          <p className="mt-2"><strong>기간별 상품 배분:</strong></p>
+          <p>• 수시: CMA</p>
           <p>• 1~3년: 적금</p>
           <p>• 3~5년: ISA</p>
-          <p>• 10년+: 펀드/ETF</p>
-          <p className="mt-2"><strong>포트폴리오 배분 (나이 {age}세 기준):</strong></p>
-          <p>• 저축 = 추가필요액 × ({age}/100)</p>
-          <p>• 투자 = 추가필요액 × ({100-age}/100)</p>
+          <p>• 5년+: 연금/펀드/ETF</p>
         </div>
       )}
+      
+      {/* 면책조항 */}
+      <DisclaimerBox />
       
       {/* 버튼 */}
       <div className="flex gap-2 pt-2">
@@ -1050,6 +1090,9 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         </div>
       )}
       
+      {/* 면책조항 */}
+      <DisclaimerBox />
+      
       {/* 버튼 */}
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300 transition-colors">← 이전</button>
@@ -1088,6 +1131,8 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
         <h3 className="text-sm font-bold text-red-800 mb-2">세금 분석 결과</h3>
         <div className="flex justify-between text-sm"><span className="text-gray-700">총 세액공제</span><span className="font-bold text-green-600">{totalDeduction.toFixed(0)}만원</span></div>
       </div>
+      {/* 면책조항 */}
+      <DisclaimerBox />
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
@@ -1127,6 +1172,8 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
         <div className="flex justify-between text-sm"><span className="text-gray-700">순자산</span><span className="font-bold text-indigo-700">{(netEquity / 10000).toFixed(1)}억원</span></div>
         <div className="flex justify-between text-sm"><span className="text-gray-700">LTV</span><span className={`font-bold ${ltvColor}`}>{ltv.toFixed(1)}%</span></div>
       </div>
+      {/* 면책조항 */}
+      <DisclaimerBox />
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
@@ -1175,6 +1222,8 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         <div className="flex justify-between text-sm"><span className="text-gray-700">실손보험</span><span className={`font-bold ${formData.hasHealthInsurance ? 'text-green-600' : 'text-red-600'}`}>{formData.hasHealthInsurance ? '가입 ✓' : '미가입 ✗'}</span></div>
         {!formData.hasHealthInsurance && <div className="bg-white rounded-lg p-2 mt-2"><p className="text-xs text-red-600">⚠️ 실손보험 가입을 추천합니다!</p></div>}
       </div>
+      {/* 면책조항 */}
+      <DisclaimerBox />
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">{isLast ? '금융집 완성 🎉' : '다음 →'}</button>
