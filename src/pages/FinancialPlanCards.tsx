@@ -31,7 +31,17 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
 
   useEffect(() => { 
     const saved = loadDesignData('retire'); 
-    if (saved) setFormData(saved); 
+    if (saved) {
+      // 데이터 마이그레이션: 기존 변수명과 새 변수명 모두 지원
+      setFormData({
+        currentAge: saved.currentAge ?? 37,
+        retireAge: saved.retireAge ?? 65,
+        monthlyLivingExpense: saved.monthlyLivingExpense ?? saved.monthlyExpense ?? 300,
+        expectedNationalPension: saved.expectedNationalPension ?? saved.nationalPension ?? 80,
+        currentPersonalPension: saved.currentPersonalPension ?? saved.personalPension ?? 50,
+        expectedRetirementLumpSum: saved.expectedRetirementLumpSum ?? 10000,
+      });
+    }
   }, []);
   
   useEffect(() => { 
