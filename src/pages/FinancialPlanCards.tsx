@@ -830,37 +830,90 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
 
 
 // ============================================
-// 4. 투자설계 카드 (v2.0 - 부자지수 + 자산배분 테이블)
+// 4. 투자설계 카드 (v2.1 - 시뮬레이터 기반 + 가로 스크롤 테이블)
 // ============================================
 export function InvestPlanCard({ onNext, onPrev }: CardProps) {
-  const [formData, setFormData] = useState({
-    currentAge: 37,
-    monthlyIncome: 500,           // 월 소득 (만원)
-    totalAssets: 25000,           // 총 자산 (만원)
-    totalDebt: 10000,             // 총 부채 (만원)
-    liquidAssets: 1500,           // 유동성 자산 (CMA, 파킹, 금 등)
-    safeAssets: 10000,            // 안전성 자산 (예금, 채권, 연금)
-    growthAssets: 2500,           // 수익성 자산 (펀드, ETF)
-    highRiskAssets: 1000,         // 고수익성 자산 (주식, 코인)
-  });
-  
   const [showFormula, setShowFormula] = useState(false);
-
-  useEffect(() => { 
-    const saved = loadDesignData('invest'); 
-    if (saved) setFormData(saved); 
-  }, []);
   
-  useEffect(() => { 
-    saveDesignData('invest', formData); 
+  // 기본정보에서 가져온 데이터
+  const [basicData, setBasicData] = useState({
+    age: 37,
+    monthlyIncome: 500,
+    // 유동성 자산 (CMA, 파킹통장, 금)
+    cmaAmount: 0,
+    // 안전성 자산 (예금, 채권, 연금)
+    savingsAmount: 0,   // 적금/예금
+    pensionAmount: 0,   // 연금
+    // 수익성 자산 (펀드, ETF)
+    fundAmount: 0,
+    isaAmount: 0,
+    // 고수익 자산 (주식, 가상화폐) - 기본정보에 없으면 직접 입력
+    stockAmount: 0,
+    cryptoAmount: 0,
+    // 총자산/부채
+    totalAssets: 25000,
+    totalDebt: 10000,
+  });
+
+  // 직접 입력 데이터 (기본정보에 없는 항목)
+  const [formData, setFormData] = useState({
+    goldAmount: 0,        // 금
+    bondAmount: 0,        // 채권
+    stockAmount: 0,       // 주식
+    cryptoAmount: 0,      // 가상화폐
+  });
+
+  // 기본정보 데이터 불러오기
+  useEffect(() => {
+    const savedHouseData = localStorage.getItem('financialHouseData');
+    if (savedHouseData) {
+      try {
+        const parsed = JSON.parse(savedHouseData);
+        setBasicData({
+          age: parsed.personalInfo?.age || 37,
+          monthlyIncome: parsed.income?.monthlyIncome || 500,
+          cmaAmount: parsed.expense?.cmaAmount || 0,
+          savingsAmount: parsed.expense?.savingsAmount || 0,
+          pensionAmount: parsed.expense?.pensionAmount || 0,
+          fundAmount: parsed.expense?.fundAmount || 0,
+          isaAmount: parsed.expense?.isaAmount || 0,
+          stockAmount: 0,
+          cryptoAmount: 0,
+          totalAssets: parsed.asset?.totalAssets || 25000,
+          totalDebt: parsed.debt?.totalDebt || 10000,
+        });
+      } catch (e) {
+        console.error('Failed to parse financialHouseData:', e);
+      }
+    }
+    
+    // 기존 투자설계 데이터 불러오기
+    const saved = loadDesignData('invest');
+    if (saved?.goldAmount !== undefined) {
+      setFormData(saved);
+    }
+  }, []);
+
+  // 데이터 저장
+  useEffect(() => {
+    saveDesignData('invest', formData);
   }, [formData]);
 
+  // 자산 계산
+  const liquidAssets = basicData.cmaAmount + formData.goldAmount; // 유동성: CMA, 파킹통장, 금
+  const safeAssets = basicData.savingsAmount + basicData.pensionAmount + formData.bondAmount; // 안전성: 예금, 채권, 연금
+  const growthAssets = basicData.fundAmount + basicData.isaAmount; // 수익성: 펀드, ETF
+  const highRiskAssets = formData.stockAmount + formData.cryptoAmount; // 고수익: 주식, 가상화폐
+  
+  // 금융전체자산 (투자자산 합계)
+  const totalFinancialAssets = liquidAssets + safeAssets + growthAssets + highRiskAssets;
+  
   // 순자산 계산
-  const netAssets = formData.totalAssets - formData.totalDebt;
+  const netAssets = basicData.totalAssets - basicData.totalDebt;
   
   // 부자지수 계산: ((순자산 × 10) ÷ (나이 × 소득 × 12)) × 100
-  const wealthIndex = formData.currentAge > 0 && formData.monthlyIncome > 0 
-    ? ((netAssets * 10) / (formData.currentAge * formData.monthlyIncome * 12)) * 100 
+  const wealthIndex = basicData.age > 0 && basicData.monthlyIncome > 0 
+    ? ((netAssets * 10) / (basicData.age * basicData.monthlyIncome * 12)) * 100 
     : 0;
   
   // 부자지수 등급 및 아이콘
@@ -874,25 +927,80 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   
   const wealthGrade = getWealthGrade(wealthIndex);
   
-  // 자산배분 계산
-  const totalInvestAssets = formData.liquidAssets + formData.safeAssets + formData.growthAssets + formData.highRiskAssets;
-  const liquidRatio = totalInvestAssets > 0 ? (formData.liquidAssets / totalInvestAssets * 100) : 0;
-  const safeRatio = totalInvestAssets > 0 ? (formData.safeAssets / totalInvestAssets * 100) : 0;
-  const growthRatio = totalInvestAssets > 0 ? (formData.growthAssets / totalInvestAssets * 100) : 0;
-  const highRiskRatio = totalInvestAssets > 0 ? (formData.highRiskAssets / totalInvestAssets * 100) : 0;
+  // 기준 비율 및 기준금액
+  const targetRatios = {
+    liquid: 20,
+    safe: 50,
+    growth: 20,
+    highRisk: 10,
+  };
   
-  // 기준 비율 (추천)
-  const targetLiquid = 20;
-  const targetSafe = 50;
-  const targetGrowth = 20;
-  const targetHighRisk = 10;
+  const targetAmounts = {
+    liquid: Math.round(totalFinancialAssets * 0.20),
+    safe: Math.round(totalFinancialAssets * 0.50),
+    growth: Math.round(totalFinancialAssets * 0.20),
+    highRisk: Math.round(totalFinancialAssets * 0.10),
+  };
   
   // 비상예비자금 (소득의 3~6배)
-  const emergencyFundMin = formData.monthlyIncome * 3;
-  const emergencyFundMax = formData.monthlyIncome * 6;
-  const hasEmergencyFund = formData.liquidAssets >= emergencyFundMin;
-  
+  const emergencyFundMin = basicData.monthlyIncome * 3;
+  const emergencyFundMax = basicData.monthlyIncome * 6;
+  const emergencyGap = emergencyFundMin - liquidAssets;
+  const hasEmergencyFund = liquidAssets >= emergencyFundMin;
+
+  // 금액 포맷팅
+  const formatAmount = (amount: number) => {
+    if (amount >= 10000) {
+      return `${(amount / 10000).toFixed(1)}억`;
+    }
+    return `${amount.toLocaleString()}만`;
+  };
+
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
+
+  // 자산배분 데이터
+  const assetAllocation = [
+    {
+      type: '유동성',
+      icon: '💧',
+      iconBg: 'bg-blue-100',
+      current: liquidAssets,
+      ratio: targetRatios.liquid,
+      target: targetAmounts.liquid,
+      note: 'CMA, 파킹통장, 금',
+      status: liquidAssets >= targetAmounts.liquid ? 'ok' : 'under',
+    },
+    {
+      type: '안전성',
+      icon: '🔒',
+      iconBg: 'bg-green-100',
+      current: safeAssets,
+      ratio: targetRatios.safe,
+      target: targetAmounts.safe,
+      note: '예금, 채권, 연금',
+      status: safeAssets > targetAmounts.safe * 1.1 ? 'over' : 'ok',
+    },
+    {
+      type: '수익성',
+      icon: '📊',
+      iconBg: 'bg-orange-100',
+      current: growthAssets,
+      ratio: targetRatios.growth,
+      target: targetAmounts.growth,
+      note: '펀드, ETF',
+      status: growthAssets >= targetAmounts.growth ? 'ok' : 'under',
+    },
+    {
+      type: '고수익',
+      icon: '🚀',
+      iconBg: 'bg-red-100',
+      current: highRiskAssets,
+      ratio: targetRatios.highRisk,
+      target: targetAmounts.highRisk,
+      note: '주식, 가상화폐',
+      status: highRiskAssets > targetAmounts.highRisk * 1.5 ? 'over' : 'ok',
+    },
+  ];
 
   return (
     <div className="space-y-3">
@@ -900,175 +1008,93 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
       <div className="flex gap-2.5">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">📈</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
-          <p>네 번째는 <span className="text-teal-600 font-bold">투자설계</span>입니다. 부자지수와 자산배분을 분석해 드릴게요.</p>
-        </div>
-      </div>
-      
-      {/* 입력 폼 */}
-      <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
-        <h3 className="text-base font-bold text-gray-800 mb-3">📈 투자설계</h3>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700">현재 나이</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500 w-6">세</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700">월 소득</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.monthlyIncome} onChange={(e) => setFormData({...formData, monthlyIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500 w-8">만원</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700">총 자산</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.totalAssets} onChange={(e) => setFormData({...formData, totalAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500 w-8">만원</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-700">총 부채</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500 w-8">만원</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="border-t border-gray-200 pt-3 mt-3">
-          <h4 className="text-sm font-bold text-gray-700 mb-2">자산 배분 입력</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-700">💧 유동성</label>
-              <div className="flex items-center gap-1">
-                <input type="number" value={formData.liquidAssets} onChange={(e) => setFormData({...formData, liquidAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-                <span className="text-xs text-gray-500 w-8">만원</span>
-              </div>
-              <p className="text-[10px] text-gray-400">CMA, 파킹통장, 금</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-700">🔒 안전성</label>
-              <div className="flex items-center gap-1">
-                <input type="number" value={formData.safeAssets} onChange={(e) => setFormData({...formData, safeAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-                <span className="text-xs text-gray-500 w-8">만원</span>
-              </div>
-              <p className="text-[10px] text-gray-400">예금, 채권, 연금</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-700">📊 수익성</label>
-              <div className="flex items-center gap-1">
-                <input type="number" value={formData.growthAssets} onChange={(e) => setFormData({...formData, growthAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-                <span className="text-xs text-gray-500 w-8">만원</span>
-              </div>
-              <p className="text-[10px] text-gray-400">펀드, ETF</p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-700">🔥 고수익</label>
-              <div className="flex items-center gap-1">
-                <input type="number" value={formData.highRiskAssets} onChange={(e) => setFormData({...formData, highRiskAssets: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-                <span className="text-xs text-gray-500 w-8">만원</span>
-              </div>
-              <p className="text-[10px] text-gray-400">주식, 코인</p>
-            </div>
-          </div>
+          <p>네 번째는 <span className="text-teal-600 font-bold">투자설계</span>입니다. 부자지수와 자산배분 포트폴리오를 분석해 드릴게요.</p>
         </div>
       </div>
       
       {/* 부자지수 카드 */}
-      <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 text-center border border-amber-200">
-        <p className="text-sm font-semibold text-amber-800 mb-1">💎 나의 부자지수</p>
-        <p className="text-4xl font-black text-amber-900">{wealthIndex.toFixed(0)}%</p>
-        <div className={`inline-flex items-center gap-2 mt-2 px-4 py-1.5 rounded-full ${wealthGrade.bgColor}`}>
-          <span className="text-lg">{wealthGrade.icon}</span>
-          <span className={`font-bold ${wealthGrade.color}`}>{wealthGrade.grade}</span>
+      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+        <div className="text-center">
+          <p className="text-sm font-bold text-purple-800 mb-2">💎 나의 부자지수</p>
+          <p className={`text-4xl font-bold ${wealthGrade.color}`}>{wealthIndex.toFixed(0)}%</p>
+          <div className={`inline-flex items-center gap-2 mt-2 px-3 py-1 rounded-full ${wealthGrade.bgColor}`}>
+            <span className="text-xl">{wealthGrade.icon}</span>
+            <span className={`font-bold ${wealthGrade.color}`}>{wealthGrade.grade}</span>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">
+            ((순자산 {formatAmount(netAssets)} × 10) ÷ ({basicData.age}세 × {basicData.monthlyIncome}만원 × 12)) × 100
+          </p>
         </div>
-        <p className="text-xs text-amber-700 mt-2">
-          순자산 {(netAssets / 10000).toFixed(1)}억 기준
-        </p>
       </div>
       
       {/* 부자지수 등급 안내 */}
-      <div className="bg-gray-50 rounded-lg p-2 text-xs text-gray-600 flex flex-wrap gap-2 justify-center">
-        <span>🏕️ 0%↓</span>
-        <span>🏠 50%↓</span>
-        <span>🏡 100%↓</span>
-        <span>🏘️ 200%↓</span>
-        <span>🏰 200%↑</span>
+      <div className="bg-gray-50 rounded-lg p-2 text-[10px] text-gray-600 flex flex-wrap gap-2 justify-center">
+        <span>🏕️ 0%↓ 텐트</span>
+        <span>🏠 50%↓ 2단계</span>
+        <span>🏡 100%↓ 3단계</span>
+        <span>🏘️ 200%↓ 4단계</span>
+        <span>🏰 200%↑ 궁전</span>
       </div>
       
-      {/* 자산배분 테이블 */}
+      {/* 자산배분 포트폴리오 테이블 (가로 스크롤) */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-teal-50 to-teal-100 px-3 py-2 flex items-center justify-between border-b border-gray-200">
+        <div className="bg-gradient-to-r from-teal-50 to-teal-100 px-3 py-2 border-b border-gray-200">
           <span className="text-sm font-bold text-teal-800">📊 자산배분 포트폴리오</span>
-          <span className="text-[10px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">⚠️ 예시</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[320px]">
+          <table className="w-full text-xs" style={{ minWidth: '420px' }}>
             <thead>
               <tr className="bg-gray-50">
-                <th className="px-2 py-2 text-left font-semibold text-gray-600">자산유형</th>
-                <th className="px-2 py-2 text-right font-semibold text-gray-600">현재금액</th>
-                <th className="px-2 py-2 text-center font-semibold text-gray-600">현재</th>
-                <th className="px-2 py-2 text-center font-semibold text-gray-600">기준</th>
-                <th className="px-2 py-2 text-center font-semibold text-gray-600">상태</th>
+                <th className="px-2 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">자산유형</th>
+                <th className="px-2 py-2 text-right font-semibold text-gray-600 whitespace-nowrap">현재금액</th>
+                <th className="px-2 py-2 text-center font-semibold text-gray-600 whitespace-nowrap">기준비율</th>
+                <th className="px-2 py-2 text-right font-semibold text-gray-600 whitespace-nowrap">기준금액</th>
+                <th className="px-2 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">비고</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-t border-gray-100">
-                <td className="px-2 py-2 font-medium">💧 유동성</td>
-                <td className="px-2 py-2 text-right">{formData.liquidAssets.toLocaleString()}만</td>
-                <td className="px-2 py-2 text-center">{liquidRatio.toFixed(0)}%</td>
-                <td className="px-2 py-2 text-center text-gray-500">{targetLiquid}%</td>
-                <td className={`px-2 py-2 text-center font-bold ${liquidRatio < targetLiquid ? 'text-red-500' : 'text-green-500'}`}>
-                  {liquidRatio < targetLiquid ? '부족' : '양호'}
-                </td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-2 py-2 font-medium">🔒 안전성</td>
-                <td className="px-2 py-2 text-right">{formData.safeAssets.toLocaleString()}만</td>
-                <td className="px-2 py-2 text-center">{safeRatio.toFixed(0)}%</td>
-                <td className="px-2 py-2 text-center text-gray-500">{targetSafe}%</td>
-                <td className={`px-2 py-2 text-center font-bold ${safeRatio > targetSafe + 10 ? 'text-yellow-500' : 'text-green-500'}`}>
-                  {safeRatio > targetSafe + 10 ? '과다' : '양호'}
-                </td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-2 py-2 font-medium">📊 수익성</td>
-                <td className="px-2 py-2 text-right">{formData.growthAssets.toLocaleString()}만</td>
-                <td className="px-2 py-2 text-center">{growthRatio.toFixed(0)}%</td>
-                <td className="px-2 py-2 text-center text-gray-500">{targetGrowth}%</td>
-                <td className={`px-2 py-2 text-center font-bold ${growthRatio < targetGrowth ? 'text-red-500' : 'text-green-500'}`}>
-                  {growthRatio < targetGrowth ? '부족' : '양호'}
-                </td>
-              </tr>
-              <tr className="border-t border-gray-100">
-                <td className="px-2 py-2 font-medium">🔥 고수익</td>
-                <td className="px-2 py-2 text-right">{formData.highRiskAssets.toLocaleString()}만</td>
-                <td className="px-2 py-2 text-center">{highRiskRatio.toFixed(0)}%</td>
-                <td className="px-2 py-2 text-center text-gray-500">{targetHighRisk}%</td>
-                <td className={`px-2 py-2 text-center font-bold ${highRiskRatio > targetHighRisk + 5 ? 'text-red-500' : 'text-green-500'}`}>
-                  {highRiskRatio > targetHighRisk + 5 ? '과다' : '양호'}
-                </td>
-              </tr>
+              {assetAllocation.map((item, index) => (
+                <tr key={index} className="border-t border-gray-100">
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-6 h-6 rounded-full ${item.iconBg} flex items-center justify-center text-sm`}>{item.icon}</span>
+                      <span className="font-medium whitespace-nowrap">{item.type}</span>
+                    </div>
+                  </td>
+                  <td className={`px-2 py-2 text-right font-bold whitespace-nowrap ${
+                    item.status === 'under' ? 'text-red-500' : item.status === 'over' ? 'text-yellow-600' : 'text-gray-800'
+                  }`}>
+                    {formatAmount(item.current)}
+                  </td>
+                  <td className="px-2 py-2 text-center text-gray-600 whitespace-nowrap">{item.ratio}%</td>
+                  <td className="px-2 py-2 text-right text-gray-600 whitespace-nowrap">{formatAmount(item.target)}</td>
+                  <td className="px-2 py-2 text-left text-gray-500 text-[10px] whitespace-nowrap">{item.note}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+        {/* 스크롤 힌트 */}
+        <div className="text-center py-1 bg-gray-50 border-t border-gray-100">
+          <span className="text-[10px] text-gray-400">← 좌우로 스크롤하세요 →</span>
+        </div>
       </div>
       
-      {/* 비상예비자금 */}
+      {/* 비상예비자금 체크 */}
       <div className={`rounded-xl p-3 flex items-center gap-3 ${hasEmergencyFund ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-        <span className="text-2xl">{hasEmergencyFund ? '✅' : '⚠️'}</span>
+        <span className="text-2xl">🆘</span>
         <div className="flex-1">
           <p className={`text-sm font-bold ${hasEmergencyFund ? 'text-green-700' : 'text-red-700'}`}>
-            비상예비자금 {hasEmergencyFund ? '확보' : '부족'}
+            비상예비자금: {hasEmergencyFund ? '확보 ✅' : '없음 ❌'}
           </p>
           <p className="text-xs text-gray-600">
-            권장: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (소득의 3~6배)
+            필요액: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (가구소득 {basicData.monthlyIncome}만×3~6배)
           </p>
+          {!hasEmergencyFund && (
+            <p className="text-xs mt-1">
+              현재 유동성: {liquidAssets.toLocaleString()}만원 → <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원 부족</span>
+            </p>
+          )}
         </div>
       </div>
       
@@ -1086,7 +1112,10 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
           <p><strong>부자지수 공식:</strong></p>
           <p>((순자산 × 10) ÷ (나이 × 월소득 × 12)) × 100</p>
           <p className="mt-2"><strong>자산배분 기준:</strong></p>
-          <p>유동성 20% / 안전성 50% / 수익성 20% / 고수익 10%</p>
+          <p>• 유동성 20%: CMA, 파킹통장, 금</p>
+          <p>• 안전성 50%: 예금, 채권, 연금</p>
+          <p>• 수익성 20%: 펀드, ETF</p>
+          <p>• 고수익 10%: 주식, 가상화폐</p>
         </div>
       )}
       
@@ -1101,7 +1130,6 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
     </div>
   );
 }
-
 // ============================================
 // 5. 세금설계 카드 (기존 유지 - 다음 작업에서 수정)
 // ============================================
