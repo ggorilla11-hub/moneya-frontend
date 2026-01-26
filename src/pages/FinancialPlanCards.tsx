@@ -830,7 +830,7 @@ export function SavePlanCard({ onNext, onPrev }: CardProps) {
 
 
 // ============================================
-// 4. 투자설계 카드 (v2.2 - UI 정리 + 안전성 자산 로직 수정)
+// 4. 투자설계 카드 (v2.3 - 데이터 로딩 순서 및 우선순위 수정)
 // ============================================
 export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
@@ -851,62 +851,82 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
     highRiskAssets: 1000,
   });
 
-  // 기본정보에서 데이터 불러오기 (v2.2 수정: financialAssets 경로 사용)
+  // 기본정보에서 데이터 불러오기 (v2.3 수정: 데이터 로딩 순서 및 우선순위 수정)
   useEffect(() => {
+    let baseData = {
+      currentAge: 37,
+      monthlyIncome: 500,
+      totalAssets: 25000,
+      totalDebt: 10000,
+      liquidAssets: 1500,
+      safeAssets: 10000,
+      growthAssets: 2500,
+      highRiskAssets: 1000,
+    };
+    
+    // 1단계: 기존 투자설계 데이터에서 "기본정보"만 복원 (자산배분 제외)
+    const saved = loadDesignData('invest');
+    if (saved) {
+      baseData = {
+        ...baseData,
+        currentAge: saved.currentAge || baseData.currentAge,
+        monthlyIncome: saved.monthlyIncome || baseData.monthlyIncome,
+        totalAssets: saved.totalAssets || baseData.totalAssets,
+        totalDebt: saved.totalDebt || baseData.totalDebt,
+        // ⚠️ 자산배분 값(liquidAssets, safeAssets, growthAssets, highRiskAssets)은 
+        // 여기서 복원하지 않음! financialHouseData에서 가져옴
+      };
+    }
+    
+    // 2단계: financialHouseData에서 자산배분 값 가져오기 (항상 우선 적용)
     const savedHouseData = localStorage.getItem('financialHouseData');
     if (savedHouseData) {
       try {
         const parsed = JSON.parse(savedHouseData);
         const fa = parsed.financialAssets || {};
         
-        // 유동성 = CMA + 금
+        // 자산배분 계산
         const liquidAssets = (fa.cmaAsset || 0) + (fa.goldAsset || 0);
-        
-        // 안전성 = 예금 + 채권 + 적금/적립금 + 연금적립금 + 저축적립금
         const safeAssets = 
-          (fa.depositAsset || 0) +      // 예금
-          (fa.bondAsset || 0) +         // 채권
-          (fa.installmentAsset || 0) +  // 적금/적립금
-          (fa.pensionAsset || 0) +      // 연금적립금
-          (fa.savingsAsset || 0);       // 저축적립금
+          (fa.depositAsset || 0) + 
+          (fa.bondAsset || 0) + 
+          (fa.installmentAsset || 0) + 
+          (fa.pensionAsset || 0) + 
+          (fa.savingsAsset || 0);
+        const growthAssets = (fa.fundSavingsAsset || 0) + (fa.etfAsset || 0);
+        const highRiskAssets = (fa.stockAsset || 0) + (fa.cryptoAsset || 0);
         
-        // 수익성 = 펀드적립금 + ETF
-        const growthAssets = 
-          (fa.fundSavingsAsset || 0) + 
-          (fa.etfAsset || 0);
-        
-        // 고수익 = 주식 + 가상화폐
-        const highRiskAssets = 
-          (fa.stockAsset || 0) + 
-          (fa.cryptoAsset || 0);
-        
-        // 월수입 계산 (본인 + 배우자)
+        // 월수입 계산
         const monthlyIncome = 
           (parsed.income?.myIncome || 0) + 
           (parsed.income?.spouseIncome || 0) + 
           (parsed.income?.otherIncome || 0);
         
-        setFormData(prev => ({
-          ...prev,
-          currentAge: parsed.personalInfo?.age || prev.currentAge,
-          monthlyIncome: monthlyIncome || prev.monthlyIncome,
-          totalAssets: parsed.totalAsset || prev.totalAssets,
-          totalDebt: parsed.debts?.totalDebt || prev.totalDebt,
-          liquidAssets: liquidAssets || prev.liquidAssets,
-          safeAssets: safeAssets || prev.safeAssets,
-          growthAssets: growthAssets || prev.growthAssets,
-          highRiskAssets: highRiskAssets || prev.highRiskAssets,
-        }));
+        // financialHouseData에 자산 입력이 있는 경우에만 적용
+        const hasFinancialAssets = liquidAssets > 0 || safeAssets > 0 || 
+                                    growthAssets > 0 || highRiskAssets > 0;
+        
+        if (hasFinancialAssets) {
+          baseData = {
+            ...baseData,
+            currentAge: parsed.personalInfo?.age || baseData.currentAge,
+            monthlyIncome: monthlyIncome || baseData.monthlyIncome,
+            totalAssets: parsed.totalAsset || baseData.totalAssets,
+            totalDebt: parsed.debts?.totalDebt || baseData.totalDebt,
+            // 자산배분 값은 항상 financialHouseData에서 가져옴
+            liquidAssets,
+            safeAssets,
+            growthAssets,
+            highRiskAssets,
+          };
+        }
       } catch (e) {
         console.error('Failed to parse financialHouseData:', e);
       }
     }
     
-    // 기존 투자설계 데이터 불러오기
-    const saved = loadDesignData('invest');
-    if (saved?.currentAge) {
-      setFormData(saved);
-    }
+    // 3단계: 최종 데이터 적용 (한 번만 setFormData 호출)
+    setFormData(baseData);
   }, []);
 
   // 데이터 저장
