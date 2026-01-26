@@ -1,5 +1,4 @@
 // src/pages/FinancialHouseDesign.tsx
-// v5.0: initialTab, onTabChange props 추가 (3단계에서 백 시 마지막 탭으로 이동)
 // v4.0: 마이크 음성 기능 + 대화 공간 + OCR 모달 추가
 // ★★★ 기존 AI지출탭 AIConversation.tsx 음성 코드 100% 복사 적용 ★★★
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
@@ -106,9 +105,6 @@ interface FinancialHouseDesignProps {
   userName: string;
   onComplete: () => void;
   onBack: () => void;
-  // v5.0: 새로운 props 추가
-  onTabChange?: (tabId: string) => void;
-  initialTab?: string;
 }
 
 interface Message {
@@ -135,9 +131,9 @@ const DESIGN_TABS = [
 // ============================================
 // 메인 컴포넌트
 // ============================================
-export default function FinancialHouseDesign({ userName, onComplete, onBack, onTabChange, initialTab }: FinancialHouseDesignProps) {
-  // v5.0: initialTab이 있으면 그 탭으로 시작, 없으면 'retire'
-  const [currentTab, setCurrentTab] = useState(initialTab || 'retire');
+export default function FinancialHouseDesign({ userName, onComplete, onBack }: FinancialHouseDesignProps) {
+  // 탭 상태
+  const [currentTab, setCurrentTab] = useState('retire');
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   
@@ -486,16 +482,13 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, onT
   };
 
   // ============================================
-  // 탭 이동 함수 (v5.0 수정: onTabChange 호출 추가)
+  // 탭 이동 함수
   // ============================================
   const goToNextTab = () => {
     const currentIndex = DESIGN_TABS.findIndex(tab => tab.id === currentTab);
     if (currentIndex < DESIGN_TABS.length - 1) {
       setCompletedTabs([...completedTabs, currentTab]);
-      const nextTab = DESIGN_TABS[currentIndex + 1].id;
-      setCurrentTab(nextTab);
-      // v5.0: 부모에게 탭 변경 알림
-      if (onTabChange) onTabChange(nextTab);
+      setCurrentTab(DESIGN_TABS[currentIndex + 1].id);
     } else {
       setCompletedTabs([...completedTabs, currentTab]);
       onComplete();
@@ -505,19 +498,10 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, onT
   const goToPrevTab = () => {
     const currentIndex = DESIGN_TABS.findIndex(tab => tab.id === currentTab);
     if (currentIndex > 0) {
-      const prevTab = DESIGN_TABS[currentIndex - 1].id;
-      setCurrentTab(prevTab);
-      // v5.0: 부모에게 탭 변경 알림
-      if (onTabChange) onTabChange(prevTab);
+      setCurrentTab(DESIGN_TABS[currentIndex - 1].id);
     } else {
       onBack();
     }
-  };
-
-  // v5.0: 탭 직접 클릭 시에도 부모에게 알림
-  const handleTabClick = (tabId: string) => {
-    setCurrentTab(tabId);
-    if (onTabChange) onTabChange(tabId);
   };
 
   // ============================================
@@ -744,7 +728,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, onT
           return (
             <button
               key={tab.id}
-              onClick={() => handleTabClick(tab.id)}
+              onClick={() => setCurrentTab(tab.id)}
               className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-semibold flex items-center gap-1 border-2 transition-all ${
                 isActive ? 'bg-teal-50 text-teal-700 border-teal-400' 
                 : isDone ? 'bg-green-50 text-green-600 border-transparent'
