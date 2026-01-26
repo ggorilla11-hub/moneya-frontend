@@ -165,37 +165,37 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
         </div>
         
         <div className="flex justify-between text-sm py-1">
+          <span className="text-gray-700">은퇴 후 기간</span>
+          <span className="font-bold text-teal-700">{retirementYears}년</span>
+        </div>
+        
+        <div className="flex justify-between text-sm py-1">
           <span className="text-gray-700">월 부족액</span>
-          <span className={`font-bold ${monthlyGap > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {monthlyGap > 0 ? `${monthlyGap.toLocaleString()}만원` : '충분'}
-          </span>
+          <span className="font-bold text-red-600">{monthlyGap.toLocaleString()}만원</span>
         </div>
         
         <div className="flex justify-between text-sm py-1">
           <span className="text-gray-700">은퇴일시금 필요액</span>
-          <span className="font-bold text-teal-700">{(totalRetirementNeeded / 10000).toFixed(1)}억원</span>
+          <span className="font-bold text-red-600">{(totalRetirementNeeded / 10000).toFixed(1)}억원</span>
         </div>
         
         <div className="flex justify-between text-sm py-1">
-          <span className="text-gray-700">예상 퇴직연금</span>
+          <span className="text-gray-700">예상 퇴직연금 일시금</span>
           <span className="font-bold text-teal-700">{(formData.expectedRetirementLumpSum / 10000).toFixed(1)}억원</span>
         </div>
         
         <div className="flex justify-between text-sm py-1 border-t border-teal-200 pt-2">
           <span className="text-gray-700 font-bold">순 은퇴일시금</span>
-          <span className={`font-bold ${netRetirementNeeded > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {netRetirementNeeded > 0 ? `${(netRetirementNeeded / 10000).toFixed(1)}억원` : '충분'}
-          </span>
+          <span className="font-bold text-red-600">{(netRetirementNeeded / 10000).toFixed(1)}억원</span>
         </div>
         
-        {/* 핵심 결과 */}
-        {monthlyRequiredSaving > 0 && (
-          <div className="bg-white rounded-lg p-3 mt-2 border border-teal-300">
-            <p className="text-sm text-gray-700">
-              💰 매월 <span className="font-bold text-teal-600 text-lg">{monthlyRequiredSaving.toLocaleString()}만원</span> 저축 필요!
-            </p>
+        {/* 핵심 결과: 월 저축연금액 */}
+        <div className="bg-white rounded-lg p-3 mt-2 border border-teal-300">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-700 font-bold">💰 월 저축연금액</span>
+            <span className="font-bold text-teal-600 text-lg">{monthlyRequiredSaving.toLocaleString()}만원</span>
           </div>
-        )}
+        </div>
         
         {/* 공식 보기 (접기/펼치기) */}
         <button 
@@ -209,10 +209,10 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
         {showFormula && (
           <div className="bg-white/70 rounded-lg p-3 mt-1 text-xs text-gray-600 space-y-1 border border-teal-200">
             <p><strong>공식:</strong></p>
-            <p>① 월 부족액 = 노후생활비 - 국민연금 - 개인연금</p>
-            <p>② 은퇴일시금 = 월 부족액 × 12개월 × 은퇴 후 기간</p>
-            <p>③ 순 은퇴일시금 = 은퇴일시금 - 퇴직연금</p>
-            <p>④ 월 저축연금액 = 순 은퇴일시금 ÷ 경제활동기간 ÷ 12</p>
+            <p>① 월 부족액 = 노후생활비({formData.monthlyLivingExpense}) - 국민연금({formData.expectedNationalPension}) - 개인연금({formData.currentPersonalPension}) = {monthlyGap}만원</p>
+            <p>② 은퇴일시금 = {monthlyGap}만원 × 12개월 × {retirementYears}년 = {(totalRetirementNeeded / 10000).toFixed(1)}억원</p>
+            <p>③ 순 은퇴일시금 = {(totalRetirementNeeded / 10000).toFixed(1)}억 - {(formData.expectedRetirementLumpSum / 10000).toFixed(1)}억 = {(netRetirementNeeded / 10000).toFixed(1)}억원</p>
+            <p>④ 월 저축연금액 = {(netRetirementNeeded / 10000).toFixed(1)}억 ÷ {economicYears}년 ÷ 12 = {monthlyRequiredSaving}만원</p>
             <p className="text-gray-400 mt-2">* 은퇴 후 기간은 90세 기준으로 계산</p>
           </div>
         )}
