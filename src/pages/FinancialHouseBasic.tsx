@@ -1,6 +1,5 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
-// v3.0: 각 스텝 이동 시 localStorage 저장 + 마운트 시 복원 (데이터 유지 문제 해결)
 // v2.0: 부채 입력 UI 개선 - 다중 대출 입력 지원 (+버튼으로 추가)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
@@ -8,15 +7,9 @@
 // 추가: DESIRE 6단계 결과 표시
 // 수정 (2026-01-22): 자산 구조 변경 - 금융자산/부동산자산 분리, 예적금→예금+적금/적립금 분리
 // 수정 (2026-01-26): 부채 입력 UI 개선 - 담보대출/신용대출/기타부채 다중 입력 지원
-// 수정 (2026-01-27): v3.0 - 각 스텝 이동 시 자동 저장 + 복원 기능 추가
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
-
-// ============================================
-// localStorage 키 (v3.0 신규)
-// ============================================
-const BASIC_STORAGE_KEY = 'financialHouseBasicData';
 
 // ============================================
 // 인터페이스 정의
@@ -340,132 +333,6 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [showSummary, setShowSummary] = useState(false);
 
   // ============================================
-  // v3.0: 컴포넌트 마운트 시 localStorage에서 데이터 복원
-  // ============================================
-  useEffect(() => {
-    try {
-      const savedData = localStorage.getItem(BASIC_STORAGE_KEY);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        console.log('[FinancialHouseBasic] 저장된 데이터 복원:', parsed);
-        
-        // Step 1: 인적사항
-        if (parsed.step1) {
-          setName(parsed.step1.name || name);
-          setAge(parsed.step1.age || age);
-          setMarried(parsed.step1.married ?? married);
-          setJob(parsed.step1.job || job);
-          setFamilyCount(parsed.step1.familyCount || familyCount);
-          setRetireAge(parsed.step1.retireAge || retireAge);
-          setDualIncome(parsed.step1.dualIncome ?? dualIncome);
-        }
-        
-        // Step 2: 관심사/목표
-        if (parsed.step2) {
-          setInterests(parsed.step2.interests || []);
-          setGoal(parsed.step2.goal || '');
-        }
-        
-        // Step 3: 수입/지출
-        if (parsed.step3) {
-          setMyIncome(parsed.step3.myIncome || 0);
-          setSpouseIncome(parsed.step3.spouseIncome || 0);
-          setOtherIncome(parsed.step3.otherIncome || 0);
-          setBonusIncome(parsed.step3.bonusIncome || 0);
-          setIncentiveIncome(parsed.step3.incentiveIncome || 0);
-          setOtherIrregularIncome(parsed.step3.otherIrregularIncome || 0);
-          setCmaAmount(parsed.step3.cmaAmount || 0);
-          setSavingsAmount(parsed.step3.savingsAmount || 0);
-          setFundAmount(parsed.step3.fundAmount || 0);
-          setHousingSubAmount(parsed.step3.housingSubAmount || 0);
-          setIsaAmount(parsed.step3.isaAmount || 0);
-          setPensionAmount(parsed.step3.pensionAmount || 0);
-          setTaxFreePensionAmount(parsed.step3.taxFreePensionAmount || 0);
-          setInsuranceAmount(parsed.step3.insuranceAmount || 0);
-          setLoanPaymentAmount(parsed.step3.loanPaymentAmount || 0);
-          setSurplusAmount(parsed.step3.surplusAmount || 0);
-        }
-        
-        // Step 4: 자산
-        if (parsed.step4) {
-          setCmaAsset(parsed.step4.cmaAsset || 0);
-          setGoldAsset(parsed.step4.goldAsset || 0);
-          setBondAsset(parsed.step4.bondAsset || 0);
-          setDepositAsset(parsed.step4.depositAsset || 0);
-          setInstallmentAsset(parsed.step4.installmentAsset || 0);
-          setPensionAsset(parsed.step4.pensionAsset || 0);
-          setSavingsAsset(parsed.step4.savingsAsset || 0);
-          setFundSavingsAsset(parsed.step4.fundSavingsAsset || 0);
-          setEtfAsset(parsed.step4.etfAsset || 0);
-          setStockAsset(parsed.step4.stockAsset || 0);
-          setCryptoAsset(parsed.step4.cryptoAsset || 0);
-          setInsuranceRefundAsset(parsed.step4.insuranceRefundAsset || 0);
-          setResidentialRealEstate(parsed.step4.residentialRealEstate || 0);
-          setInvestmentRealEstate(parsed.step4.investmentRealEstate || 0);
-        }
-        
-        // Step 5: 부채
-        if (parsed.step5) {
-          setMortgageDebts(parsed.step5.mortgageDebts || []);
-          setCreditDebts(parsed.step5.creditDebts || []);
-          setOtherDebts(parsed.step5.otherDebts || []);
-          setEmergencyFund(parsed.step5.emergencyFund || 0);
-        }
-        
-        // 현재 스텝 복원
-        if (parsed.currentStep) {
-          setCurrentStep(parsed.currentStep);
-        }
-      }
-    } catch (e) {
-      console.error('[FinancialHouseBasic] 데이터 복원 실패:', e);
-    }
-  }, []);
-
-  // ============================================
-  // v3.0: 현재 스텝 데이터를 localStorage에 저장하는 함수
-  // ============================================
-  const saveCurrentStepData = (nextStep?: number) => {
-    try {
-      const existingData = localStorage.getItem(BASIC_STORAGE_KEY);
-      const allData = existingData ? JSON.parse(existingData) : {};
-      
-      // Step 1: 인적사항
-      allData.step1 = { name, age, married, job, familyCount, retireAge, dualIncome };
-      
-      // Step 2: 관심사/목표
-      allData.step2 = { interests, goal };
-      
-      // Step 3: 수입/지출
-      allData.step3 = {
-        myIncome, spouseIncome, otherIncome,
-        bonusIncome, incentiveIncome, otherIrregularIncome,
-        cmaAmount, savingsAmount, fundAmount, housingSubAmount, isaAmount,
-        pensionAmount, taxFreePensionAmount, insuranceAmount, loanPaymentAmount, surplusAmount
-      };
-      
-      // Step 4: 자산
-      allData.step4 = {
-        cmaAsset, goldAsset, bondAsset, depositAsset, installmentAsset,
-        pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset,
-        insuranceRefundAsset, residentialRealEstate, investmentRealEstate
-      };
-      
-      // Step 5: 부채
-      allData.step5 = { mortgageDebts, creditDebts, otherDebts, emergencyFund };
-      
-      // 현재 스텝 저장
-      allData.currentStep = nextStep || currentStep;
-      allData.lastUpdated = new Date().toISOString();
-      
-      localStorage.setItem(BASIC_STORAGE_KEY, JSON.stringify(allData));
-      console.log('[FinancialHouseBasic] 데이터 저장 완료, 스텝:', nextStep || currentStep);
-    } catch (e) {
-      console.error('[FinancialHouseBasic] 데이터 저장 실패:', e);
-    }
-  };
-
-  // ============================================
   // 부채 항목 추가/수정/삭제 함수
   // ============================================
   const addMortgageDebt = () => {
@@ -590,41 +457,21 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
     else alert('경제적 관심사는 최대 2개까지 선택 가능합니다.');
   };
 
-  // ============================================
-  // v3.0 수정: goNext에서 데이터 저장 추가
-  // ============================================
   const goNext = () => {
     if (currentStep === 2) {
       if (interests.length < 1) { alert('경제적 관심사를 1개 이상 선택해 주세요.'); return; }
       if (!goal) { alert('재무 목표를 선택해 주세요.'); return; }
     }
-    
     if (currentStep < totalSteps) {
-      // v3.0: 다음 스텝으로 이동 전 현재 데이터 저장
-      saveCurrentStepData(currentStep + 1);
       setCurrentStep(currentStep + 1);
       if (currentStep === totalSteps - 1) setTimeout(() => setShowSummary(true), 300);
-    } else { 
-      // 마지막 스텝에서 완료
-      saveAllData(); 
-      onComplete(); 
-    }
+    } else { saveAllData(); onComplete(); }
   };
 
-  // ============================================
-  // v3.0 수정: goPrev에서 데이터 저장 추가
-  // ============================================
   const goPrev = () => {
     setShowSummary(false);
-    
-    // v3.0: 이전 스텝으로 이동 전 현재 데이터 저장
-    saveCurrentStepData(currentStep > 1 ? currentStep - 1 : 1);
-    
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    } else {
-      onBack();
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+    else onBack();
   };
 
   const saveAllData = () => {
@@ -652,9 +499,6 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       },
       desireStage: desireResult,
     }));
-    
-    // v3.0: 임시 저장 데이터도 최종 업데이트
-    saveCurrentStepData(currentStep);
   };
 
   const stepLabels = ['인적사항 입력 중...', '경제적 관심사 선택 중...', '수입/지출 입력 중...', '자산 입력 중...', '부채/요약 확인 중...'];
