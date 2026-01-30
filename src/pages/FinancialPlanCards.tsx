@@ -394,8 +394,9 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   
   const emergencyFundMin = formData.monthlyIncome * 3;
   const emergencyFundMax = formData.monthlyIncome * 6;
-  const emergencyGap = emergencyFundMin - formData.liquidAssets;
-  const hasEmergencyFund = formData.liquidAssets >= emergencyFundMin;
+  // ★★★ v3.1 수정: 입력한 비상예비자금과 필요액 비교 ★★★
+  const emergencyGap = emergencyFundMin - formData.emergencyFund;
+  const hasEmergencyFund = formData.emergencyFund >= emergencyFundMin;
   const formatAmount = (amount: number) => amount >= 10000 ? `${(amount / 10000).toFixed(1)}억` : `${amount.toLocaleString()}만`;
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
@@ -502,8 +503,8 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         <div className="flex-1">
           <p className={`text-sm font-bold ${hasEmergencyFund ? 'text-green-700' : 'text-red-700'}`}>비상예비자금: {hasEmergencyFund ? '확보 ✅' : '부족 ❌'}</p>
           <p className="text-xs text-gray-600">필요액: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (소득의 3~6배)</p>
-          {formData.emergencyFund > 0 && (<p className="text-xs text-blue-600 mt-1">입력한 비상예비자금: {formData.emergencyFund.toLocaleString()}만원 (유동성에 포함됨)</p>)}
-          {!hasEmergencyFund && (<p className="text-xs mt-1">현재 유동성: {formData.liquidAssets.toLocaleString()}만원 → <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원 부족</span></p>)}
+          <p className="text-xs text-blue-600 mt-1">입력한 비상예비자금: {formData.emergencyFund.toLocaleString()}만원 (유동성에 포함됨)</p>
+          {!hasEmergencyFund && (<p className="text-xs mt-1">부족액: <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원</span></p>)}
         </div>
       </div>
       
