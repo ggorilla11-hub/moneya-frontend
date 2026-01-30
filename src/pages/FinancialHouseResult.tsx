@@ -1,6 +1,7 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
 // v2.0: 탭 클릭 시 해당 2단계로 이동 기능 추가
+// v3.0: 종합재무설계 리포트 모달 추가 (고객 데이터 연동)
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef } from 'react';
@@ -60,6 +61,7 @@ const FinancialHouseResult = ({
   const [interiorLoaded, setInteriorLoaded] = useState(false);
   const [showCertificates, setShowCertificates] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false); // ★ 리포트 모달 상태
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // 기본값 설정
@@ -446,6 +448,23 @@ const FinancialHouseResult = ({
             </div>
           </div>
         )}
+
+        {/* ★★★ v3.0 추가: 종합재무설계 리포트 버튼 ★★★ */}
+        <div className="mx-4 mb-6">
+          <button
+            onClick={() => setShowReportModal(true)}
+            className="w-full py-4 px-5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-2xl shadow-lg active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl">📊</span>
+              <div className="text-left">
+                <p className="font-bold text-base">{userName || '고객'}님의 금융집짓기</p>
+                <p className="text-sm opacity-90">종합재무설계 리포트 보기</p>
+              </div>
+              <span className="text-xl ml-auto">→</span>
+            </div>
+          </button>
+        </div>
       </main>
 
       {/* 자격증 이미지 확대 모달 */}
@@ -470,6 +489,238 @@ const FinancialHouseResult = ({
             <p className="text-center text-white text-sm mt-3 font-medium">
               관련 저작권·상표권·특허권
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ★★★ v3.0 추가: 종합재무설계 리포트 모달 ★★★ */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-y-auto">
+          <div className="min-h-screen">
+            {/* 리포트 헤더 */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600"
+              >
+                ←
+              </button>
+              <h1 className="font-bold text-gray-800">종합재무설계 리포트</h1>
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-1.5 bg-teal-500 text-white text-xs font-bold rounded-lg"
+              >
+                PDF 저장
+              </button>
+            </div>
+
+            {/* 리포트 내용 */}
+            <div className="bg-gray-100 pb-20">
+              {/* 커버 페이지 */}
+              <div className="bg-gradient-to-br from-teal-500 to-teal-700 text-white p-8 text-center min-h-[60vh] flex flex-col justify-center">
+                <div className="flex items-center justify-center gap-2 mb-8">
+                  <img src={LOGO_URL} alt="AI머니야" className="w-12 h-12" />
+                  <span className="text-2xl font-bold tracking-wider">MONEYA</span>
+                </div>
+                <div className="bg-white/20 px-4 py-2 rounded-full text-sm mb-6 inline-block mx-auto">
+                  🏠 금융집짓기 재정설계 리포트
+                </div>
+                <h1 className="text-3xl font-extrabold mb-2">Financial</h1>
+                <h1 className="text-3xl font-extrabold mb-4">Planning Report</h1>
+                <p className="text-white/80 mb-8">AI와 함께 만든 맞춤형 재무설계</p>
+                <div className="bg-white/10 backdrop-blur rounded-2xl p-5 inline-flex items-center gap-4 mx-auto">
+                  <div className="w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center text-2xl font-bold">
+                    {(userName || '고객').charAt(0)}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xl font-bold">{userName || '고객'}님</p>
+                    <p className="text-white/70 text-sm">{data.currentAge}세 · 가구주</p>
+                  </div>
+                </div>
+                <p className="text-white/50 text-xs mt-8">📅 {new Date().toLocaleDateString('ko-KR')} | AI머니야</p>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-teal-500">
+                  <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-xl">📊</div>
+                  <div>
+                    <h2 className="font-bold text-lg">Executive Summary</h2>
+                    <p className="text-xs text-gray-500">한눈에 보는 재무 현황</p>
+                  </div>
+                </div>
+
+                {/* 종합 점수 카드 */}
+                <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-5 text-white mb-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-sm opacity-90">종합 점수</span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">🏠 벽돌집 Level 3</span>
+                  </div>
+                  <div className="text-5xl font-extrabold">66.7<span className="text-xl font-normal opacity-70">/100</span></div>
+                  <div className="mt-4 pt-4 border-t border-white/20 text-sm leading-relaxed">
+                    {userName || '고객'}님의 재무 상태는 전반적으로 양호합니다. 부채관리와 비상자금은 잘 갖춰져 있으나, 투자 분산과 노후연금 확대가 필요합니다.
+                  </div>
+                </div>
+
+                {/* 핵심 지표 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-green-500">
+                    <div className="text-2xl mb-1">💰</div>
+                    <div className="text-xl font-bold">{(data.realEstateValue + 1.5).toFixed(1)}억</div>
+                    <div className="text-xs text-gray-500">순자산</div>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-semibold rounded-full">양호</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-green-500">
+                    <div className="text-2xl mb-1">💳</div>
+                    <div className="text-xl font-bold">{data.debtRatio}%</div>
+                    <div className="text-xs text-gray-500">부채비율</div>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-semibold rounded-full">양호</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-amber-500">
+                    <div className="text-2xl mb-1">📈</div>
+                    <div className="text-xl font-bold">{data.savingsRate}%</div>
+                    <div className="text-xs text-gray-500">저축률</div>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] font-semibold rounded-full">목표 20%</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-amber-500">
+                    <div className="text-2xl mb-1">🏠</div>
+                    <div className="text-xl font-bold">85.7%</div>
+                    <div className="text-xs text-gray-500">부동산 비중</div>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] font-semibold rounded-full">편중</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DESIRE 분석 */}
+              <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-teal-500">
+                  <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-xl">🎯</div>
+                  <div>
+                    <h2 className="font-bold text-lg">DESIRE Analysis</h2>
+                    <p className="text-xs text-gray-500">6단계 재무건강 분석</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { letter: 'D', name: 'Debt-free (부채관리)', desc: `부채비율 ${data.debtRatio}%`, score: 80, color: 'from-red-500 to-red-600' },
+                    { letter: 'E', name: 'Emergency (비상자금)', desc: '5.5개월분', score: 85, color: 'from-amber-500 to-amber-600' },
+                    { letter: 'S', name: 'Savings (저축)', desc: `저축률 ${data.savingsRate}%`, score: 70, color: 'from-blue-500 to-blue-600' },
+                    { letter: 'I', name: 'Investment (투자)', desc: '자산배분 필요', score: 60, color: 'from-purple-500 to-purple-600' },
+                    { letter: 'R', name: 'Risk Mgmt (위험관리)', desc: '8대보장 62.5%', score: 65, color: 'from-pink-500 to-pink-600' },
+                    { letter: 'E', name: 'Estate (자산설계)', desc: '부동산 편중', score: 40, color: 'from-emerald-500 to-emerald-600' },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                      <div className={`w-11 h-11 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
+                        {item.letter}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                      </div>
+                      <div className="text-xl font-bold">{item.score}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 은퇴설계 */}
+              <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-emerald-500">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-xl">🏖️</div>
+                  <div>
+                    <h2 className="font-bold text-lg">Retirement Planning</h2>
+                    <p className="text-xs text-gray-500">은퇴설계</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                    <div className="text-lg font-bold">{data.currentAge}세</div>
+                    <div className="text-[10px] text-gray-500">현재 나이</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                    <div className="text-lg font-bold">{data.retirementAge}세</div>
+                    <div className="text-[10px] text-gray-500">은퇴 예정</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                    <div className="text-lg font-bold">{data.retirementAge - data.currentAge}년</div>
+                    <div className="text-[10px] text-gray-500">남은 기간</div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <div className="text-2xl mb-1">✅</div>
+                  <div className="font-bold text-green-700">은퇴설계 달성률: {data.retirementReadyRate}%</div>
+                  <div className="text-xs text-green-600 mt-1">월 {data.shortfallMonthly}만원 추가 저축 필요</div>
+                </div>
+              </div>
+
+              {/* Action Plan */}
+              <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-teal-500">
+                  <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                  <div>
+                    <h2 className="font-bold text-lg">Action Plan</h2>
+                    <p className="text-xs text-gray-500">우선순위 실행 계획</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { num: 1, title: '노후연금 월 90만원 증액', desc: '연금저축 30→60만, IRP 신규 30만원', effect: '은퇴자금 +7.2억' },
+                    { num: 2, title: '저축률 20% 달성', desc: '월 150만 → 180만원 증액', effect: '자산 +3.6억' },
+                    { num: 3, title: '보험 리모델링', desc: '종신 감액, 3대질병 추가', effect: '월 15만 절감' },
+                    { num: 4, title: 'ETF 중심 자산배분', desc: '개별주식 → ETF 전환', effect: '리스크 분산' },
+                  ].map((item) => (
+                    <div key={item.num} className="flex gap-3 p-4 bg-gray-50 rounded-xl border-l-4 border-teal-500">
+                      <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                        {item.num}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm">{item.title}</p>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                        <span className="inline-block mt-2 px-2 py-1 bg-green-100 text-green-600 text-[10px] font-semibold rounded-full">{item.effect}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 클로징 */}
+              <div className="bg-white mx-4 my-4 rounded-2xl p-6 shadow-sm text-center">
+                <div className="text-5xl mb-4">🏠</div>
+                <h2 className="text-xl font-extrabold mb-3">{userName || '고객'}님의 금융집,<br/>함께 지어가요</h2>
+                <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                  현재 벽돌집(Level 3)에서<br/>
+                  대리석집(Level 5)까지,<br/>
+                  AI머니야가 함께하겠습니다.
+                </p>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full shadow-lg"
+                >
+                  💬 AI머니야와 대화하기
+                </button>
+
+                {/* 면책조항 */}
+                <div className="mt-8 p-4 bg-gray-50 rounded-xl text-left">
+                  <p className="text-xs font-bold text-gray-500 mb-2">⚠️ 법률 고지</p>
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    본 재무설계 리포트는 일반적인 재무 교육 정보를 제공하기 위한 목적으로 작성되었으며, 투자 권유나 개인 맞춤 투자자문에 해당하지 않습니다.
+                    모든 투자에는 원금 손실의 위험이 있습니다. 최종 투자 결정은 본인 책임 하에 이루어져야 합니다.
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400">
+                  <div className="flex items-center gap-1 font-bold text-teal-500">
+                    <span>💰</span>
+                    <span>MONEYA</span>
+                  </div>
+                  <div>© 2026 MONEYA</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
