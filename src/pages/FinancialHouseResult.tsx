@@ -1,9 +1,7 @@
 // src/pages/FinancialHouseResult.tsx
 // Phase 9-13: 금융집짓기 3단계 - 재무설계도 결과 화면
+// v2.0: 탭 클릭 시 해당 2단계로 이동 기능 추가
 // UI 수정: 10가지 수정사항 반영
-// 수정 (2026-01-22): 저작권/상표권/특허권 박스 클릭 시 자격증 이미지 표시 기능 추가
-// 수정 (2026-01-22): 내부 이미지 → 애니메이션 영상 슬라이드 추가
-// 수정 (2026-01-22): 강의상담 버튼 오상열 대표 사진으로 교체
 
 import { useState, useRef } from 'react';
 
@@ -28,6 +26,8 @@ interface FinancialHouseResultProps {
   onRestart?: () => void;
   onNavigate?: (path: string) => void;
   onBack?: () => void;
+  // ★★★ v2.0 추가: 탭 클릭 시 2단계로 이동 ★★★
+  onTabClick?: (tabId: string) => void;
   // 데이터 연동용 props
   financialData?: {
     currentAge?: number;
@@ -52,6 +52,7 @@ const FinancialHouseResult = ({
   onRestart,
   onNavigate,
   onBack,
+  onTabClick,
   financialData = {}
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -79,14 +80,15 @@ const FinancialHouseResult = ({
     shortfallMonthly: financialData.shortfallMonthly || 170,
   };
 
+  // ★★★ v2.0 수정: 탭에 id 추가 ★★★
   const tabs = [
-    { emoji: '🏖️', label: '은퇴' },
-    { emoji: '💳', label: '부채' },
-    { emoji: '💰', label: '저축' },
-    { emoji: '📈', label: '투자' },
-    { emoji: '💸', label: '세금' },
-    { emoji: '🏠', label: '부동산' },
-    { emoji: '🛡️', label: '보험' },
+    { id: 'retire', emoji: '🏖️', label: '은퇴' },
+    { id: 'debt', emoji: '💳', label: '부채' },
+    { id: 'save', emoji: '💰', label: '저축' },
+    { id: 'invest', emoji: '📈', label: '투자' },
+    { id: 'tax', emoji: '💸', label: '세금' },
+    { id: 'estate', emoji: '🏠', label: '부동산' },
+    { id: 'insurance', emoji: '🛡️', label: '보험' },
   ];
 
   const handleMetaverse = () => {
@@ -149,6 +151,13 @@ const FinancialHouseResult = ({
     setShowCertificateModal(false);
   };
 
+  // ★★★ v2.0 추가: 탭 클릭 핸들러 ★★★
+  const handleTabClick = (tabId: string) => {
+    if (onTabClick) {
+      onTabClick(tabId);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* 헤더 - 로고 + 고객 이름 */}
@@ -196,20 +205,21 @@ const FinancialHouseResult = ({
         </div>
       </header>
 
-      {/* 탭 네비게이션 - 축소 */}
+      {/* ★★★ v2.0 수정: 탭 네비게이션 - 클릭 가능 ★★★ */}
       <div className="bg-white border-b border-gray-200 px-2 py-1.5 overflow-x-auto">
         <div className="flex gap-1 min-w-max">
           {tabs.map((tab, index) => (
-            <div
+            <button
               key={index}
-              className="flex-shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold flex items-center gap-0.5 bg-green-100 text-green-700"
+              onClick={() => handleTabClick(tab.id)}
+              className="flex-shrink-0 px-2 py-1 rounded-full text-[10px] font-semibold flex items-center gap-0.5 bg-green-100 text-green-700 hover:bg-green-200 active:scale-95 transition-all cursor-pointer"
             >
               <span>{tab.emoji}</span>
               <span>{tab.label}</span>
               <span className="w-3 h-3 rounded-full bg-green-500 text-white text-[7px] flex items-center justify-center">
                 ✓
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
