@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v8.0: 온보딩 수입지출 세부항목 자동 입력 (existingIncomeExpense)
 // v7.0: 맞벌이/외벌이 항상 표시, 미혼 선택 시 외벌이 자동 선택 + 비활성화
 // v6.0: Step5 부채 입력 기본 1칸씩 표시 (담보/신용/기타 각 1칸)
 // v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작Basic.tsx
@@ -332,9 +333,12 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [goal, setGoal] = useState(savedData?.goal || '');
 
   // ============================================
-  // Step 3: 수입 (v4.0: localStorage 우선)
+  // Step 3: 수입 (v8.0: localStorage 우선, 없으면 existingIncomeExpense)
   // ============================================
-  const [myIncome, setMyIncome] = useState(savedData?.income?.myIncome || 0);
+  const existingTotalIncome = normalizeToManwon(existingIncomeExpense?.income || existingFinancialResult?.income || 0);
+  const [myIncome, setMyIncome] = useState(
+    savedData?.income?.myIncome || existingTotalIncome || 0
+  );
   const [spouseIncome, setSpouseIncome] = useState(savedData?.income?.spouseIncome || 0);
   const [otherIncome, setOtherIncome] = useState(savedData?.income?.otherIncome || 0);
   const [bonusIncome, setBonusIncome] = useState(savedData?.irregularIncome?.bonusIncome || 0);
@@ -342,18 +346,28 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [otherIrregularIncome, setOtherIrregularIncome] = useState(savedData?.irregularIncome?.otherIrregularIncome || 0);
 
   // ============================================
-  // Step 3: 지출 (v4.0: localStorage 우선)
+  // Step 3: 지출 (v8.0: localStorage 우선, 없으면 existingIncomeExpense)
   // ============================================
   const [cmaAmount, setCmaAmount] = useState(savedData?.expense?.cmaAmount || 0);
-  const [savingsAmount, setSavingsAmount] = useState(savedData?.expense?.savingsAmount || 0);
+  const [savingsAmount, setSavingsAmount] = useState(
+    savedData?.expense?.savingsAmount || existingIncomeExpense?.savings || 0
+  );
   const [fundAmount, setFundAmount] = useState(savedData?.expense?.fundAmount || 0);
   const [housingSubAmount, setHousingSubAmount] = useState(savedData?.expense?.housingSubAmount || 0);
   const [isaAmount, setIsaAmount] = useState(savedData?.expense?.isaAmount || 0);
-  const [pensionAmount, setPensionAmount] = useState(savedData?.expense?.pensionAmount || 0);
+  const [pensionAmount, setPensionAmount] = useState(
+    savedData?.expense?.pensionAmount || existingIncomeExpense?.pension || 0
+  );
   const [taxFreePensionAmount, setTaxFreePensionAmount] = useState(savedData?.expense?.taxFreePensionAmount || 0);
-  const [insuranceAmount, setInsuranceAmount] = useState(savedData?.expense?.insuranceAmount || 0);
-  const [loanPaymentAmount, setLoanPaymentAmount] = useState(savedData?.expense?.loanPaymentAmount || 0);
-  const [surplusAmount, setSurplusAmount] = useState(savedData?.expense?.surplusAmount || 0);
+  const [insuranceAmount, setInsuranceAmount] = useState(
+    savedData?.expense?.insuranceAmount || existingIncomeExpense?.insurance || 0
+  );
+  const [loanPaymentAmount, setLoanPaymentAmount] = useState(
+    savedData?.expense?.loanPaymentAmount || existingIncomeExpense?.loanPayment || 0
+  );
+  const [surplusAmount, setSurplusAmount] = useState(
+    savedData?.expense?.surplusAmount || existingIncomeExpense?.surplus || 0
+  );
 
   // ============================================
   // Step 4: 금융자산 (v4.0: localStorage 우선)
