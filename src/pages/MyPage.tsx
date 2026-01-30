@@ -105,6 +105,7 @@ export default function MyPage({
   const [showDesireRoadmap, setShowDesireRoadmap] = useState(false);
   const [showOnlineCourse, setShowOnlineCourse] = useState(false);
   const [showEbook, setShowEbook] = useState(false);
+  const [showShare, setShowShare] = useState(false); // ★ 공유 모달
 
   // 프로필 편집 상태
   const [editName, setEditName] = useState(userName);
@@ -374,6 +375,16 @@ export default function MyPage({
           <div className="flex-1 text-left">
             <span className="text-sm font-semibold text-gray-900">1:1 문의</span>
             <p className="text-[10px] text-gray-400">ggorilla11@gmail.com</p>
+          </div>
+          <span className="text-gray-400 text-sm">›</span>
+        </button>
+
+        {/* ★★★ v2.1: 친구에게 공유하기 ★★★ */}
+        <button onClick={() => setShowShare(true)} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-100 to-teal-100 flex items-center justify-center text-base">🔗</div>
+          <div className="flex-1 text-left">
+            <span className="text-sm font-semibold text-gray-900">친구에게 공유하기</span>
+            <p className="text-[10px] text-gray-400">카톡, 문자, 이메일로 AI머니야 공유</p>
           </div>
           <span className="text-gray-400 text-sm">›</span>
         </button>
@@ -679,6 +690,114 @@ export default function MyPage({
               <button className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl">
                 사전신청 9,900원
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ★★★ v2.1: 친구에게 공유하기 모달 ★★★ */}
+      {showShare && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">🔗 친구에게 공유하기</h3>
+              <button onClick={() => setShowShare(false)} className="text-gray-400 text-xl">✕</button>
+            </div>
+            <div className="p-4">
+              {/* 로고 + QR코드 */}
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <img 
+                  src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a" 
+                  alt="AI머니야 로고" 
+                  className="w-20 h-20"
+                />
+                <img 
+                  src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/QR%EC%BD%94%EB%93%9C.png?alt=media&token=032255d4-cce8-4672-9a83-580c70e920f7" 
+                  alt="QR코드" 
+                  className="w-24 h-24 border border-gray-200 rounded-xl"
+                />
+              </div>
+              
+              {/* URL 복사 */}
+              <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-gray-500 mb-1">공유 링크</p>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value="https://moneya.vercel.app" 
+                    readOnly 
+                    className="flex-1 text-sm text-gray-700 bg-transparent outline-none"
+                  />
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://moneya.vercel.app');
+                      alert('링크가 복사되었습니다!');
+                    }}
+                    className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg"
+                  >
+                    복사
+                  </button>
+                </div>
+              </div>
+
+              {/* 공유 버튼들 */}
+              <div className="space-y-2">
+                {/* 카카오톡 */}
+                <button 
+                  onClick={() => {
+                    const text = '💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app';
+                    window.open(`https://sharer.kakao.com/talk/friends/picker/link?url=${encodeURIComponent('https://moneya.vercel.app')}&text=${encodeURIComponent(text)}`, '_blank', 'width=500,height=600');
+                  }}
+                  className="w-full py-3.5 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">💬</span> 카카오톡으로 공유
+                </button>
+
+                {/* 문자 */}
+                <button 
+                  onClick={() => {
+                    const text = '💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app';
+                    window.location.href = `sms:?body=${encodeURIComponent(text)}`;
+                  }}
+                  className="w-full py-3.5 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">💬</span> 문자로 공유
+                </button>
+
+                {/* 이메일 */}
+                <button 
+                  onClick={() => {
+                    const subject = '[추천] AI머니야 - AI 기반 재무관리 앱';
+                    const body = '안녕하세요!\n\nAI머니야를 추천드립니다.\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app\n\nQR코드로도 접속 가능합니다.';
+                    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                  }}
+                  className="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">📧</span> 이메일로 공유
+                </button>
+
+                {/* 네이티브 공유 (모바일) */}
+                <button 
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: 'AI머니야 - AI 기반 재무관리 앱',
+                          text: '금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!',
+                          url: 'https://moneya.vercel.app'
+                        });
+                      } catch (err) {
+                        console.log('공유 취소됨');
+                      }
+                    } else {
+                      alert('이 브라우저에서는 공유 기능을 지원하지 않습니다.');
+                    }
+                  }}
+                  className="w-full py-3.5 bg-gray-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  <span className="text-xl">📤</span> 다른 앱으로 공유
+                </button>
+              </div>
             </div>
           </div>
         </div>
