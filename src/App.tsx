@@ -79,6 +79,10 @@ function App() {
   
   // 금융집짓기 스텝 관리
   const [financialHouseStep, setFinancialHouseStep] = useState<'disclaimer' | 'basic' | 'design' | 'result'>('disclaimer');
+  
+  // ★★★ v4 추가: 2단계/1단계 초기 탭/스텝 관리 ★★★
+  const [designInitialTab, setDesignInitialTab] = useState<string>('retire');
+  const [basicInitialStep, setBasicInitialStep] = useState<number>(1);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -209,8 +213,10 @@ function App() {
         // 면책조항 동의했지만 완료 안됨 -> 마지막 진행 단계로
         const designStarted = localStorage.getItem(`financialHouseDesignStarted_${user.uid}`);
         if (designStarted) {
+          setDesignInitialTab('retire'); // 탭에서 돌아올 때는 첫번째 탭부터
           setFinancialHouseStep('design');
         } else {
+          setBasicInitialStep(1); // 탭에서 돌아올 때는 첫번째 스텝부터
           setFinancialHouseStep('basic');
         }
       } else {
@@ -309,11 +315,15 @@ function App() {
       // ★★★ 추가: 면책조항 동의 및 진행 상태도 초기화 ★★★
       localStorage.removeItem(`financialHouseDisclaimerAgreed_${user.uid}`);
       localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
+      // ★★★ v3 추가: 1단계 임시저장 데이터 삭제 ★★★
+      localStorage.removeItem('financialHouseBasicDraft');
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
       setAdjustedBudget(null);
       setFinancialHouseStep('disclaimer');
+      setDesignInitialTab('retire');
+      setBasicInitialStep(1);
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
@@ -324,6 +334,7 @@ function App() {
     if (user) {
       localStorage.setItem(`financialHouseDisclaimerAgreed_${user.uid}`, 'true');
     }
+    setBasicInitialStep(1); // 처음 시작은 Step 1부터
     setFinancialHouseStep('basic');
   };
 
@@ -332,6 +343,7 @@ function App() {
     if (user) {
       localStorage.setItem(`financialHouseDesignStarted_${user.uid}`, 'true');
     }
+    setDesignInitialTab('retire'); // 처음 시작은 은퇴설계부터
     setFinancialHouseStep('design');
   };
 
@@ -348,8 +360,11 @@ function App() {
     if (user) {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
       localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
+      // ★★★ v3 추가: 1단계 임시저장 데이터도 삭제 ★★★
+      localStorage.removeItem('financialHouseBasicDraft');
       // 면책조항 동의는 유지 (다시 동의 안 받음)
     }
+    setBasicInitialStep(1); // 다시 설계는 Step 1부터
     setFinancialHouseStep('basic');
   };
 
@@ -569,11 +584,11 @@ function App() {
                   onComplete={handleBasicComplete}
                   onBack={() => {
                     // ★★★ 수정: 1단계에서 back -> 면책조항으로 가지 않고 홈으로 ★★★
-                    // 면책조항은 이미 동의했으므로 다시 보여줄 필요 없음
                     setCurrentTab('home');
                   }}
                   existingFinancialResult={financialResult}
                   existingIncomeExpense={incomeExpenseData}
+                  initialStep={basicInitialStep}
                 />
               )}
               {financialHouseStep === 'design' && (
@@ -581,11 +596,11 @@ function App() {
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={handleFinancialHouseComplete}
                   onBack={() => {
-                    // ★★★ 수정: 2단계 첫번째(은퇴설계)에서 back -> 1단계 마지막(부채/요약)으로 ★★★
-                    // FinancialHouseDesign 내부에서 goToPrevTab이 처리하므로
-                    // 여기서는 design의 첫번째 탭에서 back 눌렀을 때만 basic으로 이동
+                    // ★★★ v4 수정: 2단계에서 back -> 1단계 마지막(Step 5)으로 ★★★
+                    setBasicInitialStep(5);
                     setFinancialHouseStep('basic');
                   }}
+                  initialTab={designInitialTab}
                 />
               )}
               {financialHouseStep === 'result' && (
@@ -593,7 +608,8 @@ function App() {
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
                   onBack={() => {
-                    // ★★★ 수정: 3단계에서 back -> 2단계 마지막(보험설계)으로 ★★★
+                    // ★★★ v4 수정: 3단계에서 back -> 2단계 마지막(보험설계)으로 ★★★
+                    setDesignInitialTab('insurance');
                     setFinancialHouseStep('design');
                   }}
                   onNavigate={(path) => {
