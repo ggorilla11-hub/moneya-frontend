@@ -1,9 +1,8 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v7.0: 맞벌이/외벌이 항상 표시, 미혼 선택 시 외벌이 자동 선택 + 비활성화
 // v6.0: Step5 부채 입력 기본 1칸씩 표시 (담보/신용/기타 각 1칸)
-// v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작
-// v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
-// v4.0: useState 초기값에서 localStorage 로딩 (탭 이동/스텝 이동 시 데이터 유지 완벽 해결)Basic.tsx
+// v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작Basic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
 // v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작
 // v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
@@ -657,7 +656,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
                 <div><label className="block text-xs font-semibold text-gray-500 mb-1">가족 수</label><div className="relative"><input type="text" inputMode="numeric" pattern="[0-9]*" value={familyCount === 0 ? '' : String(familyCount)} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setFamilyCount(val ? parseInt(val, 10) : 0); }} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">명</span></div></div>
                 <div><label className="block text-xs font-semibold text-gray-500 mb-1">은퇴 예정 나이</label><div className="relative"><input type="text" inputMode="numeric" pattern="[0-9]*" value={retireAge === 0 ? '' : String(retireAge)} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ''); setRetireAge(val ? parseInt(val, 10) : 0); }} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 pr-8" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">세</span></div></div>
               </div>
-              {married && <div><label className="block text-xs font-semibold text-gray-500 mb-2">맞벌이 여부</label><div className="grid grid-cols-2 gap-2"><button onClick={() => setDualIncome(true)} className={`py-3 rounded-lg border-2 text-sm font-semibold ${dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👫</span>맞벌이</button><button onClick={() => setDualIncome(false)} className={`py-3 rounded-lg border-2 text-sm font-semibold ${!dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👤</span>외벌이</button></div></div>}
+              <div className="mb-3"><label className="block text-xs font-semibold text-gray-500 mb-2">맞벌이 여부</label><div className="grid grid-cols-2 gap-2"><button onClick={() => married && setDualIncome(true)} disabled={!married} className={`py-3 rounded-lg border-2 text-sm font-semibold ${dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'} ${!married ? 'opacity-50 cursor-not-allowed' : ''}`}><span className="block text-lg mb-1">👫</span>맞벌이</button><button onClick={() => married && setDualIncome(false)} disabled={!married} className={`py-3 rounded-lg border-2 text-sm font-semibold ${!dualIncome ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 text-gray-500'}`}><span className="block text-lg mb-1">👤</span>외벌이</button></div>{!married && <p className="text-xs text-gray-400 mt-1">※ 미혼은 외벌이로 자동 선택됩니다</p>}</div>
             </div>
           </>
         )}
