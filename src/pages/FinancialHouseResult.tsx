@@ -406,7 +406,7 @@ const FinancialHouseResult = ({
         </div>
 
         {/* 저작권 정보 */}
-        <div className="w-full mt-6 mb-2 text-center px-3 py-3 bg-gray-50 rounded-lg">
+        <div className="w-full mt-2 mb-2 text-center px-3 py-2 bg-gray-50 rounded-lg">
           <p className="text-xs font-bold text-gray-600">
             © 2017 오원트금융연구소 All rights reserved.
           </p>
