@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v9.0: 온보딩 데이터 단위 변환 (원→만원) 적용
 // v8.0: 온보딩 수입지출 세부항목 자동 입력 (existingIncomeExpense)
 // v7.0: 맞벌이/외벌이 항상 표시, 미혼 선택 시 외벌이 자동 선택 + 비활성화
 // v6.0: Step5 부채 입력 기본 1칸씩 표시 (담보/신용/기타 각 1칸)
@@ -346,27 +347,27 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [otherIrregularIncome, setOtherIrregularIncome] = useState(savedData?.irregularIncome?.otherIrregularIncome || 0);
 
   // ============================================
-  // Step 3: 지출 (v8.0: localStorage 우선, 없으면 existingIncomeExpense)
+  // Step 3: 지출 (v9.0: localStorage 우선, 없으면 existingIncomeExpense + 단위 변환)
   // ============================================
   const [cmaAmount, setCmaAmount] = useState(savedData?.expense?.cmaAmount || 0);
   const [savingsAmount, setSavingsAmount] = useState(
-    savedData?.expense?.savingsAmount || existingIncomeExpense?.savings || 0
+    savedData?.expense?.savingsAmount || normalizeToManwon(existingIncomeExpense?.savings || 0)
   );
   const [fundAmount, setFundAmount] = useState(savedData?.expense?.fundAmount || 0);
   const [housingSubAmount, setHousingSubAmount] = useState(savedData?.expense?.housingSubAmount || 0);
   const [isaAmount, setIsaAmount] = useState(savedData?.expense?.isaAmount || 0);
   const [pensionAmount, setPensionAmount] = useState(
-    savedData?.expense?.pensionAmount || existingIncomeExpense?.pension || 0
+    savedData?.expense?.pensionAmount || normalizeToManwon(existingIncomeExpense?.pension || 0)
   );
   const [taxFreePensionAmount, setTaxFreePensionAmount] = useState(savedData?.expense?.taxFreePensionAmount || 0);
   const [insuranceAmount, setInsuranceAmount] = useState(
-    savedData?.expense?.insuranceAmount || existingIncomeExpense?.insurance || 0
+    savedData?.expense?.insuranceAmount || normalizeToManwon(existingIncomeExpense?.insurance || 0)
   );
   const [loanPaymentAmount, setLoanPaymentAmount] = useState(
-    savedData?.expense?.loanPaymentAmount || existingIncomeExpense?.loanPayment || 0
+    savedData?.expense?.loanPaymentAmount || normalizeToManwon(existingIncomeExpense?.loanPayment || 0)
   );
   const [surplusAmount, setSurplusAmount] = useState(
-    savedData?.expense?.surplusAmount || existingIncomeExpense?.surplus || 0
+    savedData?.expense?.surplusAmount || normalizeToManwon(existingIncomeExpense?.surplus || 0)
   );
 
   // ============================================
