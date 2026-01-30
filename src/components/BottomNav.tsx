@@ -1,3 +1,6 @@
+// src/components/BottomNav.tsx
+// v2.0: "마이페이지" → "더보기" 변경, 아이콘 변경
+
 interface BottomNavProps {
   currentTab: 'home' | 'ai-spend' | 'financial-house' | 'mypage';
   onTabChange: (tab: 'home' | 'ai-spend' | 'financial-house' | 'mypage') => void;
@@ -36,11 +39,12 @@ function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
       activeColor: 'text-purple-600',
     },
     {
+      // ★★★ v2.0: 마이페이지 → 더보기 변경 ★★★
       id: 'mypage' as const,
-      label: '마이페이지',
+      label: '더보기',
       icon: (active: boolean) => (
         <svg className={`w-6 h-6 ${active ? 'text-sky-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
         </svg>
       ),
       activeColor: 'text-sky-600',
