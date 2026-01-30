@@ -612,6 +612,11 @@ function App() {
                     setDesignInitialTab('insurance');
                     setFinancialHouseStep('design');
                   }}
+                  // ★★★ v5 추가: 탭 클릭 시 해당 2단계로 이동 ★★★
+                  onTabClick={(tabId) => {
+                    setDesignInitialTab(tabId);
+                    setFinancialHouseStep('design');
+                  }}
                   onNavigate={(path) => {
                     if (path === 'mypage-consulting') {
                       setCurrentStep('consulting');
