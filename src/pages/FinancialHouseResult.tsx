@@ -17,7 +17,6 @@ const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72
 
 // 금융집 이미지 URL (Firebase Storage)
 const EXTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png.png?alt=media&token=e1651823-af8e-4ed3-9b3d-557a1bf0eb10';
-const INTERIOR_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%EC%8B%A4%EC%82%AC%20%EB%82%B4%EB%B6%80%EC%9B%90%EB%B3%B8.png?alt=media&token=0d287c6b-2ba3-45ea-ac66-319e630ea11b';
 
 // 저작권/상표권/특허권 자격증 이미지 URL (Firebase Storage)
 const CERTIFICATE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%A0%80%EC%9E%91%EA%B6%8C%EC%83%81%ED%91%9C%EA%B6%8C%ED%8A%B9%ED%97%88%EA%B6%8C.png?alt=media&token=2ad30230-ccc5-481d-89d7-82c421ee3759';
@@ -61,7 +60,6 @@ const FinancialHouseResult = ({
 }: FinancialHouseResultProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [exteriorLoaded, setExteriorLoaded] = useState(false);
-  const [interiorLoaded, setInteriorLoaded] = useState(false);
   const [showCertificates, setShowCertificates] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false); // ★ 리포트 모달 상태
