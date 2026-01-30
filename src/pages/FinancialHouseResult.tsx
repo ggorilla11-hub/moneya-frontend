@@ -405,22 +405,33 @@ const FinancialHouseResult = ({
           </div>
         </div>
 
-        {/* 저작권 정보 - 클릭 가능 */}
-        <button 
-          onClick={handleCertificateToggle}
-          className="w-full mt-6 mb-2 text-center px-3 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors active:scale-[0.99]"
-        >
+        {/* 저작권 정보 */}
+        <div className="w-full mt-6 mb-2 text-center px-3 py-3 bg-gray-50 rounded-lg">
           <p className="text-xs font-bold text-gray-600">
             © 2017 오원트금융연구소 All rights reserved.
           </p>
           <p className="text-[11px] font-semibold text-gray-500 mt-1">
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
-          <p className="text-[10px] text-teal-600 mt-1 flex items-center justify-center gap-1">
-            <span>{showCertificates ? '▲' : '▼'}</span>
-            <span>{showCertificates ? '접기' : '관련 자격증 보기'}</span>
-          </p>
-        </button>
+          
+          {/* ★★★ v3.1: 두 버튼 나란히 배치 ★★★ */}
+          <div className="flex justify-center gap-4 mt-3">
+            <button 
+              onClick={() => setShowReportModal(true)}
+              className="text-[11px] text-teal-600 font-semibold flex items-center gap-1 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 rounded-full transition-colors active:scale-95"
+            >
+              <span>▼</span>
+              <span>📊 재무설계리포트 보기</span>
+            </button>
+            <button 
+              onClick={handleCertificateToggle}
+              className="text-[11px] text-gray-500 font-semibold flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors active:scale-95"
+            >
+              <span>{showCertificates ? '▲' : '▼'}</span>
+              <span>📜 관련 자격증 보기</span>
+            </button>
+          </div>
+        </div>
 
         {/* 자격증 이미지 영역 - 토글 */}
         {showCertificates && (
@@ -448,23 +459,6 @@ const FinancialHouseResult = ({
             </div>
           </div>
         )}
-
-        {/* ★★★ v3.0 추가: 종합재무설계 리포트 버튼 ★★★ */}
-        <div className="mx-4 mb-6">
-          <button
-            onClick={() => setShowReportModal(true)}
-            className="w-full py-4 px-5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-2xl shadow-lg active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-2xl">📊</span>
-              <div className="text-left">
-                <p className="font-bold text-base">{userName || '고객'}님의 금융집짓기</p>
-                <p className="text-sm opacity-90">종합재무설계 리포트 보기</p>
-              </div>
-              <span className="text-xl ml-auto">→</span>
-            </div>
-          </button>
-        </div>
       </main>
 
       {/* 자격증 이미지 확대 모달 */}
