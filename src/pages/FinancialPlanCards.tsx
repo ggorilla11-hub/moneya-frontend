@@ -362,11 +362,15 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         const monthlyIncome = (parsed.income?.myIncome || 0) + (parsed.income?.spouseIncome || 0) + (parsed.income?.otherIncome || 0);
         const residentialRealEstate = realEstate.residentialRealEstate || 0;
         const investmentRealEstate = realEstate.investmentRealEstate || 0;
-        // ★★★ v3.2 추가: dualIncome 불러오기 ★★★
+        // ★★★ v3.3 수정: dualIncome 항상 불러오기 ★★★
         const dualIncome = parsed.personalInfo?.dualIncome ?? false;
+        
+        // dualIncome은 항상 업데이트
+        baseData = { ...baseData, dualIncome };
+        
         const hasFinancialAssets = liquidAssets > 0 || safeAssets > 0 || growthAssets > 0 || highRiskAssets > 0;
         if (hasFinancialAssets || residentialRealEstate > 0 || investmentRealEstate > 0) {
-          baseData = { ...baseData, currentAge: parsed.personalInfo?.age || baseData.currentAge, monthlyIncome: monthlyIncome || baseData.monthlyIncome, totalAssets: parsed.totalAsset || baseData.totalAssets, totalDebt: parsed.debts?.totalDebt || baseData.totalDebt, liquidAssets, safeAssets, growthAssets, highRiskAssets, emergencyFund: emergencyFundValue, residentialRealEstate, investmentRealEstate, dualIncome };
+          baseData = { ...baseData, currentAge: parsed.personalInfo?.age || baseData.currentAge, monthlyIncome: monthlyIncome || baseData.monthlyIncome, totalAssets: parsed.totalAsset || baseData.totalAssets, totalDebt: parsed.debts?.totalDebt || baseData.totalDebt, liquidAssets, safeAssets, growthAssets, highRiskAssets, emergencyFund: emergencyFundValue, residentialRealEstate, investmentRealEstate };
         }
       } catch (e) { console.error('Failed to parse financialHouseData:', e); }
     }
