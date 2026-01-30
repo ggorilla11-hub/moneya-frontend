@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
 // v4.0: useState 초기값에서 localStorage 로딩 (탭 이동/스텝 이동 시 데이터 유지 완벽 해결)
 // v3.0: 각 스텝 이동 시 localStorage 저장 + 마운트 시 복원 (데이터 유지 문제 해결)
 // v2.0: 부채 입력 UI 개선 - 다중 대출 입력 지원 (+버튼으로 추가)
@@ -11,6 +12,7 @@
 // 수정 (2026-01-26): 부채 입력 UI 개선 - 담보대출/신용대출/기타부채 다중 입력 지원
 // 수정 (2026-01-30): v3.0 - 각 스텝 이동 시 자동 저장 + 복원 기능 추가
 // 수정 (2026-01-31): v4.0 - useState 초기값에서 localStorage 직접 로딩으로 변경
+// 수정 (2026-01-31): v4.1 - 2단계 복귀 시 데이터 유지 (onComplete 시 localStorage 삭제 제거)
 
 import { useState, useEffect, useCallback } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
@@ -540,7 +542,7 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   };
 
   // ============================================
-  // goNext (v4.0: 자동 저장이 useEffect에서 처리되므로 명시적 저장 불필요)
+  // goNext (v4.1: localStorage 삭제 제거 - 2단계 복귀 시 데이터 유지)
   // ============================================
   const goNext = () => {
     if (currentStep === 2) {
@@ -553,8 +555,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
       if (currentStep === totalSteps - 1) setTimeout(() => setShowSummary(true), 300);
     } else { 
       saveAllData(); 
-      // 완료 시 임시 저장 데이터 삭제
-      localStorage.removeItem(BASIC_STORAGE_KEY);
+      // v4.1: 임시 저장 데이터 삭제하지 않음 (2단계에서 돌아올 때 데이터 유지 필요)
+      // localStorage.removeItem(BASIC_STORAGE_KEY);
       onComplete(); 
     }
   };
