@@ -339,11 +339,11 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
     currentAge: 37, monthlyIncome: 500, totalAssets: 25000, totalDebt: 10000,
     liquidAssets: 1500, safeAssets: 10000, growthAssets: 2500, highRiskAssets: 1000,
-    emergencyFund: 0, residentialRealEstate: 0, investmentRealEstate: 0,
+    emergencyFund: 0, residentialRealEstate: 0, investmentRealEstate: 0, dualIncome: false,
   });
 
   useEffect(() => {
-    let baseData = { currentAge: 37, monthlyIncome: 500, totalAssets: 25000, totalDebt: 10000, liquidAssets: 1500, safeAssets: 10000, growthAssets: 2500, highRiskAssets: 1000, emergencyFund: 0, residentialRealEstate: 0, investmentRealEstate: 0 };
+    let baseData = { currentAge: 37, monthlyIncome: 500, totalAssets: 25000, totalDebt: 10000, liquidAssets: 1500, safeAssets: 10000, growthAssets: 2500, highRiskAssets: 1000, emergencyFund: 0, residentialRealEstate: 0, investmentRealEstate: 0, dualIncome: false };
     const saved = loadDesignData('invest');
     if (saved) { baseData = { ...baseData, currentAge: saved.currentAge || baseData.currentAge, monthlyIncome: saved.monthlyIncome || baseData.monthlyIncome, totalAssets: saved.totalAssets || baseData.totalAssets, totalDebt: saved.totalDebt || baseData.totalDebt }; }
     
@@ -362,9 +362,11 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         const monthlyIncome = (parsed.income?.myIncome || 0) + (parsed.income?.spouseIncome || 0) + (parsed.income?.otherIncome || 0);
         const residentialRealEstate = realEstate.residentialRealEstate || 0;
         const investmentRealEstate = realEstate.investmentRealEstate || 0;
+        // ★★★ v3.2 추가: dualIncome 불러오기 ★★★
+        const dualIncome = parsed.personalInfo?.dualIncome ?? false;
         const hasFinancialAssets = liquidAssets > 0 || safeAssets > 0 || growthAssets > 0 || highRiskAssets > 0;
         if (hasFinancialAssets || residentialRealEstate > 0 || investmentRealEstate > 0) {
-          baseData = { ...baseData, currentAge: parsed.personalInfo?.age || baseData.currentAge, monthlyIncome: monthlyIncome || baseData.monthlyIncome, totalAssets: parsed.totalAsset || baseData.totalAssets, totalDebt: parsed.debts?.totalDebt || baseData.totalDebt, liquidAssets, safeAssets, growthAssets, highRiskAssets, emergencyFund: emergencyFundValue, residentialRealEstate, investmentRealEstate };
+          baseData = { ...baseData, currentAge: parsed.personalInfo?.age || baseData.currentAge, monthlyIncome: monthlyIncome || baseData.monthlyIncome, totalAssets: parsed.totalAsset || baseData.totalAssets, totalDebt: parsed.debts?.totalDebt || baseData.totalDebt, liquidAssets, safeAssets, growthAssets, highRiskAssets, emergencyFund: emergencyFundValue, residentialRealEstate, investmentRealEstate, dualIncome };
         }
       } catch (e) { console.error('Failed to parse financialHouseData:', e); }
     }
@@ -392,11 +394,11 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const realEstateTargetRatios = { residential: 70, investment: 30 };
   const realEstateTargetAmounts = { residential: Math.round(totalRealEstateAssets * 0.70), investment: Math.round(totalRealEstateAssets * 0.30) };
   
-  const emergencyFundMin = formData.monthlyIncome * 3;
-  const emergencyFundMax = formData.monthlyIncome * 6;
-  // ★★★ v3.1 수정: 입력한 비상예비자금과 필요액 비교 ★★★
-  const emergencyGap = emergencyFundMin - formData.emergencyFund;
-  const hasEmergencyFund = formData.emergencyFund >= emergencyFundMin;
+  // ★★★ v3.2 수정: 맞벌이=3개월, 외벌이=6개월 ★★★
+  const emergencyFundMonths = formData.dualIncome ? 3 : 6;
+  const emergencyFundRequired = formData.monthlyIncome * emergencyFundMonths;
+  const emergencyGap = emergencyFundRequired - formData.emergencyFund;
+  const hasEmergencyFund = formData.emergencyFund >= emergencyFundRequired;
   const formatAmount = (amount: number) => amount >= 10000 ? `${(amount / 10000).toFixed(1)}억` : `${amount.toLocaleString()}만`;
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
@@ -502,7 +504,7 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         <span className="text-2xl">🆘</span>
         <div className="flex-1">
           <p className={`text-sm font-bold ${hasEmergencyFund ? 'text-green-700' : 'text-red-700'}`}>비상예비자금: {hasEmergencyFund ? '확보 ✅' : '부족 ❌'}</p>
-          <p className="text-xs text-gray-600">필요액: {emergencyFundMin.toLocaleString()}~{emergencyFundMax.toLocaleString()}만원 (소득의 3~6배)</p>
+          <p className="text-xs text-gray-600">필요액: {emergencyFundRequired.toLocaleString()}만원 ({formData.dualIncome ? '맞벌이 3개월' : '외벌이 6개월'}치)</p>
           <p className="text-xs text-blue-600 mt-1">입력한 비상예비자금: {formData.emergencyFund.toLocaleString()}만원 (유동성에 포함됨)</p>
           {!hasEmergencyFund && (<p className="text-xs mt-1">부족액: <span className="font-bold text-red-600">{emergencyGap.toLocaleString()}만원</span></p>)}
         </div>
