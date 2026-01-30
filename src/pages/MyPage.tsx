@@ -120,10 +120,12 @@ export default function MyPage({
   const [desireStage, setDesireStage] = useState<number | null>(null);
 
   // 뱃지 상태 (획득한 뱃지 ID 배열)
-  const [earnedBadges, setEarnedBadges] = useState<string[]>(['streak7', 'firstSave', 'analyst']);
+  // TODO: 실제 뱃지 획득 로직 구현 시 setEarnedBadges 사용
+  const [earnedBadges] = useState<string[]>(['streak7', 'firstSave', 'analyst']);
 
   // 성장 기록 상태
-  const [growthData, setGrowthData] = useState({
+  // TODO: 실제 성장 데이터 연동 시 setGrowthData 사용
+  const [growthData] = useState({
     attendanceDays: 27,
     totalDays: 30,
     budgetAchieveDays: 23,
