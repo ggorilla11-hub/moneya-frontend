@@ -1,5 +1,10 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v6.0: Step5 부채 입력 기본 1칸씩 표시 (담보/신용/기타 각 1칸)
+// v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작
+// v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
+// v4.0: useState 초기값에서 localStorage 로딩 (탭 이동/스텝 이동 시 데이터 유지 완벽 해결)Basic.tsx
+// 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
 // v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작
 // v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
 // v4.0: useState 초기값에서 localStorage 로딩 (탭 이동/스텝 이동 시 데이터 유지 완벽 해결)
@@ -374,11 +379,22 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [investmentRealEstate, setInvestmentRealEstate] = useState(savedData?.realEstateAssets?.investmentRealEstate || 0);
 
   // ============================================
-  // Step 5: 부채 (v4.0: localStorage 우선)
+  // Step 5: 부채 (v6.0: 기본 1칸씩 표시)
   // ============================================
-  const [mortgageDebts, setMortgageDebts] = useState<DebtItem[]>(savedData?.debts?.mortgageDebts || []);
-  const [creditDebts, setCreditDebts] = useState<DebtItem[]>(savedData?.debts?.creditDebts || []);
-  const [otherDebts, setOtherDebts] = useState<DebtItem[]>(savedData?.debts?.otherDebts || []);
+  // ★★★ v6.0 수정: 저장된 데이터가 없거나 빈 배열이면 기본 1칸 표시 ★★★
+  const defaultMortgageDebt: DebtItem[] = [{ id: Math.random().toString(36).substr(2, 9), name: '', amount: 0, rate: 0 }];
+  const defaultCreditDebt: DebtItem[] = [{ id: Math.random().toString(36).substr(2, 9), name: '', amount: 0, rate: 0 }];
+  const defaultOtherDebt: DebtItem[] = [{ id: Math.random().toString(36).substr(2, 9), name: '', amount: 0, rate: 0 }];
+  
+  const [mortgageDebts, setMortgageDebts] = useState<DebtItem[]>(
+    savedData?.debts?.mortgageDebts?.length > 0 ? savedData.debts.mortgageDebts : defaultMortgageDebt
+  );
+  const [creditDebts, setCreditDebts] = useState<DebtItem[]>(
+    savedData?.debts?.creditDebts?.length > 0 ? savedData.debts.creditDebts : defaultCreditDebt
+  );
+  const [otherDebts, setOtherDebts] = useState<DebtItem[]>(
+    savedData?.debts?.otherDebts?.length > 0 ? savedData.debts.otherDebts : defaultOtherDebt
+  );
   const [emergencyFund, setEmergencyFund] = useState(savedData?.debts?.emergencyFund || 0);
   const [showSummary, setShowSummary] = useState(false);
 
