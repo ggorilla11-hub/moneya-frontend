@@ -100,10 +100,20 @@ function App() {
           if (savedIncomeExpense) {
             setIncomeExpenseData(JSON.parse(savedIncomeExpense));
           }
-          // 금융집짓기 완성 여부 확인
+          // ★★★ 수정: 금융집짓기 진행 상태 복원 (면책조항 동의 여부 포함) ★★★
           const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${currentUser.uid}`);
+          
           if (financialHouseCompleted) {
             setFinancialHouseStep('result');
+          } else if (disclaimerAgreed) {
+            // 면책조항 동의했지만 완료 안됨 -> basic 또는 design
+            const designStarted = localStorage.getItem(`financialHouseDesignStarted_${currentUser.uid}`);
+            if (designStarted) {
+              setFinancialHouseStep('design');
+            } else {
+              setFinancialHouseStep('basic');
+            }
           }
           setCurrentStep('main');
           setCurrentTab('home');
@@ -185,13 +195,26 @@ function App() {
     setCurrentTab('home');
   };
 
+  // ★★★ 수정: 탭 변경 시 금융집짓기 진행 상태 복원 ★★★
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
-    // 금융집짓기 탭 클릭 시 완성 여부 확인
+    // 금융집짓기 탭 클릭 시 진행 상태 복원
     if (tab === 'financial-house' && user) {
       const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${user.uid}`);
+      
       if (financialHouseCompleted) {
         setFinancialHouseStep('result');
+      } else if (disclaimerAgreed) {
+        // 면책조항 동의했지만 완료 안됨 -> 마지막 진행 단계로
+        const designStarted = localStorage.getItem(`financialHouseDesignStarted_${user.uid}`);
+        if (designStarted) {
+          setFinancialHouseStep('design');
+        } else {
+          setFinancialHouseStep('basic');
+        }
+      } else {
+        setFinancialHouseStep('disclaimer');
       }
     }
   };
@@ -283,6 +306,9 @@ function App() {
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       localStorage.removeItem(`moneya_spend_${user.uid}`);
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
+      // ★★★ 추가: 면책조항 동의 및 진행 상태도 초기화 ★★★
+      localStorage.removeItem(`financialHouseDisclaimerAgreed_${user.uid}`);
+      localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -291,6 +317,22 @@ function App() {
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
+  };
+
+  // ★★★ 수정: 면책조항 동의 핸들러 - localStorage에 저장 ★★★
+  const handleDisclaimerAgree = () => {
+    if (user) {
+      localStorage.setItem(`financialHouseDisclaimerAgreed_${user.uid}`, 'true');
+    }
+    setFinancialHouseStep('basic');
+  };
+
+  // ★★★ 수정: 1단계 완료 핸들러 - design 시작 표시 ★★★
+  const handleBasicComplete = () => {
+    if (user) {
+      localStorage.setItem(`financialHouseDesignStarted_${user.uid}`, 'true');
+    }
+    setFinancialHouseStep('design');
   };
 
   // 금융집짓기 완성 핸들러
@@ -305,8 +347,10 @@ function App() {
   const handleFinancialHouseRestart = () => {
     if (user) {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
+      localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
+      // 면책조항 동의는 유지 (다시 동의 안 받음)
     }
-    setFinancialHouseStep('disclaimer');
+    setFinancialHouseStep('basic');
   };
 
   if (loading) {
@@ -516,16 +560,18 @@ function App() {
               {financialHouseStep === 'disclaimer' && (
                 <FinancialHouseDisclaimer
                   userName={financialResult?.name || user.displayName || '사용자'}
-                  onStart={() => setFinancialHouseStep('basic')}
+                  onStart={handleDisclaimerAgree}
                 />
               )}
               {financialHouseStep === 'basic' && (
                 <FinancialHouseBasic
                   userName={financialResult?.name || user.displayName || '사용자'}
-                  onComplete={() => {
-                    setFinancialHouseStep('design');
+                  onComplete={handleBasicComplete}
+                  onBack={() => {
+                    // ★★★ 수정: 1단계에서 back -> 면책조항으로 가지 않고 홈으로 ★★★
+                    // 면책조항은 이미 동의했으므로 다시 보여줄 필요 없음
+                    setCurrentTab('home');
                   }}
-                  onBack={() => setFinancialHouseStep('disclaimer')}
                   existingFinancialResult={financialResult}
                   existingIncomeExpense={incomeExpenseData}
                 />
@@ -534,14 +580,22 @@ function App() {
                 <FinancialHouseDesign
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={handleFinancialHouseComplete}
-                  onBack={() => setFinancialHouseStep('basic')}
+                  onBack={() => {
+                    // ★★★ 수정: 2단계 첫번째(은퇴설계)에서 back -> 1단계 마지막(부채/요약)으로 ★★★
+                    // FinancialHouseDesign 내부에서 goToPrevTab이 처리하므로
+                    // 여기서는 design의 첫번째 탭에서 back 눌렀을 때만 basic으로 이동
+                    setFinancialHouseStep('basic');
+                  }}
                 />
               )}
               {financialHouseStep === 'result' && (
                 <FinancialHouseResult
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
-                  onBack={() => setFinancialHouseStep('design')}
+                  onBack={() => {
+                    // ★★★ 수정: 3단계에서 back -> 2단계 마지막(보험설계)으로 ★★★
+                    setFinancialHouseStep('design');
+                  }}
                   onNavigate={(path) => {
                     if (path === 'mypage-consulting') {
                       setCurrentStep('consulting');
