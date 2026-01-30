@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v3.0: 각 스텝 이동 시 localStorage 저장 + 마운트 시 복원 (데이터 유지 문제 해결)
 // v2.0: 부채 입력 UI 개선 - 다중 대출 입력 지원 (+버튼으로 추가)
 // 전략 1 적용: InputRow, AutoCalcRow를 컴포넌트 외부에 정의
 // 기존 데이터: 합계에만 참고값으로 표시, 세부항목은 직접 입력
@@ -7,9 +8,15 @@
 // 추가: DESIRE 6단계 결과 표시
 // 수정 (2026-01-22): 자산 구조 변경 - 금융자산/부동산자산 분리, 예적금→예금+적금/적립금 분리
 // 수정 (2026-01-26): 부채 입력 UI 개선 - 담보대출/신용대출/기타부채 다중 입력 지원
+// 수정 (2026-01-30): v3.0 - 각 스텝 이동 시 자동 저장 + 복원 기능 추가
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFinancialHouse } from '../context/FinancialHouseContext';
+
+// ============================================
+// v3.0 신규: localStorage 키
+// ============================================
+const BASIC_STORAGE_KEY = 'financialHouseBasicDraft';
 
 // ============================================
 // 인터페이스 정의
@@ -333,6 +340,116 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   const [showSummary, setShowSummary] = useState(false);
 
   // ============================================
+  // v3.0 신규: localStorage에서 데이터 복원 (마운트 시)
+  // ============================================
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(BASIC_STORAGE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        console.log('[FinancialHouseBasic] 저장된 데이터 복원:', data);
+        
+        // Step 1: 인적사항
+        if (data.personalInfo) {
+          if (data.personalInfo.name) setName(data.personalInfo.name);
+          if (data.personalInfo.age) setAge(data.personalInfo.age);
+          if (data.personalInfo.married !== undefined) setMarried(data.personalInfo.married);
+          if (data.personalInfo.job) setJob(data.personalInfo.job);
+          if (data.personalInfo.familyCount) setFamilyCount(data.personalInfo.familyCount);
+          if (data.personalInfo.retireAge) setRetireAge(data.personalInfo.retireAge);
+          if (data.personalInfo.dualIncome !== undefined) setDualIncome(data.personalInfo.dualIncome);
+        }
+        
+        // Step 2: 관심사/목표
+        if (data.interests) setInterests(data.interests);
+        if (data.goal) setGoal(data.goal);
+        
+        // Step 3: 수입
+        if (data.income) {
+          if (data.income.myIncome) setMyIncome(data.income.myIncome);
+          if (data.income.spouseIncome) setSpouseIncome(data.income.spouseIncome);
+          if (data.income.otherIncome) setOtherIncome(data.income.otherIncome);
+        }
+        if (data.irregularIncome) {
+          if (data.irregularIncome.bonusIncome) setBonusIncome(data.irregularIncome.bonusIncome);
+          if (data.irregularIncome.incentiveIncome) setIncentiveIncome(data.irregularIncome.incentiveIncome);
+          if (data.irregularIncome.otherIrregularIncome) setOtherIrregularIncome(data.irregularIncome.otherIrregularIncome);
+        }
+        
+        // Step 3: 지출
+        if (data.expense) {
+          if (data.expense.cmaAmount) setCmaAmount(data.expense.cmaAmount);
+          if (data.expense.savingsAmount) setSavingsAmount(data.expense.savingsAmount);
+          if (data.expense.fundAmount) setFundAmount(data.expense.fundAmount);
+          if (data.expense.housingSubAmount) setHousingSubAmount(data.expense.housingSubAmount);
+          if (data.expense.isaAmount) setIsaAmount(data.expense.isaAmount);
+          if (data.expense.pensionAmount) setPensionAmount(data.expense.pensionAmount);
+          if (data.expense.taxFreePensionAmount) setTaxFreePensionAmount(data.expense.taxFreePensionAmount);
+          if (data.expense.insuranceAmount) setInsuranceAmount(data.expense.insuranceAmount);
+          if (data.expense.loanPaymentAmount) setLoanPaymentAmount(data.expense.loanPaymentAmount);
+          if (data.expense.surplusAmount) setSurplusAmount(data.expense.surplusAmount);
+        }
+        
+        // Step 4: 금융자산
+        if (data.financialAssets) {
+          if (data.financialAssets.cmaAsset) setCmaAsset(data.financialAssets.cmaAsset);
+          if (data.financialAssets.goldAsset) setGoldAsset(data.financialAssets.goldAsset);
+          if (data.financialAssets.bondAsset) setBondAsset(data.financialAssets.bondAsset);
+          if (data.financialAssets.depositAsset) setDepositAsset(data.financialAssets.depositAsset);
+          if (data.financialAssets.installmentAsset) setInstallmentAsset(data.financialAssets.installmentAsset);
+          if (data.financialAssets.pensionAsset) setPensionAsset(data.financialAssets.pensionAsset);
+          if (data.financialAssets.savingsAsset) setSavingsAsset(data.financialAssets.savingsAsset);
+          if (data.financialAssets.fundSavingsAsset) setFundSavingsAsset(data.financialAssets.fundSavingsAsset);
+          if (data.financialAssets.etfAsset) setEtfAsset(data.financialAssets.etfAsset);
+          if (data.financialAssets.stockAsset) setStockAsset(data.financialAssets.stockAsset);
+          if (data.financialAssets.cryptoAsset) setCryptoAsset(data.financialAssets.cryptoAsset);
+          if (data.financialAssets.insuranceRefundAsset) setInsuranceRefundAsset(data.financialAssets.insuranceRefundAsset);
+        }
+        
+        // Step 4: 부동산자산
+        if (data.realEstateAssets) {
+          if (data.realEstateAssets.residentialRealEstate) setResidentialRealEstate(data.realEstateAssets.residentialRealEstate);
+          if (data.realEstateAssets.investmentRealEstate) setInvestmentRealEstate(data.realEstateAssets.investmentRealEstate);
+        }
+        
+        // Step 5: 부채
+        if (data.debts) {
+          if (data.debts.mortgageDebts) setMortgageDebts(data.debts.mortgageDebts);
+          if (data.debts.creditDebts) setCreditDebts(data.debts.creditDebts);
+          if (data.debts.otherDebts) setOtherDebts(data.debts.otherDebts);
+          if (data.debts.emergencyFund) setEmergencyFund(data.debts.emergencyFund);
+        }
+      }
+    } catch (e) {
+      console.error('[FinancialHouseBasic] 데이터 복원 실패:', e);
+    }
+  }, []);
+
+  // ============================================
+  // v3.0 신규: 현재 입력값을 localStorage에 저장하는 함수
+  // ============================================
+  const saveDraftToStorage = () => {
+    try {
+      const draftData = {
+        lastUpdated: new Date().toISOString(),
+        personalInfo: { name, age, married, job, familyCount, retireAge, dualIncome },
+        interests,
+        goal,
+        income: { myIncome, spouseIncome, otherIncome },
+        irregularIncome: { bonusIncome, incentiveIncome, otherIrregularIncome },
+        expense: { cmaAmount, savingsAmount, fundAmount, housingSubAmount, isaAmount, pensionAmount, taxFreePensionAmount, insuranceAmount, loanPaymentAmount, surplusAmount },
+        financialAssets: { cmaAsset, goldAsset, bondAsset, depositAsset, installmentAsset, pensionAsset, savingsAsset, fundSavingsAsset, etfAsset, stockAsset, cryptoAsset, insuranceRefundAsset },
+        realEstateAssets: { residentialRealEstate, investmentRealEstate },
+        debts: { mortgageDebts, creditDebts, otherDebts, emergencyFund }
+      };
+      localStorage.setItem(BASIC_STORAGE_KEY, JSON.stringify(draftData));
+      console.log('[FinancialHouseBasic] 임시 저장 완료');
+    } catch (e) {
+      console.error('[FinancialHouseBasic] 임시 저장 실패:', e);
+    }
+  };
+
+  // ============================================
   // 부채 항목 추가/수정/삭제 함수
   // ============================================
   const addMortgageDebt = () => {
@@ -457,18 +574,36 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
     else alert('경제적 관심사는 최대 2개까지 선택 가능합니다.');
   };
 
+  // ============================================
+  // v3.0 수정: goNext에 saveDraftToStorage 추가
+  // ============================================
   const goNext = () => {
     if (currentStep === 2) {
       if (interests.length < 1) { alert('경제적 관심사를 1개 이상 선택해 주세요.'); return; }
       if (!goal) { alert('재무 목표를 선택해 주세요.'); return; }
     }
+    
+    // v3.0: 다음 버튼 클릭 시 현재 데이터 저장
+    saveDraftToStorage();
+    
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
       if (currentStep === totalSteps - 1) setTimeout(() => setShowSummary(true), 300);
-    } else { saveAllData(); onComplete(); }
+    } else { 
+      saveAllData(); 
+      // v3.0: 완료 시 임시 저장 데이터 삭제
+      localStorage.removeItem(BASIC_STORAGE_KEY);
+      onComplete(); 
+    }
   };
 
+  // ============================================
+  // v3.0 수정: goPrev에 saveDraftToStorage 추가
+  // ============================================
   const goPrev = () => {
+    // v3.0: 이전 버튼 클릭 시에도 현재 데이터 저장
+    saveDraftToStorage();
+    
     setShowSummary(false);
     if (currentStep > 1) setCurrentStep(currentStep - 1);
     else onBack();
