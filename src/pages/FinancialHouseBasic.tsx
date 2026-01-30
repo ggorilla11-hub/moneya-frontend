@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseBasic.tsx
 // 금융집짓기 - 1단계 기본정보 입력 (5개 스텝)
+// v5.0: initialStep props 추가 - back 버튼 시 마지막 스텝(Step 5)에서 시작
 // v4.1: 2단계 복귀 시 데이터 유지 (localStorage 삭제 제거)
 // v4.0: useState 초기값에서 localStorage 로딩 (탭 이동/스텝 이동 시 데이터 유지 완벽 해결)
 // v3.0: 각 스텝 이동 시 localStorage 저장 + 마운트 시 복원 (데이터 유지 문제 해결)
@@ -57,6 +58,7 @@ interface FinancialHouseBasicProps {
     surplus: number;
     livingExpense: number;
   } | null;
+  initialStep?: number; // ★★★ v5.0 추가: 초기 스텝 설정 (1~5) ★★★
 }
 
 interface InputRowProps {
@@ -282,7 +284,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // ============================================
 // 메인 컴포넌트
 // ============================================
-export default function FinancialHouseBasic({ userName, onComplete, onBack, existingFinancialResult, existingIncomeExpense }: FinancialHouseBasicProps) {
+export default function FinancialHouseBasic({ userName, onComplete, onBack, existingFinancialResult, existingIncomeExpense, initialStep = 1 }: FinancialHouseBasicProps) {
   const { data, updatePersonalInfo, updateFinancialInfo } = useFinancialHouse();
   
   // ============================================
@@ -290,7 +292,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
   // ============================================
   const savedData = loadSavedData();
   
-  const [currentStep, setCurrentStep] = useState(1);
+  // ★★★ v5.0 수정: initialStep props로 초기 스텝 설정 ★★★
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const totalSteps = 5;
 
   // ============================================
@@ -422,6 +425,13 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
     
     return () => clearTimeout(timer);
   }, [saveDraftToStorage]);
+
+  // ============================================
+  // v5.0 추가: initialStep이 변경되면 currentStep 업데이트
+  // ============================================
+  useEffect(() => {
+    setCurrentStep(initialStep);
+  }, [initialStep]);
 
   // ============================================
   // 부채 항목 추가/수정/삭제 함수
