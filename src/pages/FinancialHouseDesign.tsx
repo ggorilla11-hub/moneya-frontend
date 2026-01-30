@@ -1,5 +1,6 @@
 // src/pages/FinancialHouseDesign.tsx
 // v4.0: 마이크 음성 기능 + 대화 공간 + OCR 모달 추가
+// v5.0: initialTab props 추가 - back 버튼 시 마지막 탭에서 시작
 // ★★★ 기존 AI지출탭 AIConversation.tsx 음성 코드 100% 복사 적용 ★★★
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
 
@@ -105,6 +106,7 @@ interface FinancialHouseDesignProps {
   userName: string;
   onComplete: () => void;
   onBack: () => void;
+  initialTab?: string; // ★★★ v5.0 추가: 초기 탭 설정 ★★★
 }
 
 interface Message {
@@ -131,9 +133,9 @@ const DESIGN_TABS = [
 // ============================================
 // 메인 컴포넌트
 // ============================================
-export default function FinancialHouseDesign({ userName, onComplete, onBack }: FinancialHouseDesignProps) {
-  // 탭 상태
-  const [currentTab, setCurrentTab] = useState('retire');
+export default function FinancialHouseDesign({ userName, onComplete, onBack, initialTab = 'retire' }: FinancialHouseDesignProps) {
+  // ★★★ v5.0 수정: initialTab props로 초기 탭 설정 ★★★
+  const [currentTab, setCurrentTab] = useState(initialTab);
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   
@@ -176,6 +178,11 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
 
   const currentStep = DESIGN_TABS.findIndex(tab => tab.id === currentTab) + 1;
   const displayName = userName || '고객';
+
+  // ★★★ v5.0 추가: initialTab이 변경되면 currentTab 업데이트 ★★★
+  useEffect(() => {
+    setCurrentTab(initialTab);
+  }, [initialTab]);
 
   // ★★★ 서버 워밍업 (AIConversation.tsx와 동일) ★★★
   useEffect(() => {
@@ -500,6 +507,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
     if (currentIndex > 0) {
       setCurrentTab(DESIGN_TABS[currentIndex - 1].id);
     } else {
+      // ★★★ 첫번째 탭(은퇴설계)에서 back -> App.tsx의 onBack 호출 ★★★
       onBack();
     }
   };
