@@ -64,7 +64,6 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
     }
 
     addSpendItem({
-      userId: 'default',
       amount: numAmount,
       type: spendType,
       category: categoryName,
