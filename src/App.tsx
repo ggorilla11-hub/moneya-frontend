@@ -105,7 +105,8 @@ function App() {
   // ★★★ v6 추가: 온라인 강좌 상태 관리 ★★★
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [allLessons, setAllLessons] = useState<Lesson[]>([]);
-  const [isSubscribed, setIsSubscribed] = useState<boolean>(false); // TODO: 실제 구독 상태 연동
+  // ★★★ v6.1 수정: setIsSubscribed 제거 (빌드 오류 수정) ★★★
+  const [isSubscribed] = useState<boolean>(false); // TODO: 실제 구독 상태 연동
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
