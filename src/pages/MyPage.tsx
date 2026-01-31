@@ -6,6 +6,7 @@
 // - 개인정보 관리, 설정, 고객센터/FAQ, 회원탈퇴 기능
 // - 전문가 상담/강의 명칭 변경
 // - 신규 메뉴: DESIRE 로드맵, 온라인강좌, 전자책
+// v2.2: 온라인강좌 페이지 연결 추가
 
 import { useState, useEffect } from 'react';
 
@@ -80,7 +81,8 @@ interface MyPageProps {
   userEmail: string;
   userPhoto: string | null;
   financialResult: FinancialResult | null;
-  onNavigate: (page: 'subscription' | 'consulting' | 'monthly-report') => void;
+  // ★★★ v2.2 수정: 'online-course' 추가 ★★★
+  onNavigate: (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course') => void;
   onLogout: () => void;
   onReset: () => void;
 }
@@ -418,7 +420,7 @@ export default function MyPage({
         <button onClick={() => setShowWithdraw(true)} className="w-full text-left py-2.5 text-sm text-red-500 hover:text-red-700">
           ⚠️ 회원탈퇴
         </button>
-        <p className="text-center text-xs text-gray-400 py-4">앱 버전 v2.0.0</p>
+        <p className="text-center text-xs text-gray-400 py-4">앱 버전 v2.2.0</p>
       </div>
 
       {/* ========== 모달들 ========== */}
@@ -633,18 +635,18 @@ export default function MyPage({
         </div>
       )}
 
-      {/* ★★★ v2.0: 온라인강좌 신청 모달 ★★★ */}
+      {/* ★★★ v2.2 수정: 온라인강좌 신청 모달 - 강좌 보러가기 버튼 추가 ★★★ */}
       {showOnlineCourse && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">🎓 온라인강좌 107강</h3>
+              <h3 className="text-lg font-bold text-gray-900">🎓 온라인강좌 109강</h3>
               <button onClick={() => setShowOnlineCourse(false)} className="text-gray-400 text-xl">✕</button>
             </div>
             <div className="p-4">
               <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-xl p-4 mb-4">
                 <h4 className="font-bold text-gray-800 mb-2">금융집짓기® 완전정복</h4>
-                <p className="text-sm text-gray-600 mb-3">오상열 CFP의 20년 노하우를 107강에 담았습니다</p>
+                <p className="text-sm text-gray-600 mb-3">오상열 CFP의 20년 노하우를 109강에 담았습니다</p>
                 <ul className="text-xs text-gray-500 space-y-1">
                   <li>✓ DESIRE 6단계 완벽 해설</li>
                   <li>✓ 실전 재무설계 사례</li>
@@ -652,6 +654,16 @@ export default function MyPage({
                 </ul>
               </div>
               <div className="space-y-3">
+                {/* ★★★ v2.2 추가: 강좌 보러가기 버튼 ★★★ */}
+                <button 
+                  onClick={() => {
+                    setShowOnlineCourse(false);
+                    onNavigate('online-course');
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold rounded-xl"
+                >
+                  📺 강좌 보러가기
+                </button>
                 <button className="w-full py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-white font-bold rounded-xl">
                   월 29,000원 신청하기
                 </button>
