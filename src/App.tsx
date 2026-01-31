@@ -22,6 +22,9 @@ import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
 import FinancialHouseDesign from './pages/FinancialHouseDesign';
 import FinancialHouseResult from './pages/FinancialHouseResult';
+// ★★★ v6 추가: 온라인 강좌 페이지 import ★★★
+import OnlineCoursePage from './pages/OnlineCoursePage';
+import VideoPlayerPage from './pages/VideoPlayerPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -45,6 +48,18 @@ interface FinancialResult {
   message: string;
 }
 
+// ★★★ v6 추가: 온라인 강좌용 Lesson 타입 ★★★
+interface Lesson {
+  id: string;
+  order: number;
+  title: string;
+  duration: string;
+  durationSeconds: number;
+  filename: string;
+  videoUrl: string;
+  isFree: boolean;
+}
+
 type AppStep = 
   | 'login' 
   | 'onboarding' 
@@ -63,7 +78,10 @@ type AppStep =
   | 'subscription'
   | 'consulting'
   | 'consulting-apply'
-  | 'monthly-report';
+  | 'monthly-report'
+  // ★★★ v6 추가: 온라인 강좌 스텝 ★★★
+  | 'online-course'
+  | 'video-player';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -83,6 +101,11 @@ function App() {
   // ★★★ v4 추가: 2단계/1단계 초기 탭/스텝 관리 ★★★
   const [designInitialTab, setDesignInitialTab] = useState<string>('retire');
   const [basicInitialStep, setBasicInitialStep] = useState<number>(1);
+
+  // ★★★ v6 추가: 온라인 강좌 상태 관리 ★★★
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false); // TODO: 실제 구독 상태 연동
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -260,13 +283,16 @@ function App() {
     setCurrentTab('home');
   };
 
-  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course') => {
     if (page === 'subscription') {
       setCurrentStep('subscription');
     } else if (page === 'consulting') {
       setCurrentStep('consulting');
     } else if (page === 'monthly-report') {
       setCurrentStep('monthly-report');
+    // ★★★ v6 추가: 온라인 강좌 페이지 이동 ★★★
+    } else if (page === 'online-course') {
+      setCurrentStep('online-course');
     }
   };
 
@@ -366,6 +392,39 @@ function App() {
     }
     setBasicInitialStep(1); // 다시 설계는 Step 1부터
     setFinancialHouseStep('basic');
+  };
+
+  // ★★★ v6 추가: 온라인 강좌 핸들러 ★★★
+  const handleOnlineCourseBack = () => {
+    setCurrentStep('main');
+    setCurrentTab('mypage');
+  };
+
+  const handleLessonSelect = (lesson: Lesson, lessons: Lesson[]) => {
+    setSelectedLesson(lesson);
+    setAllLessons(lessons);
+    setCurrentStep('video-player');
+  };
+
+  const handleVideoPlayerBack = () => {
+    setSelectedLesson(null);
+    setCurrentStep('online-course');
+  };
+
+  const handlePrevLesson = () => {
+    if (!selectedLesson || allLessons.length === 0) return;
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    if (currentIndex > 0) {
+      setSelectedLesson(allLessons[currentIndex - 1]);
+    }
+  };
+
+  const handleNextLesson = () => {
+    if (!selectedLesson || allLessons.length === 0) return;
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    if (currentIndex < allLessons.length - 1) {
+      setSelectedLesson(allLessons[currentIndex + 1]);
+    }
   };
 
   if (loading) {
@@ -499,6 +558,36 @@ function App() {
           adjustedBudget={adjustedBudget}
         />
       </SpendProvider>
+    );
+  }
+
+  // ★★★ v6 추가: 온라인 강좌 목록 페이지 ★★★
+  if (currentStep === 'online-course') {
+    return (
+      <OnlineCoursePage
+        onBack={handleOnlineCourseBack}
+        onLessonSelect={(lesson) => {
+          // OnlineCoursePage에서 전체 강의 목록을 가져와야 함
+          // 임시로 빈 배열 전달 (OnlineCoursePage 내부에서 관리)
+          handleLessonSelect(lesson, []);
+        }}
+        isSubscribed={isSubscribed}
+      />
+    );
+  }
+
+  // ★★★ v6 추가: 비디오 플레이어 페이지 ★★★
+  if (currentStep === 'video-player' && selectedLesson) {
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    return (
+      <VideoPlayerPage
+        lesson={selectedLesson}
+        onBack={handleVideoPlayerBack}
+        onPrevLesson={handlePrevLesson}
+        onNextLesson={handleNextLesson}
+        hasPrev={currentIndex > 0}
+        hasNext={currentIndex < allLessons.length - 1}
+      />
     );
   }
 
