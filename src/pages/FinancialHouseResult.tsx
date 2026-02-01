@@ -14,6 +14,10 @@
 // ★★★ v5.1: 수직선 위치 보정 ★★★
 //       - 기둥 섹션 flex 비율 53:47 → 50:50 (지붕 중앙선 170/340=50%와 일치)
 //       - 리포트 내 금융집도 동일하게 50:50 적용
+// ★★★ v5.2: 은퇴 파랑헤더 삭제 + 지붕 확대 ★★★
+//       - 은퇴 영역 bg-blue-600 헤더(준비율) 완전 삭제 (아래 항목과 중복)
+//       - 지붕 SVG viewBox 높이 70→90 (꼭지점 유지, 바닥선 확대 → 지붕 넓어짐)
+//       - 리포트 내 금융집도 동일 적용
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef, useEffect } from 'react';
@@ -460,28 +464,29 @@ const FinancialHouseResult = ({
               <div className="w-full max-w-[340px] mx-auto">
                 
                 {/* ===== 지붕 섹션 (세금-좌/투자-우/부동산-굴뚝) ===== */}
+                {/* ★★★ v5.2: viewBox 높이 70→90 (꼭지점 유지, 바닥선 확대) ★★★ */}
                 <div className="relative">
-                  <svg viewBox="0 0 340 70" className="w-full" preserveAspectRatio="xMidYMid meet">
+                  <svg viewBox="0 0 340 90" className="w-full" preserveAspectRatio="xMidYMid meet">
                     {/* 지붕 좌측 (세금) - 붉은색 */}
-                    <polygon points="170,0 0,70 170,70" fill="#C0392B" stroke="#333" strokeWidth="1.5"/>
+                    <polygon points="170,0 0,90 170,90" fill="#C0392B" stroke="#333" strokeWidth="1.5"/>
                     {/* 지붕 우측 (투자) - 녹색 */}
-                    <polygon points="170,0 340,70 170,70" fill="#27AE60" stroke="#333" strokeWidth="1.5"/>
+                    <polygon points="170,0 340,90 170,90" fill="#27AE60" stroke="#333" strokeWidth="1.5"/>
                     {/* 중앙선 */}
-                    <line x1="170" y1="0" x2="170" y2="70" stroke="#333" strokeWidth="1"/>
+                    <line x1="170" y1="0" x2="170" y2="90" stroke="#333" strokeWidth="1"/>
                     {/* 굴뚝 (부동산) */}
-                    <rect x="255" y="18" width="40" height="40" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
+                    <rect x="255" y="22" width="40" height="48" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
                   </svg>
                   
                   {/* 지붕 내용 오버레이 */}
                   <div className="absolute inset-0 flex">
                     {/* 세금 영역 (좌측) */}
-                    <div className="flex-1 flex flex-col items-start justify-center pt-5 pl-4">
+                    <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-5">
                       <p className="text-[11px] font-extrabold text-white">💸 세금</p>
                       <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
                       <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
                     </div>
                     {/* 투자 영역 (우측) */}
-                    <div className="flex-1 flex flex-col items-end justify-center pt-5 pr-16">
+                    <div className="flex-1 flex flex-col items-end justify-center pt-6 pr-16">
                       <p className="text-[11px] font-extrabold text-white">📈 투자</p>
                       <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{wealthIndex > 0 ? `${wealthIndex}%` : '-'}</span></p>
                       <p className="text-[8px] text-white/80">순자산 <span className="font-bold">{netAsset > 0 ? formatEok(netAsset) : '-'}</span></p>
@@ -489,7 +494,7 @@ const FinancialHouseResult = ({
                   </div>
                   
                   {/* 굴뚝 (부동산) 텍스트 */}
-                  <div className="absolute right-[30px] top-[22px] text-center">
+                  <div className="absolute right-[30px] top-[28px] text-center">
                     <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
                     <p className="text-[8px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                   </div>
@@ -568,16 +573,11 @@ const FinancialHouseResult = ({
                     </div>
                   </div>
                   
-                  {/* 은퇴 영역 (50%) ← v5.0에서 47% → 50%로 변경 */}
+                  {/* ★★★ v5.2: 은퇴 영역 - 파랑헤더 삭제, 내부 타이틀로 대체 ★★★ */}
                   <div className="flex flex-col bg-gradient-to-b from-blue-100 to-blue-200" style={{ flex: '50' }}>
-                    {/* 은퇴 헤더 - 파란색 */}
-                    <div className="bg-blue-600 px-2 py-1 flex justify-between items-center">
-                      <p className="text-[10px] font-extrabold text-white">🏖️ 은퇴</p>
-                      <p className="text-[9px] font-semibold text-white">준비율 {retirementReadyRate}%</p>
-                    </div>
-                    
-                    {/* 은퇴 내용 - 6개 항목 */}
-                    <div className="flex-1 px-2 py-1 flex flex-col justify-center gap-0.5">
+                    {/* 은퇴 내용 - 타이틀 + 6개 항목 */}
+                    <div className="flex-1 px-2 py-1.5 flex flex-col justify-center gap-0.5">
+                      <p className="text-[10px] font-extrabold text-blue-700 mb-0.5">🏖️ 은퇴</p>
                       <div className="flex justify-between">
                         <span className="text-[8px] text-gray-600">필요자금(월)</span>
                         <span className="text-[9px] font-semibold text-gray-800">{formatManwon(requiredMonthly)}</span>
@@ -970,24 +970,25 @@ const FinancialHouseResult = ({
                   
                   <div className="max-w-[300px] mx-auto">
                     {/* 지붕 */}
+                    {/* ★★★ v5.2: 리포트 지붕도 높이 확대 (60→78) ★★★ */}
                     <div className="relative">
-                      <svg viewBox="0 0 300 60" className="w-full" preserveAspectRatio="xMidYMid meet">
-                        <polygon points="150,0 0,60 150,60" fill="#C0392B" stroke="#333" strokeWidth="1"/>
-                        <polygon points="150,0 300,60 150,60" fill="#27AE60" stroke="#333" strokeWidth="1"/>
-                        <line x1="150" y1="0" x2="150" y2="60" stroke="#333" strokeWidth="0.5"/>
-                        <rect x="220" y="15" width="35" height="35" fill="#E8E8E8" stroke="#333" strokeWidth="1"/>
+                      <svg viewBox="0 0 300 78" className="w-full" preserveAspectRatio="xMidYMid meet">
+                        <polygon points="150,0 0,78 150,78" fill="#C0392B" stroke="#333" strokeWidth="1"/>
+                        <polygon points="150,0 300,78 150,78" fill="#27AE60" stroke="#333" strokeWidth="1"/>
+                        <line x1="150" y1="0" x2="150" y2="78" stroke="#333" strokeWidth="0.5"/>
+                        <rect x="220" y="18" width="35" height="42" fill="#E8E8E8" stroke="#333" strokeWidth="1"/>
                       </svg>
                       <div className="absolute inset-0 flex">
-                        <div className="flex-1 flex flex-col items-start justify-center pt-3 pl-4">
+                        <div className="flex-1 flex flex-col items-start justify-center pt-4 pl-4">
                           <p className="text-[9px] font-bold text-white">💸 세금</p>
                           <p className="text-[7px] text-white/90">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</p>
                         </div>
-                        <div className="flex-1 flex flex-col items-end justify-center pt-3 pr-14">
+                        <div className="flex-1 flex flex-col items-end justify-center pt-4 pr-14">
                           <p className="text-[9px] font-bold text-white">📈 투자</p>
                           <p className="text-[7px] text-white/90">부자지수 {wealthIndex > 0 ? `${wealthIndex}%` : '-'}</p>
                         </div>
                       </div>
-                      <div className="absolute right-[22px] top-[18px] text-center">
+                      <div className="absolute right-[22px] top-[22px] text-center">
                         <p className="text-[7px] font-bold text-gray-700">🏠</p>
                         <p className="text-[6px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                       </div>
@@ -1018,12 +1019,10 @@ const FinancialHouseResult = ({
                           <p className="text-[6px] text-white/90">{savingPurpose}</p>
                         </div>
                       </div>
+                      {/* ★★★ v5.2: 리포트 은퇴도 파랑헤더 삭제 ★★★ */}
                       <div className="bg-blue-100" style={{ flex: '50' }}>
-                        <div className="bg-blue-600 px-1 py-0.5 flex justify-between">
-                          <span className="text-[8px] font-bold text-white">🏖️ 은퇴</span>
-                          <span className="text-[7px] text-white">{retirementReadyRate}%</span>
-                        </div>
                         <div className="p-1 text-[6px]">
+                          <p className="text-[7px] font-bold text-blue-700 mb-0.5">🏖️ 은퇴</p>
                           <div className="flex justify-between"><span>필요</span><span>{formatManwon(requiredMonthly)}</span></div>
                           <div className="flex justify-between"><span>준비</span><span>{formatManwon(preparedMonthly)}</span></div>
                           <div className="flex justify-between text-red-500 font-bold"><span>부족</span><span>{formatManwon(shortfallMonthly)}</span></div>
