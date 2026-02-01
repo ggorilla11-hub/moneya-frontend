@@ -1,6 +1,7 @@
 // src/pages/FinancialHouseDesign.tsx
 // v4.0: 마이크 음성 기능 + 대화 공간 + OCR 모달 추가
 // v5.0: initialTab props 추가 - back 버튼 시 마지막 탭에서 시작
+// v5.1: InsurancePlanCard에 onOpenOCR props 전달 (보험증권 업로드 → +버튼 OCR 모달 연결)
 // ★★★ 기존 AI지출탭 AIConversation.tsx 음성 코드 100% 복사 적용 ★★★
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
 
@@ -767,7 +768,8 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, ini
           {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-          {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
+          {/* ★★★ v5.1 수정: onOpenOCR props 추가 → 보험증권 업로드 클릭 시 +버튼 OCR 모달 열기 ★★★ */}
+          {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast onOpenOCR={() => setIsOCRModalOpen(true)} />}
         </div>
 
         {/* 대화 영역 (토글 시 중간에 나타남) */}
