@@ -24,6 +24,14 @@
 // ★★★ v5.4: 굴뚝 부동산 글자 복원 + 지붕 텍스트 좌우 교체 ★★★
 //       - 굴뚝: "🏠" → "🏠 부동산" 글자 복원
 //       - 지붕 텍스트만 교체: 좌측(빨강)=투자, 우측(녹색)=세금 (색상 유지)
+// ★★★ v5.5: 7개 영역 데이터 매핑 수정 (FinancialPlanCards.tsx 실제 저장 구조 일치) ★★★
+//       - 은퇴: monthlyLivingExpense/expectedNationalPension/currentPersonalPension에서 계산
+//       - 부채: saveDesignData 미호출 → 1단계 financialHouseData에서만 읽기
+//       - 저축: targetAmount/targetYears 키 수정
+//       - 투자: 원시값에서 wealthIndex 직접 계산
+//       - 세금: 중첩 구조 incomeData.determinedTax / inheritData에서 읽기
+//       - 부동산: residentialProperty 키 수정
+//       - 보험: prepared.death 등 flat 구조로 읽기 + 필요자금 계산 로직 추가
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef, useEffect } from 'react';
@@ -151,91 +159,126 @@ const FinancialHouseResult = ({
   const d = storageData.design; // 2단계
 
   // === 기본 개인정보 ===
-  const currentAge = financialData.currentAge || b?.personalInfo?.age || 37;
-  const retirementAge = financialData.retirementAge || b?.personalInfo?.retireAge || 65;
+  // ★★★ v5.5: 2단계 은퇴카드에서 저장한 currentAge/retireAge도 fallback 추가 ★★★
+  const currentAge = financialData.currentAge || b?.personalInfo?.age || d?.retire?.currentAge || 37;
+  const retirementAge = financialData.retirementAge || b?.personalInfo?.retireAge || d?.retire?.retireAge || 65;
   const lifeExpectancy = financialData.lifeExpectancy || 90; // 기대수명은 보통 고정
 
   // === 은퇴 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (retire: { currentAge, retireAge, monthlyLivingExpense, expectedNationalPension, currentPersonalPension, expectedRetirementLumpSum }) ★★★
   const retireDesign = d?.retire;
-  // 필요자금(월)
-  const requiredMonthly = financialData.requiredMonthly
-    || retireDesign?.monthlyRequired
-    || retireDesign?.requiredMonthly
-    || 300;
-  // 준비자금(월)
-  const preparedMonthly = financialData.preparedMonthly
-    || retireDesign?.monthlyPrepared
-    || retireDesign?.preparedMonthly
-    || 130;
-  // 부족자금(월)
+  // Cards에서 저장하는 원시값 읽기
+  const retireMonthlyExpense = retireDesign?.monthlyLivingExpense || retireDesign?.monthlyExpense || 300;
+  const retireNationalPension = retireDesign?.expectedNationalPension || retireDesign?.nationalPension || 80;
+  const retirePersonalPension = retireDesign?.currentPersonalPension || retireDesign?.personalPension || 50;
+  const retireExpectedLumpSum = retireDesign?.expectedRetirementLumpSum || 10000;
+  // 계산 (Cards와 동일 로직)
+  const requiredMonthly = financialData.requiredMonthly || retireMonthlyExpense;
+  const preparedMonthly = financialData.preparedMonthly || (retireNationalPension + retirePersonalPension);
   const shortfallMonthly = financialData.shortfallMonthly
     || (requiredMonthly - preparedMonthly > 0 ? requiredMonthly - preparedMonthly : 0);
-  // 순은퇴일시금 (은퇴기간 × 12 × 부족월액)
   const retirePeriod = lifeExpectancy - retirementAge;
-  const retireLumpSum = retireDesign?.lumpSum || (shortfallMonthly * retirePeriod * 12);
-  // 월저축연금액
+  const totalRetirementNeeded = shortfallMonthly * 12 * retirePeriod;
+  const netRetirementNeeded = Math.max(0, totalRetirementNeeded - retireExpectedLumpSum);
+  const retireLumpSum = netRetirementNeeded;
   const economicPeriod = retirementAge - currentAge;
-  const monthlySavingForRetire = retireDesign?.monthlySaving
-    || (economicPeriod > 0 ? Math.round(retireLumpSum / (economicPeriod * 12)) : 0);
-  // 은퇴준비율
+  const monthlySavingForRetire = economicPeriod > 0 ? Math.round(netRetirementNeeded / (economicPeriod * 12)) : 0;
   const retirementReadyRate = financialData.retirementReadyRate
-    || retireDesign?.readyRate
     || (requiredMonthly > 0 ? Math.round((preparedMonthly / requiredMonthly) * 100) : 0);
 
   // === 부채 영역 ===
-  const debtDesign = d?.debt;
+  // ★★★ v5.5: DebtPlanCard는 saveDesignData('debt') 미호출 → 1단계 financialHouseData.debts에서만 읽기 ★★★
   // 총부채 (1단계에서 계산)
   const totalDebt = b?.debts?.totalDebt
-    || debtDesign?.totalDebt
     || (financialData.debtAmount ? financialData.debtAmount * 10000 : 0);
   // 부채비율 = 총부채 / 총자산 × 100
   const totalAsset = b?.totalAsset || 0;
   const debtRatio = financialData.debtRatio
-    || debtDesign?.debtRatio
     || (totalAsset > 0 ? Math.round((totalDebt / totalAsset) * 100) : 0);
 
   // === 저축 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (save: { purpose, targetAmount, targetYears }) ★★★
   const saveDesign = d?.save;
-  const savingPurpose = saveDesign?.purpose || '노후준비';
-  const savingPeriod = saveDesign?.period || `${economicPeriod}년`;
-  const savingAmount = saveDesign?.amount || saveDesign?.targetAmount || 0;
-  const monthlySavingRequired = saveDesign?.monthlyRequired
-    || (savingAmount > 0 && economicPeriod > 0 ? Math.round(savingAmount / (economicPeriod * 12)) : 0);
+  const savingPurpose = saveDesign?.purpose || 'house';
+  const savingTargetAmount = saveDesign?.targetAmount || 0;
+  const savingTargetYears = saveDesign?.targetYears || 5;
+  const savingPeriod = `${savingTargetYears}년`;
+  const savingAmount = savingTargetAmount;
+  const savingTargetMonths = savingTargetYears * 12;
+  const monthlySavingRequired = savingTargetMonths > 0 ? Math.round(savingTargetAmount / savingTargetMonths) : 0;
 
   // === 투자 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (invest: { currentAge, monthlyIncome, totalAssets, totalDebt, liquidAssets, safeAssets, growthAssets, highRiskAssets, residentialRealEstate, investmentRealEstate, dualIncome }) ★★★
   const investDesign = d?.invest;
-  // 부자지수 = 순자산 / (나이 × 연소득 / 10) × 100
-  const totalFinancialAsset = b?.totalFinancialAsset || 0;
-  const totalRealEstateAsset = b?.totalRealEstateAsset || 0;
-  const netAsset = (totalFinancialAsset + totalRealEstateAsset) - totalDebt;
-  const annualIncome = b?.income
-    ? ((b.income.myIncome || 0) + (b.income.spouseIncome || 0) + (b.income.otherIncome || 0)) * 12
+  // 1단계에서 소득 계산
+  const monthlyIncomeFromBasic = b?.income
+    ? ((b.income.myIncome || 0) + (b.income.spouseIncome || 0) + (b.income.otherIncome || 0))
     : 0;
+  // 투자카드에서 저장한 값 또는 1단계 값
+  const investTotalAssets = investDesign?.totalAssets || b?.totalAsset || 0;
+  const investTotalDebt = investDesign?.totalDebt || totalDebt || 0;
+  const investMonthlyIncome = investDesign?.monthlyIncome || monthlyIncomeFromBasic || 500;
+  const investAge = investDesign?.currentAge || currentAge;
+  // 순자산 계산
+  const netAsset = investTotalAssets - investTotalDebt;
+  // 연소득 (월소득 × 12)
+  const annualIncome = investMonthlyIncome * 12;
+  // 부자지수 = ((순자산 × 10) ÷ (나이 × 월소득 × 12)) × 100  (Cards와 동일 공식)
   const wealthIndex = financialData.wealthIndex
-    || investDesign?.wealthIndex
-    || (currentAge > 0 && annualIncome > 0
-      ? Math.round((netAsset / (currentAge * annualIncome / 10)) * 100)
+    || (investAge > 0 && annualIncome > 0
+      ? Math.round(((netAsset * 10) / (investAge * annualIncome)) * 100)
       : 0);
 
   // === 세금 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (tax: { incomeData: { determinedTax, annualSalary, ... }, inheritData: { totalAssets, totalDebts, hasSpouse, childrenCount, ... } }) ★★★
   const taxDesign = d?.tax;
+  const taxIncomeData = taxDesign?.incomeData;
+  const taxInheritData = taxDesign?.inheritData;
+  // 결정세액 (incomeData 중첩 구조)
   const taxAmount = financialData.taxAmount
-    || taxDesign?.determinedTax
-    || taxDesign?.taxAmount
+    || taxIncomeData?.determinedTax
     || 0;
-  const estimatedInheritanceTax = taxDesign?.inheritanceTax
-    || taxDesign?.estimatedInheritanceTax
-    || 0;
+  // 예상상속세 계산 (inheritData에서 직접 계산 - Cards와 동일 로직)
+  const calcInheritanceTaxForResult = (base: number): number => {
+    if (base <= 0) return 0;
+    if (base <= 10000) return Math.round(base * 0.1);
+    if (base <= 50000) return Math.round(1000 + (base - 10000) * 0.2);
+    if (base <= 100000) return Math.round(9000 + (base - 50000) * 0.3);
+    if (base <= 300000) return Math.round(24000 + (base - 100000) * 0.4);
+    return Math.round(104000 + (base - 300000) * 0.5);
+  };
+  const inheritNetAssets = (taxInheritData?.totalAssets || 0) - (taxInheritData?.totalDebts || 0);
+  const inheritSpouseDeduction = taxInheritData?.hasSpouse ? 50000 : 0;
+  const inheritChildDeduction = (taxInheritData?.childrenCount || 0) * 5000;
+  const inheritBasicDeduction = 20000;
+  const inheritLumpSumDeduction = Math.max(50000, inheritBasicDeduction + inheritChildDeduction);
+  const inheritTaxBase = Math.max(0, inheritNetAssets - inheritSpouseDeduction - inheritLumpSumDeduction);
+  const estimatedInheritanceTax = calcInheritanceTaxForResult(inheritTaxBase);
 
   // === 부동산 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (estate: { hasHouse, residentialProperty, investmentProperty, currentAge, estateTab, taxSim, loanSim, compareSim, roiSim }) ★★★
   const estateDesign = d?.estate;
-  const residentialRealEstate = b?.realEstateAssets?.residentialRealEstate
-    || estateDesign?.residentialValue
+  const residentialRealEstate = estateDesign?.residentialProperty
+    || b?.realEstateAssets?.residentialRealEstate
     || (financialData.realEstateValue ? financialData.realEstateValue * 10000 : 0);
 
   // === 보험 영역 ===
+  // ★★★ v5.5: Cards 실제 저장키에 맞춤 (insurance: { annualIncome, totalDebt, prepared: { death, disability, cancer, brain, heart, medical, hospital, dementia } }) ★★★
   const insuranceDesign = d?.insurance;
-  // 8대 보장: 각각 { needed: 필요자금, prepared: 준비자금 }
+  // Cards와 동일한 필요자금 계산 로직
+  const insAnnualIncome = insuranceDesign?.annualIncome || 6000;
+  const insTotalDebt = insuranceDesign?.totalDebt || totalDebt || 40000;
+  const insuranceRequired: Record<string, number> = {
+    death: insAnnualIncome * 3 + insTotalDebt,
+    disability: insAnnualIncome * 3 + insTotalDebt,
+    cancer: insAnnualIncome * 2,
+    brain: insAnnualIncome,
+    heart: insAnnualIncome,
+    medical: 5000,
+  };
+  // 준비자금은 prepared 객체에서 flat하게 읽기
+  const insurancePrepared = insuranceDesign?.prepared || {};
+  // 8대 보장 아이템
   const insuranceItems = [
     { label: '사망', key: 'death' },
     { label: '장해', key: 'disability' },
@@ -248,14 +291,21 @@ const FinancialHouseResult = ({
   ];
   
   const getInsuranceData = (key: string) => {
-    const item = insuranceDesign?.[key] || insuranceDesign?.items?.[key];
-    if (item) {
+    // 입원수술/치매간병은 특약 가입여부 (O/X)
+    if (key === 'hospital' || key === 'dementia') {
+      const val = insurancePrepared?.[key] || 'X';
+      const isInsured = ['O', 'o', '유', 'Y', 'y'].includes(String(val));
       return {
-        needed: item.needed || item.required || 0,
-        prepared: item.prepared || item.current || 0,
+        needed: 1,
+        prepared: isInsured ? 1 : 0,
+        isSpecial: true,
+        specialValue: String(val),
       };
     }
-    return { needed: 0, prepared: 0 };
+    // 나머지 6개: 필요자금(계산) vs 준비자금(입력값)
+    const needed = insuranceRequired[key] || 0;
+    const prepared = insurancePrepared?.[key] || 0;
+    return { needed, prepared, isSpecial: false };
   };
 
   // ★★★ v2.0 수정: 탭에 id 추가 ★★★
