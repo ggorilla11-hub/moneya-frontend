@@ -18,6 +18,9 @@
 //       - 은퇴 영역 bg-blue-600 헤더(준비율) 완전 삭제 (아래 항목과 중복)
 //       - 지붕 SVG viewBox 높이 70→90 (꼭지점 유지, 바닥선 확대 → 지붕 넓어짐)
 //       - 리포트 내 금융집도 동일 적용
+// ★★★ v5.3: 굴뚝 사다리꼴 + 텍스트 중심선 배치 ★★★
+//       - 굴뚝: rect→polygon 사다리꼴 (지붕 경사선 아래는 지붕이 덮음)
+//       - 세금/투자 텍스트: 벽쪽→중심선쪽으로 이동 (중심선 양옆에 나란히)
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef, useEffect } from 'react';
@@ -464,39 +467,40 @@ const FinancialHouseResult = ({
               <div className="w-full max-w-[340px] mx-auto">
                 
                 {/* ===== 지붕 섹션 (세금-좌/투자-우/부동산-굴뚝) ===== */}
-                {/* ★★★ v5.2: viewBox 높이 70→90 (꼭지점 유지, 바닥선 확대) ★★★ */}
+                {/* ★★★ v5.3: 굴뚝 사다리꼴 + 텍스트 중심선 배치 ★★★ */}
                 <div className="relative">
                   <svg viewBox="0 0 340 90" className="w-full" preserveAspectRatio="xMidYMid meet">
+                    {/* 굴뚝 (부동산) - 사다리꼴, 지붕보다 먼저 그려서 지붕이 덮음 */}
+                    <polygon points="255,10 295,10 295,66 255,45" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
                     {/* 지붕 좌측 (세금) - 붉은색 */}
                     <polygon points="170,0 0,90 170,90" fill="#C0392B" stroke="#333" strokeWidth="1.5"/>
                     {/* 지붕 우측 (투자) - 녹색 */}
                     <polygon points="170,0 340,90 170,90" fill="#27AE60" stroke="#333" strokeWidth="1.5"/>
                     {/* 중앙선 */}
                     <line x1="170" y1="0" x2="170" y2="90" stroke="#333" strokeWidth="1"/>
-                    {/* 굴뚝 (부동산) */}
-                    <rect x="255" y="22" width="40" height="48" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
                   </svg>
                   
                   {/* 지붕 내용 오버레이 */}
+                  {/* ★★★ v5.3: 텍스트를 중심선 쪽으로 모아서 배치 ★★★ */}
                   <div className="absolute inset-0 flex">
-                    {/* 세금 영역 (좌측) */}
-                    <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-5">
+                    {/* 세금 영역 (좌측 지붕) - 우측정렬로 중심선 쪽에 배치 */}
+                    <div className="flex-1 flex flex-col items-end justify-center pt-6 pr-3">
                       <p className="text-[11px] font-extrabold text-white">💸 세금</p>
                       <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
                       <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
                     </div>
-                    {/* 투자 영역 (우측) */}
-                    <div className="flex-1 flex flex-col items-end justify-center pt-6 pr-16">
+                    {/* 투자 영역 (우측 지붕) - 좌측정렬로 중심선 쪽에 배치 */}
+                    <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-3">
                       <p className="text-[11px] font-extrabold text-white">📈 투자</p>
                       <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{wealthIndex > 0 ? `${wealthIndex}%` : '-'}</span></p>
                       <p className="text-[8px] text-white/80">순자산 <span className="font-bold">{netAsset > 0 ? formatEok(netAsset) : '-'}</span></p>
                     </div>
                   </div>
                   
-                  {/* 굴뚝 (부동산) 텍스트 */}
-                  <div className="absolute right-[30px] top-[28px] text-center">
-                    <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
-                    <p className="text-[8px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
+                  {/* 굴뚝 (부동산) 텍스트 - 지붕 위 노출 부분 */}
+                  <div className="absolute right-[28px] top-[8px] text-center">
+                    <p className="text-[9px] font-bold text-gray-700">🏠</p>
+                    <p className="text-[7px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                   </div>
                 </div>
                 
@@ -970,25 +974,26 @@ const FinancialHouseResult = ({
                   
                   <div className="max-w-[300px] mx-auto">
                     {/* 지붕 */}
-                    {/* ★★★ v5.2: 리포트 지붕도 높이 확대 (60→78) ★★★ */}
+                    {/* ★★★ v5.3: 리포트 지붕도 굴뚝 사다리꼴 + 텍스트 중심선 ★★★ */}
                     <div className="relative">
                       <svg viewBox="0 0 300 78" className="w-full" preserveAspectRatio="xMidYMid meet">
+                        {/* 굴뚝 먼저 그림 (지붕이 덮음) */}
+                        <polygon points="220,8 255,8 255,55 220,36" fill="#E8E8E8" stroke="#333" strokeWidth="1"/>
                         <polygon points="150,0 0,78 150,78" fill="#C0392B" stroke="#333" strokeWidth="1"/>
                         <polygon points="150,0 300,78 150,78" fill="#27AE60" stroke="#333" strokeWidth="1"/>
                         <line x1="150" y1="0" x2="150" y2="78" stroke="#333" strokeWidth="0.5"/>
-                        <rect x="220" y="18" width="35" height="42" fill="#E8E8E8" stroke="#333" strokeWidth="1"/>
                       </svg>
                       <div className="absolute inset-0 flex">
-                        <div className="flex-1 flex flex-col items-start justify-center pt-4 pl-4">
+                        <div className="flex-1 flex flex-col items-end justify-center pt-4 pr-2">
                           <p className="text-[9px] font-bold text-white">💸 세금</p>
                           <p className="text-[7px] text-white/90">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</p>
                         </div>
-                        <div className="flex-1 flex flex-col items-end justify-center pt-4 pr-14">
+                        <div className="flex-1 flex flex-col items-start justify-center pt-4 pl-2">
                           <p className="text-[9px] font-bold text-white">📈 투자</p>
                           <p className="text-[7px] text-white/90">부자지수 {wealthIndex > 0 ? `${wealthIndex}%` : '-'}</p>
                         </div>
                       </div>
-                      <div className="absolute right-[22px] top-[22px] text-center">
+                      <div className="absolute right-[22px] top-[6px] text-center">
                         <p className="text-[7px] font-bold text-gray-700">🏠</p>
                         <p className="text-[6px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                       </div>
