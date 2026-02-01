@@ -192,7 +192,8 @@ const FinancialHouseResult = ({
   const totalDebt = b?.debts?.totalDebt
     || (financialData.debtAmount ? financialData.debtAmount * 10000 : 0);
   // 부채비율 = 총부채 / 총자산 × 100
-  const totalAsset = b?.totalAsset || 0;
+  // ★★★ v5.5.2: 투자설계(invest.totalAssets)도 fallback으로 사용 ★★★
+  const totalAsset = b?.totalAsset || d?.invest?.totalAssets || 0;
   const debtRatio = financialData.debtRatio
     || (totalAsset > 0 ? Math.round((totalDebt / totalAsset) * 100) : 0);
 
@@ -549,8 +550,8 @@ const FinancialHouseResult = ({
                     </div>
                   </div>
                   
-                  {/* ★★★ v5.4: 굴뚝 부동산 글자 복원 ★★★ */}
-                  <div className="absolute right-[28px] top-[8px] text-center">
+                  {/* ★★★ v5.5.2: 부동산 글자 좌측+아래로 이동 ★★★ */}
+                  <div className="absolute right-[38px] top-[20px] text-center">
                     <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
                     <p className="text-[7px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                   </div>
@@ -620,11 +621,12 @@ const FinancialHouseResult = ({
                       <p className="text-[8px] text-gray-700">부채비율 <span className="font-bold text-red-600">{debtRatio > 0 ? `${debtRatio}%` : '-'}</span></p>
                     </div>
                     
-                    {/* 저축 정보 */}
+                    {/* 저축 정보 - v5.5.2: 제목·목적·기간 위로, 목표금액 삽입 */}
                     <div className="absolute bottom-2 right-2 text-right">
                       <p className="text-[10px] font-extrabold text-white"><span className="text-green-300">↑</span> 💰 저축</p>
                       <p className="text-[8px] text-white/90">목적: {savingPurpose}</p>
                       <p className="text-[8px] text-white/90">기간: {savingPeriod}</p>
+                      <p className="text-[8px] text-white/90">목표금액: <span className="font-bold">{savingTargetAmount > 0 ? formatManwon(savingTargetAmount) : '-'}</span></p>
                       <p className="text-[8px] text-white/90">월저축 <span className="font-bold">{monthlySavingRequired > 0 ? formatManwon(monthlySavingRequired) : '-'}</span></p>
                     </div>
                   </div>
