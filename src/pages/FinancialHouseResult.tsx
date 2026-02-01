@@ -203,7 +203,6 @@ const FinancialHouseResult = ({
   const savingTargetAmount = saveDesign?.targetAmount || 0;
   const savingTargetYears = saveDesign?.targetYears || 5;
   const savingPeriod = `${savingTargetYears}년`;
-  const savingAmount = savingTargetAmount;
   const savingTargetMonths = savingTargetYears * 12;
   const monthlySavingRequired = savingTargetMonths > 0 ? Math.round(savingTargetAmount / savingTargetMonths) : 0;
 
