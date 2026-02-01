@@ -1,4 +1,5 @@
 // src/pages/FinancialPlanCards.tsx
+// v4.4: handleTaxUpload에 onOpenOCR 호출 로직 추가 (보험설계 handleUpload와 동일 패턴)
 // v4.3: 7개 재무설계 카드 컴포넌트
 // v4.3 변경: 세금설계 카드 v2.1 (InputRow 외부 분리 + 원천징수영수증 업로드 추가)
 // 수정사항:
@@ -556,12 +557,13 @@ const TaxInputRow = ({ label, value, onChange, unit = '만원', badge, badgeColo
 };
 
 // ============================================
-// 5. 세금설계 카드 (v2.1)
-// 변경: InputRow 외부 분리 (입력 오류 수정) + 원천징수영수증 업로드 UI 추가
+// 5. 세금설계 카드 (v2.2)
+// v2.2 변경: handleTaxUpload에 onOpenOCR 호출 로직 추가 (보험설계 handleUpload와 동일 패턴)
+// v2.1 변경: InputRow 외부 분리 (입력 오류 수정) + 원천징수영수증 업로드 UI 추가
 // - 종합소득세: 시뮬레이터 기반 연봉/결정세액/기납부세액 → 환급금 + 소득공제/세액공제 시뮬레이션
 // - 예상상속세: 1단계 재무정보 연동 순자산 → 상속세 산출 + 72법칙 시뮬레이션
 // ============================================
-export function TaxPlanCard({ onNext, onPrev }: CardProps) {
+export function TaxPlanCard({ onNext, onPrev, onOpenOCR }: CardProps) {
   const [activeTab, setActiveTab] = useState<'income' | 'inheritance'>('income');
   
   // ── 종합소득세 절세 state ──
@@ -793,10 +795,14 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   // 포맷팅 함수
   const fmt = (v: number) => v.toLocaleString();
 
-  // 원천징수영수증 업로드 핸들러
+  // ★★★ v2.2 수정: 원천징수영수증 업로드 핸들러 - onOpenOCR 호출 (보험설계 handleUpload와 동일 패턴) ★★★
   const handleTaxUpload = () => {
-    setTaxFileUploaded(true);
-    alert('원천징수영수증 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 세금 분석은 전문 세무사 상담을 권장합니다.');
+    if (onOpenOCR) {
+      onOpenOCR();
+    } else {
+      setTaxFileUploaded(true);
+      alert('원천징수영수증 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 세금 분석은 전문 세무사 상담을 권장합니다.');
+    }
   };
 
   return (
@@ -1155,7 +1161,7 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 7. 보험설계 카드 (v4.1) - 시뮬레이터 방식 가로스크롤 + 보험증권 업로드 + 준비자금 직접입력
+// 7. 보험설계 카드 (v4.1) - 시뮬레이터 방식 가로스크롤 테이블 + 보험증권 업로드 + 준비자금 직접입력
 // ============================================
 export function InsurancePlanCard({ onNext, onPrev, isLast, onOpenOCR }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
