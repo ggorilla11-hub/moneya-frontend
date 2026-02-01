@@ -684,6 +684,8 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
 export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [showOCRModal, setShowOCRModal] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [formData, setFormData] = useState({ 
     annualIncome: 6000,
     totalDebt: 40000,
@@ -767,7 +769,7 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
   const getSpecialLack = (val: string) => {
     const v = val.toUpperCase();
     if (v === 'O' || v === '유' || v === 'Y') return { text: '-', color: 'text-green-600', bg: 'bg-green-50' };
-    return { text: '미가입', color: 'text-red-600', bg: 'bg-red-50' };
+    return { text: '필요', color: 'text-red-600', bg: 'bg-red-50' };
   };
 
   // 부족 항목 수 계산
@@ -798,9 +800,28 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
     setTimeout(() => setShowSaveSuccess(false), 2500);
   };
 
-  // 보험증권 업로드 (현재 +버튼 면책사항과 동일)
+  // 보험증권 업로드 → +버튼과 동일한 OCR 모달 열기
   const handleUpload = () => {
-    alert('보험증권 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.');
+    setShowOCRModal(true);
+    setPrivacyAgreed(false);
+  };
+
+  // 파일 선택 핸들러 (사진촬영/갤러리/파일첨부 공통)
+  const handleFileInput = (accept: string, capture?: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    if (capture) input.setAttribute('capture', capture);
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        // TODO: OCR 분석 연동 (추후 구현)
+        setShowOCRModal(false);
+        setPrivacyAgreed(false);
+        alert(`📄 "${file.name}" 업로드 완료!\n\nOCR 분석 기능은 추후 업데이트 예정입니다.`);
+      }
+    };
+    input.click();
   };
 
   const hospitalLack = getSpecialLack(prepared.hospital);
@@ -855,14 +876,14 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
           </div>
         </div>
 
-        {/* ③ 스크롤 힌트 */}
+        {/* 스크롤 힌트 (위) */}
         <div className="flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-gray-400">
           <span>👆</span> 좌우로 스크롤하여 8대 보장을 확인하세요 <span>👉</span>
         </div>
 
         {/* ②③ 8대 보장 가로스크롤 테이블 */}
         <div className="mx-[-16px] px-[16px]">
-          <div className="overflow-x-auto pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="overflow-x-auto pb-2" style={{ WebkitOverflowScrolling: 'touch', overflowX: 'scroll' }}>
             <table className="border-collapse w-full" style={{ minWidth: '700px' }}>
               {/* 헤더 */}
               <thead>
@@ -895,28 +916,28 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
                 <tr className="bg-green-50">
                   <td className="py-2 px-2 text-center text-xs font-bold text-green-800 bg-green-100 border border-gray-200 whitespace-nowrap">준비자금</td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.death} onChange={(e) => setPrepared({...prepared, death: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.death} onChange={(e) => setPrepared({...prepared, death: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.disability} onChange={(e) => setPrepared({...prepared, disability: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.disability} onChange={(e) => setPrepared({...prepared, disability: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.cancer} onChange={(e) => setPrepared({...prepared, cancer: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.cancer} onChange={(e) => setPrepared({...prepared, cancer: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.brain} onChange={(e) => setPrepared({...prepared, brain: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.brain} onChange={(e) => setPrepared({...prepared, brain: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.heart} onChange={(e) => setPrepared({...prepared, heart: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.heart} onChange={(e) => setPrepared({...prepared, heart: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
-                    <input type="number" value={prepared.medical} onChange={(e) => setPrepared({...prepared, medical: Number(e.target.value)})} onFocus={handleFocus}
-                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                    <input type="number" value={prepared.medical} onChange={(e) => setPrepared({...prepared, medical: Number(e.target.value)})} onFocus={handleFocus} placeholder="만원"
+                      className="w-[62px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
                   </td>
                   <td className="py-1 px-1 text-center border border-gray-200">
                     <input type="text" value={prepared.hospital} onChange={(e) => setPrepared({...prepared, hospital: e.target.value})} onFocus={handleFocus}
@@ -942,8 +963,8 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
               </tbody>
             </table>
           </div>
-          {/* 스크롤바 힌트 */}
-          <div className="text-center py-1"><span className="text-[10px] text-gray-400">← 좌우로 스크롤하세요 →</span></div>
+          {/* 단위 안내 (아래) */}
+          <div className="text-center py-1"><span className="text-[10px] text-gray-500 font-medium">※ 준비자금 단위: 만원</span></div>
         </div>
       </div>
 
@@ -1000,7 +1021,7 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
           {!['O','o','유','Y','y'].includes(prepared.dementia) && (
             <div className="flex justify-between items-center py-1.5">
               <span className="text-xs text-gray-600">치매간병 특약</span>
-              <span className="text-sm font-bold text-amber-600">미가입 (추가 권장)</span>
+              <span className="text-sm font-bold text-amber-600">필요 (추가 권장)</span>
             </div>
           )}
         </div>
@@ -1027,6 +1048,118 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">{isLast ? '금융집 완성 🎉' : '다음 →'}</button>
       </div>
+
+      {/* OCR 모달 (+버튼과 동일한 면책사항 + 개인정보 동의 + 파일첨부) */}
+      {showOCRModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          onClick={() => { setShowOCRModal(false); setPrivacyAgreed(false); }}
+        >
+          <div 
+            className="bg-white w-[90%] max-w-md rounded-3xl p-6 mx-4"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'fadeIn 0.2s ease-out' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800">📎 보험증권 업로드</h3>
+              <button 
+                onClick={() => { setShowOCRModal(false); setPrivacyAgreed(false); }}
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* 개인정보 수집이용 동의 */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyAgreed}
+                  onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600 leading-relaxed">
+                  <span className="font-semibold text-gray-800">[필수] 개인정보 수집·이용 동의</span><br/>
+                  첨부하신 서류(보험증권, 연금자료 등)는 AI 분석 목적으로만 사용되며, 분석 완료 후 즉시 삭제됩니다.
+                </span>
+              </label>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-3">
+              {/* 사진촬영 */}
+              <button 
+                onClick={() => handleFileInput('image/*', 'environment')}
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-purple-50 border-purple-100 hover:border-purple-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-purple-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-purple-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                </div>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진촬영</span>
+              </button>
+              
+              {/* 사진/이미지 */}
+              <button 
+                onClick={() => handleFileInput('image/*')}
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-amber-50 border-amber-100 hover:border-amber-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-amber-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-amber-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진/이미지</span>
+              </button>
+              
+              {/* 파일첨부 */}
+              <button 
+                onClick={() => handleFileInput('.pdf,.doc,.docx,.xls,.xlsx,.hwp,.jpg,.jpeg,.png,.gif,.webp,.bmp')}
+                disabled={!privacyAgreed}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                  privacyAgreed 
+                    ? 'bg-blue-50 border-blue-100 hover:border-blue-300' 
+                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  privacyAgreed ? 'bg-blue-100' : 'bg-gray-200'
+                }`}>
+                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                  </svg>
+                </div>
+                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>파일첨부</span>
+              </button>
+            </div>
+
+            {/* 면책 안내 */}
+            <div className="mt-4 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-[11px] text-amber-700 text-center leading-relaxed">
+                ⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
