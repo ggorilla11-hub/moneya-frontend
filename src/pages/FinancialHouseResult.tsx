@@ -21,6 +21,9 @@
 // ★★★ v5.3: 굴뚝 사다리꼴 + 텍스트 중심선 배치 ★★★
 //       - 굴뚝: rect→polygon 사다리꼴 (지붕 경사선 아래는 지붕이 덮음)
 //       - 세금/투자 텍스트: 벽쪽→중심선쪽으로 이동 (중심선 양옆에 나란히)
+// ★★★ v5.4: 굴뚝 부동산 글자 복원 + 지붕 텍스트 좌우 교체 ★★★
+//       - 굴뚝: "🏠" → "🏠 부동산" 글자 복원
+//       - 지붕 텍스트만 교체: 좌측(빨강)=투자, 우측(녹색)=세금 (색상 유지)
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef, useEffect } from 'react';
@@ -481,25 +484,25 @@ const FinancialHouseResult = ({
                   </svg>
                   
                   {/* 지붕 내용 오버레이 */}
-                  {/* ★★★ v5.3: 텍스트를 중심선 쪽으로 모아서 배치 ★★★ */}
+                  {/* ★★★ v5.4: 텍스트만 교체 - 좌측(빨강)=투자, 우측(녹색)=세금 ★★★ */}
                   <div className="absolute inset-0 flex">
-                    {/* 세금 영역 (좌측 지붕) - 우측정렬로 중심선 쪽에 배치 */}
+                    {/* 투자 영역 (좌측 빨강 지붕) - 우측정렬로 중심선 쪽에 배치 */}
                     <div className="flex-1 flex flex-col items-end justify-center pt-6 pr-3">
-                      <p className="text-[11px] font-extrabold text-white">💸 세금</p>
-                      <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
-                      <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
-                    </div>
-                    {/* 투자 영역 (우측 지붕) - 좌측정렬로 중심선 쪽에 배치 */}
-                    <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-3">
                       <p className="text-[11px] font-extrabold text-white">📈 투자</p>
                       <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{wealthIndex > 0 ? `${wealthIndex}%` : '-'}</span></p>
                       <p className="text-[8px] text-white/80">순자산 <span className="font-bold">{netAsset > 0 ? formatEok(netAsset) : '-'}</span></p>
                     </div>
+                    {/* 세금 영역 (우측 녹색 지붕) - 좌측정렬로 중심선 쪽에 배치 */}
+                    <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-3">
+                      <p className="text-[11px] font-extrabold text-white">💸 세금</p>
+                      <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
+                      <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
+                    </div>
                   </div>
                   
-                  {/* 굴뚝 (부동산) 텍스트 - 지붕 위 노출 부분 */}
+                  {/* ★★★ v5.4: 굴뚝 부동산 글자 복원 ★★★ */}
                   <div className="absolute right-[28px] top-[8px] text-center">
-                    <p className="text-[9px] font-bold text-gray-700">🏠</p>
+                    <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
                     <p className="text-[7px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                   </div>
                 </div>
@@ -985,16 +988,16 @@ const FinancialHouseResult = ({
                       </svg>
                       <div className="absolute inset-0 flex">
                         <div className="flex-1 flex flex-col items-end justify-center pt-4 pr-2">
-                          <p className="text-[9px] font-bold text-white">💸 세금</p>
-                          <p className="text-[7px] text-white/90">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</p>
-                        </div>
-                        <div className="flex-1 flex flex-col items-start justify-center pt-4 pl-2">
                           <p className="text-[9px] font-bold text-white">📈 투자</p>
                           <p className="text-[7px] text-white/90">부자지수 {wealthIndex > 0 ? `${wealthIndex}%` : '-'}</p>
                         </div>
+                        <div className="flex-1 flex flex-col items-start justify-center pt-4 pl-2">
+                          <p className="text-[9px] font-bold text-white">💸 세금</p>
+                          <p className="text-[7px] text-white/90">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</p>
+                        </div>
                       </div>
                       <div className="absolute right-[22px] top-[6px] text-center">
-                        <p className="text-[7px] font-bold text-gray-700">🏠</p>
+                        <p className="text-[7px] font-bold text-gray-700">🏠 부동산</p>
                         <p className="text-[6px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                       </div>
                     </div>
