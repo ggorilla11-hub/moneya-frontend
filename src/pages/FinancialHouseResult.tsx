@@ -5,9 +5,15 @@
 // v4.0: 슬라이드1을 SVG 기반 금융집 다이어그램으로 전면 교체 (시뮬레이터 스타일)
 //       - 지붕(투자/세금/부동산), 처마보(나이/기간), 기둥(부채/저축/은퇴), 보험(8대보장)
 //       - 리포트 모달에도 금융집 시각화 섹션 추가
+// ★★★ v5.0: 슬라이드1 SVG 전면 수정 ★★★
+//       - 1) localStorage 동적 데이터 연동 (하드코딩 제거, 우선순위: 1단계→2단계→온보딩)
+//       - 2) 색상 변경 (1페이지 외부 이미지와 통일)
+//       - 3) 7개 영역 세부 내용 교체 (대표님 지시사항 반영)
+//       - 4) 지붕 텍스트 위치 조정 (투자→우측, 세금→좌측)
+//       - 5) 보험 영역: 고동색 배경 + 노랑 막대 + 기준선 비율 방식
 // UI 수정: 10가지 수정사항 반영
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 // AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
@@ -24,6 +30,60 @@ const CERTIFICATE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/money
 // 금융집짓기 애니메이션 영상 URL (Firebase Storage)
 const ANIMATION_VIDEO_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%20%EC%97%90%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98.mp4?alt=media&token=7b052cb9-4c71-407a-bddd-e8d60e96e95c';
 
+// ★★★ v5.0 신규: localStorage 키 상수 ★★★
+const BASIC_DRAFT_KEY = 'financialHouseBasicDraft';  // 1단계 임시저장
+const BASIC_FINAL_KEY = 'financialHouseData';         // 1단계 최종저장
+const DESIGN_KEY = 'financialHouseDesignData';         // 2단계 설계데이터
+
+// ★★★ v5.0 신규: 금액 포맷팅 유틸 ★★★
+const formatManwon = (val: number): string => {
+  if (val >= 10000) {
+    const eok = Math.floor(val / 10000);
+    const remain = val % 10000;
+    if (remain === 0) return `${eok}억`;
+    return `${eok}억${remain.toLocaleString()}만`;
+  }
+  return `${val.toLocaleString()}만원`;
+};
+
+const formatEok = (val: number): string => {
+  if (val >= 10000) {
+    const eok = (val / 10000).toFixed(1);
+    return `${eok}억원`;
+  }
+  return `${val.toLocaleString()}만원`;
+};
+
+// ★★★ v5.0 신규: localStorage에서 동적 데이터 로드 ★★★
+const loadFinancialDataFromStorage = () => {
+  try {
+    // 1단계 데이터 로드 (우선순위: 최종 > 임시)
+    let basic: any = null;
+    const basicFinal = localStorage.getItem(BASIC_FINAL_KEY);
+    const basicDraft = localStorage.getItem(BASIC_DRAFT_KEY);
+    if (basicFinal) {
+      basic = JSON.parse(basicFinal);
+    } else if (basicDraft) {
+      basic = JSON.parse(basicDraft);
+    }
+
+    // 2단계 데이터 로드
+    let design: any = null;
+    const designData = localStorage.getItem(DESIGN_KEY);
+    if (designData) {
+      design = JSON.parse(designData);
+    }
+
+    console.log('[FinancialHouseResult] 1단계 데이터:', basic);
+    console.log('[FinancialHouseResult] 2단계 데이터:', design);
+
+    return { basic, design };
+  } catch (e) {
+    console.error('[FinancialHouseResult] 데이터 로드 실패:', e);
+    return { basic: null, design: null };
+  }
+};
+
 interface FinancialHouseResultProps {
   userName?: string;
   onRestart?: () => void;
@@ -31,7 +91,7 @@ interface FinancialHouseResultProps {
   onBack?: () => void;
   // ★★★ v2.0 추가: 탭 클릭 시 2단계로 이동 ★★★
   onTabClick?: (tabId: string) => void;
-  // 데이터 연동용 props
+  // 데이터 연동용 props (외부에서 직접 전달하는 경우)
   financialData?: {
     currentAge?: number;
     retirementAge?: number;
@@ -65,22 +125,124 @@ const FinancialHouseResult = ({
   const [showReportModal, setShowReportModal] = useState(false); // ★ 리포트 모달 상태
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // 기본값 설정
-  const data = {
-    currentAge: financialData.currentAge || 37,
-    retirementAge: financialData.retirementAge || 65,
-    lifeExpectancy: financialData.lifeExpectancy || 90,
-    wealthIndex: financialData.wealthIndex || 108,
-    taxAmount: financialData.taxAmount || 380,
-    realEstateValue: financialData.realEstateValue || 5,
-    debtRatio: financialData.debtRatio || 46,
-    debtAmount: financialData.debtAmount || 3.5,
-    savingsRate: financialData.savingsRate || 25,
-    monthlySavings: financialData.monthlySavings || 130,
-    retirementReadyRate: financialData.retirementReadyRate || 43,
-    requiredMonthly: financialData.requiredMonthly || 300,
-    preparedMonthly: financialData.preparedMonthly || 130,
-    shortfallMonthly: financialData.shortfallMonthly || 170,
+  // ★★★ v5.0 신규: localStorage에서 동적 데이터 로드 ★★★
+  const [storageData, setStorageData] = useState<{ basic: any; design: any }>({ basic: null, design: null });
+  
+  useEffect(() => {
+    const loaded = loadFinancialDataFromStorage();
+    setStorageData(loaded);
+  }, []);
+
+  // ★★★ v5.0 수정: 데이터 우선순위 로직 (props > 1단계 > 2단계 > 기본값) ★★★
+  const b = storageData.basic; // 1단계
+  const d = storageData.design; // 2단계
+
+  // === 기본 개인정보 ===
+  const currentAge = financialData.currentAge || b?.personalInfo?.age || 37;
+  const retirementAge = financialData.retirementAge || b?.personalInfo?.retireAge || 65;
+  const lifeExpectancy = financialData.lifeExpectancy || 90; // 기대수명은 보통 고정
+
+  // === 은퇴 영역 ===
+  const retireDesign = d?.retire;
+  // 필요자금(월)
+  const requiredMonthly = financialData.requiredMonthly
+    || retireDesign?.monthlyRequired
+    || retireDesign?.requiredMonthly
+    || 300;
+  // 준비자금(월)
+  const preparedMonthly = financialData.preparedMonthly
+    || retireDesign?.monthlyPrepared
+    || retireDesign?.preparedMonthly
+    || 130;
+  // 부족자금(월)
+  const shortfallMonthly = financialData.shortfallMonthly
+    || (requiredMonthly - preparedMonthly > 0 ? requiredMonthly - preparedMonthly : 0);
+  // 순은퇴일시금 (은퇴기간 × 12 × 부족월액)
+  const retirePeriod = lifeExpectancy - retirementAge;
+  const retireLumpSum = retireDesign?.lumpSum || (shortfallMonthly * retirePeriod * 12);
+  // 월저축연금액
+  const economicPeriod = retirementAge - currentAge;
+  const monthlySavingForRetire = retireDesign?.monthlySaving
+    || (economicPeriod > 0 ? Math.round(retireLumpSum / (economicPeriod * 12)) : 0);
+  // 은퇴준비율
+  const retirementReadyRate = financialData.retirementReadyRate
+    || retireDesign?.readyRate
+    || (requiredMonthly > 0 ? Math.round((preparedMonthly / requiredMonthly) * 100) : 0);
+
+  // === 부채 영역 ===
+  const debtDesign = d?.debt;
+  // 총부채 (1단계에서 계산)
+  const totalDebt = b?.debts?.totalDebt
+    || debtDesign?.totalDebt
+    || (financialData.debtAmount ? financialData.debtAmount * 10000 : 0);
+  // 부채비율 = 총부채 / 총자산 × 100
+  const totalAsset = b?.totalAsset || 0;
+  const debtRatio = financialData.debtRatio
+    || debtDesign?.debtRatio
+    || (totalAsset > 0 ? Math.round((totalDebt / totalAsset) * 100) : 0);
+
+  // === 저축 영역 ===
+  const saveDesign = d?.save;
+  const savingPurpose = saveDesign?.purpose || '노후준비';
+  const savingPeriod = saveDesign?.period || `${economicPeriod}년`;
+  const savingAmount = saveDesign?.amount || saveDesign?.targetAmount || 0;
+  const monthlySavingRequired = saveDesign?.monthlyRequired
+    || (savingAmount > 0 && economicPeriod > 0 ? Math.round(savingAmount / (economicPeriod * 12)) : 0);
+
+  // === 투자 영역 ===
+  const investDesign = d?.invest;
+  // 부자지수 = 순자산 / (나이 × 연소득 / 10) × 100
+  const totalFinancialAsset = b?.totalFinancialAsset || 0;
+  const totalRealEstateAsset = b?.totalRealEstateAsset || 0;
+  const netAsset = (totalFinancialAsset + totalRealEstateAsset) - totalDebt;
+  const annualIncome = b?.income
+    ? ((b.income.myIncome || 0) + (b.income.spouseIncome || 0) + (b.income.otherIncome || 0)) * 12
+    : 0;
+  const wealthIndex = financialData.wealthIndex
+    || investDesign?.wealthIndex
+    || (currentAge > 0 && annualIncome > 0
+      ? Math.round((netAsset / (currentAge * annualIncome / 10)) * 100)
+      : 0);
+
+  // === 세금 영역 ===
+  const taxDesign = d?.tax;
+  const taxAmount = financialData.taxAmount
+    || taxDesign?.determinedTax
+    || taxDesign?.taxAmount
+    || 0;
+  const estimatedInheritanceTax = taxDesign?.inheritanceTax
+    || taxDesign?.estimatedInheritanceTax
+    || 0;
+
+  // === 부동산 영역 ===
+  const estateDesign = d?.estate;
+  const residentialRealEstate = b?.realEstateAssets?.residentialRealEstate
+    || estateDesign?.residentialValue
+    || (financialData.realEstateValue ? financialData.realEstateValue * 10000 : 0);
+
+  // === 보험 영역 ===
+  const insuranceDesign = d?.insurance;
+  // 8대 보장: 각각 { needed: 필요자금, prepared: 준비자금 }
+  const insuranceItems = [
+    { label: '사망', key: 'death' },
+    { label: '장해', key: 'disability' },
+    { label: '암진단', key: 'cancer' },
+    { label: '뇌질환', key: 'brain' },
+    { label: '심질환', key: 'heart' },
+    { label: '실비', key: 'medical' },
+    { label: '입원\n수술', key: 'hospital' },
+    { label: '치매\n간병', key: 'dementia' },
+  ];
+  
+  const getInsuranceData = (key: string) => {
+    const item = insuranceDesign?.[key] || insuranceDesign?.items?.[key];
+    if (item) {
+      return {
+        needed: item.needed || item.required || 0,
+        prepared: item.prepared || item.current || 0,
+      };
+    }
+    return { needed: 0, prepared: 0 };
   };
 
   // ★★★ v2.0 수정: 탭에 id 추가 ★★★
@@ -159,6 +321,27 @@ const FinancialHouseResult = ({
     if (onTabClick) {
       onTabClick(tabId);
     }
+  };
+
+  // ★★★ v5.0 신규: 리포트용 데이터 객체 (리포트 모달에서도 동일 데이터 사용) ★★★
+  const data = {
+    currentAge,
+    retirementAge,
+    lifeExpectancy,
+    wealthIndex,
+    taxAmount,
+    realEstateValue: residentialRealEstate,
+    debtRatio,
+    totalDebt,
+    savingsRate: b?.expense
+      ? Math.round(((b.expense.savingsAmount || 0) + (b.expense.fundAmount || 0) + (b.expense.pensionAmount || 0)) / ((b.income?.myIncome || 0) + (b.income?.spouseIncome || 0) + (b.income?.otherIncome || 0) || 1) * 100)
+      : 25,
+    monthlySavings: b?.expense?.savingsAmount || 130,
+    retirementReadyRate,
+    requiredMonthly,
+    preparedMonthly,
+    shortfallMonthly,
+    netAsset,
   };
 
   return (
@@ -267,45 +450,47 @@ const FinancialHouseResult = ({
               </button>
             </div>
 
-            {/* 슬라이드 1: SVG 금융집 다이어그램 (시뮬레이터 스타일) */}
+            {/* ★★★ v5.0 전면 수정: 슬라이드 1 - SVG 금융집 다이어그램 ★★★ */}
             <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-b from-teal-400 to-teal-500 p-3 overflow-hidden">
               
               {/* SVG 금융집 전체 */}
               <div className="w-full max-w-[340px] mx-auto">
                 
-                {/* ===== 지붕 섹션 (투자/세금/부동산) ===== */}
+                {/* ===== 지붕 섹션 (세금-좌/투자-우/부동산-굴뚝) ===== */}
+                {/* ★★★ v5.0: 색상 변경 - 좌측 붉은색(세금), 우측 녹색(투자) ★★★ */}
+                {/* ★★★ v5.0: 텍스트 위치 - 세금 좌측이동, 투자 우측이동 ★★★ */}
                 <div className="relative">
                   <svg viewBox="0 0 340 70" className="w-full" preserveAspectRatio="xMidYMid meet">
-                    {/* 지붕 좌측 (투자) - 하늘색 */}
-                    <polygon points="170,0 0,70 170,70" fill="#5DADE2" stroke="#333" strokeWidth="1.5"/>
-                    {/* 지붕 우측 (세금) - 민트색 */}
-                    <polygon points="170,0 340,70 170,70" fill="#82E0AA" stroke="#333" strokeWidth="1.5"/>
+                    {/* 지붕 좌측 (세금) - 붉은색 */}
+                    <polygon points="170,0 0,70 170,70" fill="#C0392B" stroke="#333" strokeWidth="1.5"/>
+                    {/* 지붕 우측 (투자) - 녹색 */}
+                    <polygon points="170,0 340,70 170,70" fill="#27AE60" stroke="#333" strokeWidth="1.5"/>
                     {/* 중앙선 */}
                     <line x1="170" y1="0" x2="170" y2="70" stroke="#333" strokeWidth="1"/>
-                    {/* 굴뚝 */}
+                    {/* 굴뚝 (부동산) */}
                     <rect x="255" y="18" width="40" height="40" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
                   </svg>
                   
                   {/* 지붕 내용 오버레이 */}
                   <div className="absolute inset-0 flex">
-                    {/* 투자 영역 (좌측) */}
-                    <div className="flex-1 flex flex-col items-center justify-center pt-4 pr-8">
-                      <p className="text-[11px] font-extrabold text-gray-800">📈 투자</p>
-                      <p className="text-[9px] text-gray-700 mt-0.5">부자지수 <span className="font-bold text-blue-700">{data.wealthIndex}%</span></p>
-                      <p className="text-[8px] text-gray-600">순자산 2.5억원</p>
+                    {/* ★★★ v5.0: 세금 영역 (좌측) - 좌측으로 이동 ★★★ */}
+                    <div className="flex-1 flex flex-col items-start justify-center pt-5 pl-4">
+                      <p className="text-[11px] font-extrabold text-white">💸 세금</p>
+                      <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
+                      <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
                     </div>
-                    {/* 세금 영역 (우측) */}
-                    <div className="flex-1 flex flex-col items-center justify-center pt-4 pl-2 pr-12">
-                      <p className="text-[11px] font-extrabold text-gray-800">💸 세금</p>
-                      <p className="text-[9px] text-gray-700 mt-0.5">결정세액 <span className="font-bold">{data.taxAmount}만원</span></p>
-                      <p className="text-[8px] text-gray-600">환급예상 70만원</p>
+                    {/* ★★★ v5.0: 투자 영역 (우측) - 우측으로 이동 ★★★ */}
+                    <div className="flex-1 flex flex-col items-end justify-center pt-5 pr-16">
+                      <p className="text-[11px] font-extrabold text-white">📈 투자</p>
+                      <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{wealthIndex > 0 ? `${wealthIndex}%` : '-'}</span></p>
+                      <p className="text-[8px] text-white/80">순자산 <span className="font-bold">{netAsset > 0 ? formatEok(netAsset) : '-'}</span></p>
                     </div>
                   </div>
                   
                   {/* 굴뚝 (부동산) 텍스트 */}
                   <div className="absolute right-[30px] top-[22px] text-center">
                     <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
-                    <p className="text-[8px] text-gray-600">{data.realEstateValue}억</p>
+                    <p className="text-[8px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                   </div>
                 </div>
                 
@@ -313,7 +498,7 @@ const FinancialHouseResult = ({
                 <div className="bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border-x-2 border-gray-800 px-2 py-1.5 flex items-center justify-between">
                   {/* 현재 나이 */}
                   <div className="text-center">
-                    <p className="text-[13px] font-extrabold text-gray-800">{data.currentAge}</p>
+                    <p className="text-[13px] font-extrabold text-gray-800">{currentAge}</p>
                     <p className="text-[7px] text-gray-500">현재</p>
                   </div>
                   
@@ -322,7 +507,7 @@ const FinancialHouseResult = ({
                     <div className="flex items-center gap-0.5">
                       <span className="text-red-500 text-[8px]">◀</span>
                       <div className="flex-1 h-[1px] bg-red-400 min-w-[20px]"></div>
-                      <span className="text-[9px] font-bold text-red-500 px-1">{data.retirementAge - data.currentAge}년</span>
+                      <span className="text-[9px] font-bold text-red-500 px-1">{economicPeriod}년</span>
                       <div className="flex-1 h-[1px] bg-red-400 min-w-[20px]"></div>
                       <span className="text-red-500 text-[8px]">▶</span>
                     </div>
@@ -330,7 +515,7 @@ const FinancialHouseResult = ({
                   
                   {/* 은퇴 나이 */}
                   <div className="text-center">
-                    <p className="text-[13px] font-extrabold text-gray-800">{data.retirementAge}</p>
+                    <p className="text-[13px] font-extrabold text-gray-800">{retirementAge}</p>
                     <p className="text-[7px] text-gray-500">은퇴</p>
                   </div>
                   
@@ -339,7 +524,7 @@ const FinancialHouseResult = ({
                     <div className="flex items-center gap-0.5">
                       <span className="text-red-500 text-[8px]">◀</span>
                       <div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"></div>
-                      <span className="text-[9px] font-bold text-red-500 px-1">{data.lifeExpectancy - data.retirementAge}년</span>
+                      <span className="text-[9px] font-bold text-red-500 px-1">{retirePeriod}년</span>
                       <div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"></div>
                       <span className="text-red-500 text-[8px]">▶</span>
                     </div>
@@ -347,155 +532,136 @@ const FinancialHouseResult = ({
                   
                   {/* 기대수명 */}
                   <div className="text-center">
-                    <p className="text-[13px] font-extrabold text-gray-800">{data.lifeExpectancy}</p>
+                    <p className="text-[13px] font-extrabold text-gray-800">{lifeExpectancy}</p>
                     <p className="text-[7px] text-gray-500">기대수명</p>
                   </div>
                 </div>
                 
                 {/* ===== 기둥 섹션 (부채/저축 + 은퇴) ===== */}
+                {/* ★★★ v5.0: 색상 변경 - 역삼각형 노랑(부채), 정삼각형 고동색(저축), 우측 기둥 파랑(은퇴) ★★★ */}
                 <div className="flex border-x-2 border-gray-800" style={{ height: '110px' }}>
                   {/* 부채/저축 영역 (53%) */}
                   <div className="relative border-r-2 border-gray-800" style={{ flex: '53' }}>
                     <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-                      {/* 부채 (위쪽 삼각형) - 회색 */}
-                      <polygon points="0,0 100,0 0,100" fill="#C0C0C0"/>
-                      {/* 저축 (아래쪽 삼각형) - 노란색 */}
-                      <polygon points="100,0 100,100 0,100" fill="#F4D03F"/>
+                      {/* 부채 (위쪽 역삼각형) - 노란색 */}
+                      <polygon points="0,0 100,0 0,100" fill="#F1C40F"/>
+                      {/* 저축 (아래쪽 정삼각형) - 고동색 */}
+                      <polygon points="100,0 100,100 0,100" fill="#8B4513"/>
                       {/* 대각선 */}
                       <line x1="0" y1="100" x2="100" y2="0" stroke="#333" strokeWidth="0.5"/>
                     </svg>
                     
-                    {/* 부채 정보 */}
+                    {/* ★★★ v5.0: 부채 정보 - 총부채, 부채비율 (2개) ★★★ */}
                     <div className="absolute top-2 left-2 text-left">
                       <p className="text-[10px] font-extrabold text-gray-800">💳 부채 <span className="text-red-500">↓</span></p>
-                      <p className="text-[8px] text-gray-700">① 담보: {data.debtAmount}억원</p>
-                      <p className="text-[8px] text-gray-700">② 신용: 5천만원</p>
-                      <p className="text-[8px] text-gray-700">③ DSR: {data.debtRatio}%</p>
+                      <p className="text-[8px] text-gray-700">총부채 <span className="font-bold">{totalDebt > 0 ? formatEok(totalDebt) : '-'}</span></p>
+                      <p className="text-[8px] text-gray-700">부채비율 <span className="font-bold text-red-600">{debtRatio > 0 ? `${debtRatio}%` : '-'}</span></p>
                     </div>
                     
-                    {/* 저축 정보 */}
+                    {/* ★★★ v5.0: 저축 정보 - 목적, 기간, 금액, 월필요저축액 ★★★ */}
                     <div className="absolute bottom-2 right-2 text-right">
-                      <p className="text-[10px] font-extrabold text-gray-800"><span className="text-green-600">↑</span> 💰 저축</p>
-                      <p className="text-[8px] text-gray-700">① 목적: 노후준비</p>
-                      <p className="text-[8px] text-gray-700">② 저축률: {data.savingsRate}%</p>
-                      <p className="text-[8px] text-gray-700">③ 월저축: {data.monthlySavings}만원</p>
+                      <p className="text-[10px] font-extrabold text-white"><span className="text-green-300">↑</span> 💰 저축</p>
+                      <p className="text-[8px] text-white/90">목적: {savingPurpose}</p>
+                      <p className="text-[8px] text-white/90">기간: {savingPeriod}</p>
+                      <p className="text-[8px] text-white/90">월저축 <span className="font-bold">{monthlySavingRequired > 0 ? formatManwon(monthlySavingRequired) : '-'}</span></p>
                     </div>
                   </div>
                   
-                  {/* 은퇴 영역 (47%) */}
-                  <div className="flex flex-col bg-gradient-to-b from-blue-50 to-blue-100" style={{ flex: '47' }}>
-                    {/* 은퇴 헤더 */}
-                    <div className="bg-teal-500 px-2 py-1 flex justify-between items-center">
+                  {/* ★★★ v5.0: 은퇴 영역 (47%) - 파란색 기둥 ★★★ */}
+                  <div className="flex flex-col bg-gradient-to-b from-blue-100 to-blue-200" style={{ flex: '47' }}>
+                    {/* 은퇴 헤더 - 파란색 */}
+                    <div className="bg-blue-600 px-2 py-1 flex justify-between items-center">
                       <p className="text-[10px] font-extrabold text-white">🏖️ 은퇴</p>
-                      <p className="text-[9px] font-semibold text-white">준비율 {data.retirementReadyRate}%</p>
+                      <p className="text-[9px] font-semibold text-white">준비율 {retirementReadyRate}%</p>
                     </div>
                     
-                    {/* 은퇴 내용 */}
-                    <div className="flex-1 px-2 py-1.5 flex flex-col justify-center gap-0.5">
+                    {/* ★★★ v5.0: 은퇴 내용 - 6개 항목 ★★★ */}
+                    <div className="flex-1 px-2 py-1 flex flex-col justify-center gap-0.5">
                       <div className="flex justify-between">
                         <span className="text-[8px] text-gray-600">필요자금(월)</span>
-                        <span className="text-[9px] font-semibold text-gray-800">{data.requiredMonthly}만원</span>
+                        <span className="text-[9px] font-semibold text-gray-800">{formatManwon(requiredMonthly)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[8px] text-gray-600">준비자금(월)</span>
-                        <span className="text-[9px] font-semibold text-gray-800">{data.preparedMonthly}만원</span>
+                        <span className="text-[9px] font-semibold text-gray-800">{formatManwon(preparedMonthly)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[8px] text-gray-600">부족자금(월)</span>
-                        <span className="text-[9px] font-bold text-red-500">{data.shortfallMonthly}만원</span>
+                        <span className="text-[9px] font-bold text-red-500">{formatManwon(shortfallMonthly)}</span>
                       </div>
-                      <div className="border-t border-gray-300 mt-1 pt-1">
+                      <div className="border-t border-gray-300 mt-0.5 pt-0.5">
                         <div className="flex justify-between">
-                          <span className="text-[8px] text-gray-600">노후총필요</span>
-                          <span className="text-[9px] font-bold text-red-500">9억원</span>
+                          <span className="text-[7px] text-gray-500">순은퇴일시금</span>
+                          <span className="text-[8px] font-bold text-red-500">{formatEok(retireLumpSum)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[8px] text-gray-600">추가준비필요</span>
-                          <span className="text-[9px] font-semibold text-gray-800">5.1억원</span>
+                          <span className="text-[7px] text-gray-500">월저축연금액</span>
+                          <span className="text-[8px] font-semibold text-gray-800">{formatManwon(monthlySavingForRetire)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[7px] text-gray-500">은퇴준비율</span>
+                          <span className="text-[8px] font-bold text-blue-600">{retirementReadyRate}%</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                {/* ===== 보험 섹션 (8대 보장 막대 차트) ===== */}
-                <div className="bg-white border-2 border-t-0 border-gray-800 px-2 py-2">
+                {/* ★★★ v5.0 전면 수정: 보험 섹션 - 고동색 배경 + 노랑 막대 + 기준선 비율 ★★★ */}
+                <div className="border-2 border-t-0 border-gray-800 px-2 py-2" style={{ backgroundColor: '#3E2723' }}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-[10px] font-extrabold text-gray-800">🛡️ 보장성 보험 (8대 보장)</p>
+                    <p className="text-[10px] font-extrabold text-amber-300">🛡️ 보장성 보험 (8대 보장)</p>
                   </div>
                   
-                  {/* 막대 차트 */}
+                  {/* 막대 차트 - 기준선 = 필요자금, 막대 = 준비자금 비율 */}
                   <div className="flex gap-1">
-                    {/* 사망 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-red-400 to-red-300" style={{ height: '66%' }}></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-700 mt-0.5">3.9억</p>
-                      <p className="text-[7px] text-gray-500">사망</p>
+                    {insuranceItems.map((item, idx) => {
+                      const ins = getInsuranceData(item.key);
+                      const ratio = ins.needed > 0 ? Math.min((ins.prepared / ins.needed) * 100, 100) : 0;
+                      const hasData = ins.needed > 0 || ins.prepared > 0;
+                      
+                      return (
+                        <div key={idx} className="flex-1 flex flex-col items-center">
+                          {/* 막대 - 노랑색 */}
+                          <div className="w-full h-10 rounded-sm overflow-hidden flex flex-col justify-end relative" style={{ backgroundColor: '#5D4037' }}>
+                            {/* 기준선 (100% = 필요자금) */}
+                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-red-400" style={{ top: '0px' }}></div>
+                            {/* 준비자금 막대 (노랑) */}
+                            {hasData && (
+                              <div 
+                                className="w-full rounded-t-sm" 
+                                style={{ 
+                                  height: `${ratio}%`, 
+                                  backgroundColor: '#F1C40F',
+                                  minHeight: ratio > 0 ? '2px' : '0'
+                                }}
+                              ></div>
+                            )}
+                            {!hasData && (
+                              <div className="flex items-center justify-center h-full">
+                                <p className="text-[5px] text-gray-400">미입력</p>
+                              </div>
+                            )}
+                          </div>
+                          {/* 비율 표시 */}
+                          <p className={`text-[7px] font-semibold mt-0.5 ${ratio >= 80 ? 'text-green-400' : ratio > 0 ? 'text-amber-300' : 'text-gray-500'}`}>
+                            {hasData ? `${Math.round(ratio)}%` : '-'}
+                          </p>
+                          {/* 항목명 */}
+                          <p className="text-[6px] text-amber-200/80 leading-tight text-center whitespace-pre-line">{item.label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 범례 */}
+                  <div className="flex items-center gap-3 mt-1.5 justify-center">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: '#F1C40F' }}></div>
+                      <span className="text-[6px] text-amber-200/70">준비자금</span>
                     </div>
-                    
-                    {/* 장해 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-red-400 to-red-300" style={{ height: '83%' }}></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-700 mt-0.5">4.9억</p>
-                      <p className="text-[7px] text-gray-500">장해</p>
-                    </div>
-                    
-                    {/* 암진단 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-red-400 to-red-300" style={{ height: '58%' }}></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-700 mt-0.5">7천</p>
-                      <p className="text-[7px] text-gray-500">암진단</p>
-                    </div>
-                    
-                    {/* 뇌질환 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-red-400 to-red-300" style={{ height: '50%' }}></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-700 mt-0.5">3천</p>
-                      <p className="text-[7px] text-gray-500">뇌질환</p>
-                    </div>
-                    
-                    {/* 심질환 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-red-400 to-red-300" style={{ height: '50%' }}></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-700 mt-0.5">3천</p>
-                      <p className="text-[7px] text-gray-500">심질환</p>
-                    </div>
-                    
-                    {/* 실비 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-green-400 to-green-300 h-full"></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-green-600 mt-0.5">충분</p>
-                      <p className="text-[7px] text-gray-500">실비</p>
-                    </div>
-                    
-                    {/* 입원수술 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex flex-col justify-end">
-                        <div className="w-full bg-gradient-to-t from-teal-400 to-teal-300 h-full"></div>
-                      </div>
-                      <p className="text-[7px] font-semibold text-teal-600 mt-0.5">있음</p>
-                      <p className="text-[6px] text-gray-500 leading-tight">입원<br/>수술</p>
-                    </div>
-                    
-                    {/* 치매간병 */}
-                    <div className="flex-1 flex flex-col items-center">
-                      <div className="w-full h-10 bg-gray-200 rounded-sm overflow-hidden flex items-center justify-center">
-                        <p className="text-[6px] text-gray-400">없음</p>
-                      </div>
-                      <p className="text-[7px] font-semibold text-gray-400 mt-0.5">없음</p>
-                      <p className="text-[6px] text-gray-500 leading-tight">치매<br/>간병</p>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-[1px] bg-red-400"></div>
+                      <span className="text-[6px] text-amber-200/70">필요자금(기준)</span>
                     </div>
                   </div>
                 </div>
@@ -734,13 +900,13 @@ const FinancialHouseResult = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-green-500">
                     <div className="text-2xl mb-1">💰</div>
-                    <div className="text-xl font-bold">{(data.realEstateValue + 1.5).toFixed(1)}억</div>
+                    <div className="text-xl font-bold">{data.netAsset > 0 ? formatEok(data.netAsset) : '-'}</div>
                     <div className="text-xs text-gray-500">순자산</div>
                     <span className="inline-block mt-2 px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-semibold rounded-full">양호</span>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-green-500">
                     <div className="text-2xl mb-1">💳</div>
-                    <div className="text-xl font-bold">{data.debtRatio}%</div>
+                    <div className="text-xl font-bold">{data.debtRatio > 0 ? `${data.debtRatio}%` : '-'}</div>
                     <div className="text-xs text-gray-500">부채비율</div>
                     <span className="inline-block mt-2 px-2 py-0.5 bg-green-100 text-green-600 text-[10px] font-semibold rounded-full">양호</span>
                   </div>
@@ -752,9 +918,9 @@ const FinancialHouseResult = ({
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 text-center border-l-4 border-amber-500">
                     <div className="text-2xl mb-1">🏠</div>
-                    <div className="text-xl font-bold">85.7%</div>
-                    <div className="text-xs text-gray-500">부동산 비중</div>
-                    <span className="inline-block mt-2 px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] font-semibold rounded-full">편중</span>
+                    <div className="text-xl font-bold">{data.retirementReadyRate}%</div>
+                    <div className="text-xs text-gray-500">은퇴준비율</div>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-amber-100 text-amber-600 text-[10px] font-semibold rounded-full">보완필요</span>
                   </div>
                 </div>
               </div>
@@ -774,9 +940,9 @@ const FinancialHouseResult = ({
                     { letter: 'D', name: 'Debt-free (부채관리)', desc: `부채비율 ${data.debtRatio}%`, score: 80, color: 'from-red-500 to-red-600' },
                     { letter: 'E', name: 'Emergency (비상자금)', desc: '5.5개월분', score: 85, color: 'from-amber-500 to-amber-600' },
                     { letter: 'S', name: 'Savings (저축)', desc: `저축률 ${data.savingsRate}%`, score: 70, color: 'from-blue-500 to-blue-600' },
-                    { letter: 'I', name: 'Investment (투자)', desc: '자산배분 필요', score: 60, color: 'from-purple-500 to-purple-600' },
-                    { letter: 'R', name: 'Risk Mgmt (위험관리)', desc: '8대보장 62.5%', score: 65, color: 'from-pink-500 to-pink-600' },
-                    { letter: 'E', name: 'Estate (자산설계)', desc: '부동산 편중', score: 40, color: 'from-emerald-500 to-emerald-600' },
+                    { letter: 'I', name: 'Investment (투자)', desc: `부자지수 ${data.wealthIndex}%`, score: 60, color: 'from-purple-500 to-purple-600' },
+                    { letter: 'R', name: 'Risk Mgmt (위험관리)', desc: '8대보장', score: 65, color: 'from-pink-500 to-pink-600' },
+                    { letter: 'E', name: 'Estate (자산설계)', desc: '부동산', score: 40, color: 'from-emerald-500 to-emerald-600' },
                   ].map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                       <div className={`w-11 h-11 bg-gradient-to-br ${item.color} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
@@ -792,7 +958,7 @@ const FinancialHouseResult = ({
                 </div>
               </div>
 
-              {/* ★★★ 금융집 시각화 ★★★ */}
+              {/* ★★★ v5.0 수정: 금융집 시각화 (리포트 내) - 색상 통일 ★★★ */}
               <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-teal-500">
                   <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-xl">🏠</div>
@@ -802,83 +968,89 @@ const FinancialHouseResult = ({
                   </div>
                 </div>
 
-                {/* 금융집 다이어그램 */}
+                {/* 금융집 다이어그램 (리포트 버전) */}
                 <div className="bg-gradient-to-b from-teal-400 to-teal-500 rounded-xl p-3">
                   <p className="text-center text-white text-sm font-bold mb-2">🏠 {userName || '고객'}님의 금융집</p>
                   
                   <div className="max-w-[300px] mx-auto">
-                    {/* 지붕 */}
+                    {/* 지붕 - 색상 통일 */}
                     <div className="relative">
                       <svg viewBox="0 0 300 60" className="w-full" preserveAspectRatio="xMidYMid meet">
-                        <polygon points="150,0 0,60 150,60" fill="#5DADE2" stroke="#333" strokeWidth="1"/>
-                        <polygon points="150,0 300,60 150,60" fill="#82E0AA" stroke="#333" strokeWidth="1"/>
+                        <polygon points="150,0 0,60 150,60" fill="#C0392B" stroke="#333" strokeWidth="1"/>
+                        <polygon points="150,0 300,60 150,60" fill="#27AE60" stroke="#333" strokeWidth="1"/>
                         <line x1="150" y1="0" x2="150" y2="60" stroke="#333" strokeWidth="0.5"/>
                         <rect x="220" y="15" width="35" height="35" fill="#E8E8E8" stroke="#333" strokeWidth="1"/>
                       </svg>
                       <div className="absolute inset-0 flex">
-                        <div className="flex-1 flex flex-col items-center justify-center pt-3 pr-6">
-                          <p className="text-[9px] font-bold text-gray-800">📈 투자</p>
-                          <p className="text-[7px] text-gray-700">부자지수 {data.wealthIndex}%</p>
+                        <div className="flex-1 flex flex-col items-start justify-center pt-3 pl-4">
+                          <p className="text-[9px] font-bold text-white">💸 세금</p>
+                          <p className="text-[7px] text-white/90">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</p>
                         </div>
-                        <div className="flex-1 flex flex-col items-center justify-center pt-3 pl-2 pr-10">
-                          <p className="text-[9px] font-bold text-gray-800">💸 세금</p>
-                          <p className="text-[7px] text-gray-700">{data.taxAmount}만원</p>
+                        <div className="flex-1 flex flex-col items-end justify-center pt-3 pr-14">
+                          <p className="text-[9px] font-bold text-white">📈 투자</p>
+                          <p className="text-[7px] text-white/90">부자지수 {wealthIndex > 0 ? `${wealthIndex}%` : '-'}</p>
                         </div>
                       </div>
                       <div className="absolute right-[22px] top-[18px] text-center">
                         <p className="text-[7px] font-bold text-gray-700">🏠</p>
-                        <p className="text-[6px] text-gray-600">{data.realEstateValue}억</p>
+                        <p className="text-[6px] text-gray-600">{residentialRealEstate > 0 ? formatEok(residentialRealEstate) : '-'}</p>
                       </div>
                     </div>
 
                     {/* 처마보 */}
                     <div className="bg-amber-100 border-x border-gray-800 px-2 py-1 flex items-center justify-between text-[8px]">
-                      <span className="font-bold">{data.currentAge}</span>
-                      <span className="text-red-500 text-[7px]">← {data.retirementAge - data.currentAge}년 →</span>
-                      <span className="font-bold">{data.retirementAge}</span>
-                      <span className="text-red-500 text-[7px]">← {data.lifeExpectancy - data.retirementAge}년 →</span>
-                      <span className="font-bold">{data.lifeExpectancy}</span>
+                      <span className="font-bold">{currentAge}</span>
+                      <span className="text-red-500 text-[7px]">← {economicPeriod}년 →</span>
+                      <span className="font-bold">{retirementAge}</span>
+                      <span className="text-red-500 text-[7px]">← {retirePeriod}년 →</span>
+                      <span className="font-bold">{lifeExpectancy}</span>
                     </div>
 
-                    {/* 기둥 */}
+                    {/* 기둥 - 색상 통일 */}
                     <div className="flex border-x border-gray-800" style={{ height: '80px' }}>
                       <div className="relative border-r border-gray-800" style={{ flex: '53' }}>
                         <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-                          <polygon points="0,0 100,0 0,100" fill="#C0C0C0"/>
-                          <polygon points="100,0 100,100 0,100" fill="#F4D03F"/>
+                          <polygon points="0,0 100,0 0,100" fill="#F1C40F"/>
+                          <polygon points="100,0 100,100 0,100" fill="#8B4513"/>
                         </svg>
                         <div className="absolute top-1 left-1">
                           <p className="text-[8px] font-bold">💳 부채</p>
-                          <p className="text-[6px]">DSR {data.debtRatio}%</p>
+                          <p className="text-[6px]">{debtRatio > 0 ? `${debtRatio}%` : '-'}</p>
                         </div>
                         <div className="absolute bottom-1 right-1 text-right">
-                          <p className="text-[8px] font-bold">💰 저축</p>
-                          <p className="text-[6px]">{data.savingsRate}%</p>
+                          <p className="text-[8px] font-bold text-white">💰 저축</p>
+                          <p className="text-[6px] text-white/90">{savingPurpose}</p>
                         </div>
                       </div>
-                      <div className="bg-blue-50" style={{ flex: '47' }}>
-                        <div className="bg-teal-500 px-1 py-0.5 flex justify-between">
+                      <div className="bg-blue-100" style={{ flex: '47' }}>
+                        <div className="bg-blue-600 px-1 py-0.5 flex justify-between">
                           <span className="text-[8px] font-bold text-white">🏖️ 은퇴</span>
-                          <span className="text-[7px] text-white">{data.retirementReadyRate}%</span>
+                          <span className="text-[7px] text-white">{retirementReadyRate}%</span>
                         </div>
                         <div className="p-1 text-[6px]">
-                          <div className="flex justify-between"><span>필요</span><span>{data.requiredMonthly}만</span></div>
-                          <div className="flex justify-between"><span>준비</span><span>{data.preparedMonthly}만</span></div>
-                          <div className="flex justify-between text-red-500 font-bold"><span>부족</span><span>{data.shortfallMonthly}만</span></div>
+                          <div className="flex justify-between"><span>필요</span><span>{formatManwon(requiredMonthly)}</span></div>
+                          <div className="flex justify-between"><span>준비</span><span>{formatManwon(preparedMonthly)}</span></div>
+                          <div className="flex justify-between text-red-500 font-bold"><span>부족</span><span>{formatManwon(shortfallMonthly)}</span></div>
                         </div>
                       </div>
                     </div>
 
-                    {/* 보험 */}
-                    <div className="bg-white border-x border-b border-gray-800 p-2">
-                      <p className="text-[8px] font-bold mb-1">🛡️ 8대 보장</p>
+                    {/* 보험 - 색상 통일 */}
+                    <div className="border-x border-b border-gray-800 p-2" style={{ backgroundColor: '#3E2723' }}>
+                      <p className="text-[8px] font-bold mb-1 text-amber-300">🛡️ 8대 보장</p>
                       <div className="flex gap-0.5">
-                        {['사망', '장해', '암', '뇌', '심', '실비', '입원', '치매'].map((item, i) => (
-                          <div key={i} className="flex-1 text-center">
-                            <div className={`h-6 rounded-sm ${i < 5 ? 'bg-red-200' : i < 7 ? 'bg-green-200' : 'bg-gray-200'}`}></div>
-                            <p className="text-[5px] mt-0.5">{item}</p>
-                          </div>
-                        ))}
+                        {insuranceItems.map((item, i) => {
+                          const ins = getInsuranceData(item.key);
+                          const ratio = ins.needed > 0 ? Math.min((ins.prepared / ins.needed) * 100, 100) : 0;
+                          return (
+                            <div key={i} className="flex-1 text-center">
+                              <div className="h-6 rounded-sm flex flex-col justify-end" style={{ backgroundColor: '#5D4037' }}>
+                                <div className="rounded-t-sm" style={{ height: `${ratio}%`, backgroundColor: '#F1C40F', minHeight: ratio > 0 ? '1px' : '0' }}></div>
+                              </div>
+                              <p className="text-[5px] mt-0.5 text-amber-200/80">{item.label.replace('\n', '')}</p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -912,7 +1084,7 @@ const FinancialHouseResult = ({
                     <div className="text-[10px] text-gray-500">은퇴 예정</div>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-3 text-center">
-                    <div className="text-lg font-bold">{data.retirementAge - data.currentAge}년</div>
+                    <div className="text-lg font-bold">{economicPeriod}년</div>
                     <div className="text-[10px] text-gray-500">남은 기간</div>
                   </div>
                 </div>
@@ -920,7 +1092,7 @@ const FinancialHouseResult = ({
                 <div className="bg-green-50 rounded-xl p-4 text-center">
                   <div className="text-2xl mb-1">✅</div>
                   <div className="font-bold text-green-700">은퇴설계 달성률: {data.retirementReadyRate}%</div>
-                  <div className="text-xs text-green-600 mt-1">월 {data.shortfallMonthly}만원 추가 저축 필요</div>
+                  <div className="text-xs text-green-600 mt-1">월 {formatManwon(data.shortfallMonthly)} 추가 저축 필요</div>
                 </div>
               </div>
 
