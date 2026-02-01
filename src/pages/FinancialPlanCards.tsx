@@ -1,5 +1,5 @@
 // src/pages/FinancialPlanCards.tsx
-// v4.0: 7개 재무설계 카드 컴포넌트
+// v4.1: 7개 재무설계 카드 컴포넌트
 // 수정사항:
 // 1. 투자설계에 부동산 포트폴리오 추가 (주거용70%, 투자용30%)
 // 2. 포트폴리오 제목 옆에 총 금액 표시
@@ -8,6 +8,8 @@
 // 4. 세금설계 - 원천징수영수증 업로드 UI + 절세 Tip
 // 5. 부동산설계 - 주택보유여부 + 주택연금 예상 + Coming Soon
 // 6. 보험설계 - 8대 보장 테이블 + 분석 요약
+// v4.1 추가:
+// 7. 보험설계 - 시뮬레이터 방식 가로스크롤 테이블 + 보험증권 업로드 UI + 준비자금 직접입력 + 부족자금 자동계산/색상표시
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from './FinancialHouseDesign';
@@ -366,10 +368,8 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
         const monthlyIncome = (parsed.income?.myIncome || 0) + (parsed.income?.spouseIncome || 0) + (parsed.income?.otherIncome || 0);
         const residentialRealEstate = realEstate.residentialRealEstate || 0;
         const investmentRealEstate = realEstate.investmentRealEstate || 0;
-        // ★★★ v3.3 수정: dualIncome 항상 불러오기 ★★★
         const dualIncome = parsed.personalInfo?.dualIncome ?? false;
         
-        // dualIncome은 항상 업데이트
         baseData = { ...baseData, dualIncome };
         
         const hasFinancialAssets = liquidAssets > 0 || safeAssets > 0 || growthAssets > 0 || highRiskAssets > 0;
@@ -402,7 +402,6 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
   const realEstateTargetRatios = { residential: 70, investment: 30 };
   const realEstateTargetAmounts = { residential: Math.round(totalRealEstateAssets * 0.70), investment: Math.round(totalRealEstateAssets * 0.30) };
   
-  // ★★★ v3.2 수정: 맞벌이=3개월, 외벌이=6개월 ★★★
   const emergencyFundMonths = formData.dualIncome ? 3 : 6;
   const emergencyFundRequired = formData.monthlyIncome * emergencyFundMonths;
   const emergencyGap = emergencyFundRequired - formData.emergencyFund;
@@ -544,23 +543,16 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   useEffect(() => { const saved = loadDesignData('tax'); if (saved) setFormData(saved); }, []);
   useEffect(() => { saveDesignData('tax', formData); }, [formData]);
   
-  // 실효세율 계산
   const effectiveTaxRate = formData.annualIncome > 0 ? (formData.taxAmount / formData.annualIncome * 100) : 0;
-  
-  // 세액공제 계산
   const pensionDeduction = Math.min(formData.pensionSaving, 400) * 0.165;
   const irpDeduction = Math.min(formData.irpContribution, 300) * 0.165;
   const housingDeduction = Math.min(formData.housingSubscription, 240) * 0.165;
   const totalDeduction = pensionDeduction + irpDeduction + housingDeduction;
-  
-  // 추가 연금저축 시 예상 절세
   const additionalPensionSaving = 400 - formData.pensionSaving;
   const additionalTaxSaving = additionalPensionSaving > 0 ? additionalPensionSaving * 0.165 : 0;
-  
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
   
   const handleFileUpload = () => {
-    // TODO: 실제 파일 업로드 및 OCR 처리
     setFileUploaded(true);
     alert('원천징수영수증 업로드 기능은 추후 업데이트 예정입니다.');
   };
@@ -576,72 +568,31 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
       
       <div className="bg-white rounded-xl p-4 space-y-4 shadow-sm">
         <h3 className="text-base font-bold text-gray-800">💸 세금설계</h3>
-        
-        {/* 파일 업로드 영역 */}
-        <div 
-          onClick={handleFileUpload}
-          className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 transition-all"
-        >
+        <div onClick={handleFileUpload} className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 transition-all">
           <div className="text-2xl mb-2">📄</div>
           <div className="text-sm font-semibold text-gray-700">원천징수영수증 업로드</div>
           <div className="text-xs text-gray-400 mt-1">PDF, 이미지 파일 지원 (OCR 자동 인식)</div>
           {fileUploaded && <div className="text-xs text-teal-600 mt-2">✓ 파일이 업로드되었습니다</div>}
         </div>
-        
-        {/* 수동 입력 */}
         <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-700">총급여 (연)</label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-700">결정세액 (연)</label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={formData.taxAmount} onChange={(e) => setFormData({...formData, taxAmount: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-semibold text-gray-700">연금저축 납입 (연)</label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={formData.pensionSaving} onChange={(e) => setFormData({...formData, pensionSaving: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-              <span className="text-sm text-gray-500 font-medium w-10">만원</span>
-            </div>
-          </div>
+          <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">총급여 (연)</label><div className="flex items-center gap-2"><input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+          <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">결정세액 (연)</label><div className="flex items-center gap-2"><input type="number" value={formData.taxAmount} onChange={(e) => setFormData({...formData, taxAmount: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+          <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">연금저축 납입 (연)</label><div className="flex items-center gap-2"><input type="number" value={formData.pensionSaving} onChange={(e) => setFormData({...formData, pensionSaving: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
         </div>
       </div>
       
-      {/* 세금 분석 결과 */}
       <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 space-y-2 border border-indigo-200">
         <h3 className="text-sm font-bold text-indigo-800 mb-2">📊 세금 분석 결과</h3>
-        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50">
-          <span className="text-gray-700">총급여</span>
-          <span className="font-bold text-gray-800">{formData.annualIncome.toLocaleString()}만원</span>
-        </div>
-        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50">
-          <span className="text-gray-700">결정세액</span>
-          <span className="font-bold text-gray-800">{formData.taxAmount.toLocaleString()}만원</span>
-        </div>
-        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50">
-          <span className="text-gray-700">실효세율</span>
-          <span className="font-bold text-indigo-600">{effectiveTaxRate.toFixed(1)}%</span>
-        </div>
-        <div className="flex justify-between text-sm py-1">
-          <span className="text-gray-700">예상 세액공제</span>
-          <span className="font-bold text-teal-600">약 {totalDeduction.toFixed(0)}만원</span>
-        </div>
+        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50"><span className="text-gray-700">총급여</span><span className="font-bold text-gray-800">{formData.annualIncome.toLocaleString()}만원</span></div>
+        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50"><span className="text-gray-700">결정세액</span><span className="font-bold text-gray-800">{formData.taxAmount.toLocaleString()}만원</span></div>
+        <div className="flex justify-between text-sm py-1 border-b border-indigo-200/50"><span className="text-gray-700">실효세율</span><span className="font-bold text-indigo-600">{effectiveTaxRate.toFixed(1)}%</span></div>
+        <div className="flex justify-between text-sm py-1"><span className="text-gray-700">예상 세액공제</span><span className="font-bold text-teal-600">약 {totalDeduction.toFixed(0)}만원</span></div>
       </div>
       
-      {/* 절세 Tip */}
       {additionalPensionSaving > 0 && (
         <div className="bg-blue-50 rounded-xl p-3 flex gap-2 border border-blue-200">
           <span className="text-base">💡</span>
-          <p className="text-xs text-blue-700 leading-relaxed">
-            <strong>절세 Tip:</strong> 연금저축 {additionalPensionSaving}만원 추가 납입 시 약 {additionalTaxSaving.toFixed(0)}만원 세액공제 가능!
-          </p>
+          <p className="text-xs text-blue-700 leading-relaxed"><strong>절세 Tip:</strong> 연금저축 {additionalPensionSaving}만원 추가 납입 시 약 {additionalTaxSaving.toFixed(0)}만원 세액공제 가능!</p>
         </div>
       )}
       
@@ -659,25 +610,16 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
 // ============================================
 export function EstatePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({ 
-    hasHouse: true,
-    residentialProperty: 40000, // 거주용 부동산 (만원)
-    investmentProperty: 10000,  // 투자용 부동산 (만원)
-    currentAge: 37
+    hasHouse: true, residentialProperty: 40000, investmentProperty: 10000, currentAge: 37
   });
   
   useEffect(() => { const saved = loadDesignData('estate'); if (saved) setFormData(saved); }, []);
   useEffect(() => { saveDesignData('estate', formData); }, [formData]);
   
-  // 총 부동산 자산
   const totalProperty = formData.residentialProperty + formData.investmentProperty;
-  
-  // 주택연금 예상 (65세 기준, 4억원 주택 가정 시 약 100만원)
   const estimatedMonthlyPension = Math.round((formData.residentialProperty / 40000) * 100);
-  
-  // 주택연금 가입 조건 (만 55세 이상, 9억원 이하)
   const canApplyPension = formData.currentAge >= 55 && formData.residentialProperty <= 90000;
   const yearsUntil55 = Math.max(0, 55 - formData.currentAge);
-  
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
   return (
@@ -691,112 +633,42 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
       
       <div className="bg-white rounded-xl p-4 space-y-4 shadow-sm">
         <h3 className="text-base font-bold text-gray-800">🏠 부동산설계</h3>
-        
-        {/* 주택 보유 여부 */}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-gray-700">주택 보유 여부</label>
           <div className="flex gap-2">
-            <button 
-              onClick={() => setFormData({...formData, hasHouse: true})} 
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${formData.hasHouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}
-            >
-              🏠 보유
-            </button>
-            <button 
-              onClick={() => setFormData({...formData, hasHouse: false})} 
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${!formData.hasHouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}
-            >
-              ❌ 미보유
-            </button>
+            <button onClick={() => setFormData({...formData, hasHouse: true})} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${formData.hasHouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>🏠 보유</button>
+            <button onClick={() => setFormData({...formData, hasHouse: false})} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${!formData.hasHouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>❌ 미보유</button>
           </div>
         </div>
-        
         {formData.hasHouse && (
           <>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">현재 나이</label>
-              <div className="flex items-center gap-2">
-                <input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-                <span className="text-sm text-gray-500 font-medium w-8">세</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">거주용 부동산</label>
-              <div className="flex items-center gap-2">
-                <input type="number" value={formData.residentialProperty} onChange={(e) => setFormData({...formData, residentialProperty: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-                <span className="text-sm text-gray-500 font-medium w-10">만원</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">투자용 부동산</label>
-              <div className="flex items-center gap-2">
-                <input type="number" value={formData.investmentProperty} onChange={(e) => setFormData({...formData, investmentProperty: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-                <span className="text-sm text-gray-500 font-medium w-10">만원</span>
-              </div>
-            </div>
+            <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">현재 나이</label><div className="flex items-center gap-2"><input type="number" value={formData.currentAge} onChange={(e) => setFormData({...formData, currentAge: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-8">세</span></div></div>
+            <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">거주용 부동산</label><div className="flex items-center gap-2"><input type="number" value={formData.residentialProperty} onChange={(e) => setFormData({...formData, residentialProperty: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+            <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">투자용 부동산</label><div className="flex items-center gap-2"><input type="number" value={formData.investmentProperty} onChange={(e) => setFormData({...formData, investmentProperty: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
           </>
         )}
       </div>
       
       {formData.hasHouse && (
         <>
-          {/* 부동산 현황 */}
           <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-4 space-y-2 border border-pink-200">
             <h3 className="text-sm font-bold text-pink-800 mb-2">🏠 부동산 현황</h3>
-            <div className="flex justify-between text-sm py-1 border-b border-pink-200/50">
-              <span className="text-gray-700">거주용 부동산</span>
-              <span className="font-bold text-gray-800">{(formData.residentialProperty / 10000).toFixed(1)}억원</span>
-            </div>
-            <div className="flex justify-between text-sm py-1 border-b border-pink-200/50">
-              <span className="text-gray-700">투자용 부동산</span>
-              <span className="font-bold text-gray-800">{(formData.investmentProperty / 10000).toFixed(1)}억원</span>
-            </div>
-            <div className="flex justify-between text-sm py-1">
-              <span className="text-gray-700 font-semibold">총 부동산 자산</span>
-              <span className="font-bold text-pink-600">{(totalProperty / 10000).toFixed(1)}억원</span>
-            </div>
+            <div className="flex justify-between text-sm py-1 border-b border-pink-200/50"><span className="text-gray-700">거주용 부동산</span><span className="font-bold text-gray-800">{(formData.residentialProperty / 10000).toFixed(1)}억원</span></div>
+            <div className="flex justify-between text-sm py-1 border-b border-pink-200/50"><span className="text-gray-700">투자용 부동산</span><span className="font-bold text-gray-800">{(formData.investmentProperty / 10000).toFixed(1)}억원</span></div>
+            <div className="flex justify-between text-sm py-1"><span className="text-gray-700 font-semibold">총 부동산 자산</span><span className="font-bold text-pink-600">{(totalProperty / 10000).toFixed(1)}억원</span></div>
           </div>
-          
-          {/* 주택연금 예상 */}
           <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 space-y-2 border border-amber-200">
             <h3 className="text-sm font-bold text-amber-800 mb-2">🏖️ 주택연금 예상 (참고)</h3>
-            <div className="flex justify-between text-sm py-1 border-b border-amber-200/50">
-              <span className="text-gray-700">가입 조건</span>
-              <span className="font-bold text-gray-600 text-xs">만 55세 이상, 9억원 이하</span>
-            </div>
-            <div className="flex justify-between text-sm py-1 border-b border-amber-200/50">
-              <span className="text-gray-700">현재 상태</span>
-              {canApplyPension ? (
-                <span className="font-bold text-green-600">가입 가능 ✓</span>
-              ) : (
-                <span className="font-bold text-amber-600">
-                  {formData.currentAge < 55 ? `${yearsUntil55}년 후 가능` : '9억 초과'}
-                </span>
-              )}
-            </div>
-            <div className="flex justify-between text-sm py-1">
-              <span className="text-gray-700">65세 가입 시 예상 월수령</span>
-              <span className="font-bold text-teal-600">약 {estimatedMonthlyPension}만원</span>
-            </div>
+            <div className="flex justify-between text-sm py-1 border-b border-amber-200/50"><span className="text-gray-700">가입 조건</span><span className="font-bold text-gray-600 text-xs">만 55세 이상, 9억원 이하</span></div>
+            <div className="flex justify-between text-sm py-1 border-b border-amber-200/50"><span className="text-gray-700">현재 상태</span>{canApplyPension ? (<span className="font-bold text-green-600">가입 가능 ✓</span>) : (<span className="font-bold text-amber-600">{formData.currentAge < 55 ? `${yearsUntil55}년 후 가능` : '9억 초과'}</span>)}</div>
+            <div className="flex justify-between text-sm py-1"><span className="text-gray-700">65세 가입 시 예상 월수령</span><span className="font-bold text-teal-600">약 {estimatedMonthlyPension}만원</span></div>
           </div>
-          
-          {/* Coming Soon */}
-          <div className="bg-gray-100 rounded-xl p-4 text-center">
-            <div className="text-2xl mb-2">🚧</div>
-            <div className="text-sm font-bold text-gray-600">Coming Soon</div>
-            <div className="text-xs text-gray-400 mt-1">부동산 심층 분석 기능은<br/>추후 업데이트 예정입니다.</div>
-          </div>
+          <div className="bg-gray-100 rounded-xl p-4 text-center"><div className="text-2xl mb-2">🚧</div><div className="text-sm font-bold text-gray-600">Coming Soon</div><div className="text-xs text-gray-400 mt-1">부동산 심층 분석 기능은<br/>추후 업데이트 예정입니다.</div></div>
         </>
       )}
-      
       {!formData.hasHouse && (
-        <div className="bg-gray-100 rounded-xl p-6 text-center">
-          <div className="text-3xl mb-2">🏠</div>
-          <div className="text-sm font-semibold text-gray-600">주택 미보유</div>
-          <div className="text-xs text-gray-400 mt-1">주택 구입 계획이 있으시면<br/>저축설계를 참고해주세요.</div>
-        </div>
+        <div className="bg-gray-100 rounded-xl p-6 text-center"><div className="text-3xl mb-2">🏠</div><div className="text-sm font-semibold text-gray-600">주택 미보유</div><div className="text-xs text-gray-400 mt-1">주택 구입 계획이 있으시면<br/>저축설계를 참고해주세요.</div></div>
       )}
-      
       <DisclaimerBox />
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
@@ -807,81 +679,166 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 7. 보험설계 카드 (마지막) - 8대 보장 분석
+// 7. 보험설계 카드 (v4.1) - 시뮬레이터 방식 가로스크롤 + 보험증권 업로드 + 준비자금 직접입력
 // ============================================
 export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
+  const [showFormula, setShowFormula] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [formData, setFormData] = useState({ 
-    annualIncome: 6000,      // 연봉 (만원)
-    totalDebt: 40000,        // 총 부채 (만원)
-    // 현재 가입된 보장 (만원 단위, 억원은 10000으로 변환)
-    deathCoverage: 20000,     // 사망보장 2억
-    disabilityCoverage: 10000, // 장해보장 1억
-    cancerCoverage: 5000,     // 암진단 5천
-    brainCoverage: 3000,      // 뇌질환 3천
-    heartCoverage: 3000,      // 심질환 3천
-    medicalCoverage: 5000,    // 실비 5천
-    hasHospital: true,        // 입원 가입여부
-    hasDementia: false,       // 치매 가입여부
+    annualIncome: 6000,
+    totalDebt: 40000,
+  });
+  // 준비자금: 사용자가 직접 입력 (만원 단위)
+  const [prepared, setPrepared] = useState({
+    death: 20000,       // 사망 준비자금
+    disability: 10000,  // 장해 준비자금
+    cancer: 5000,       // 암진단 준비자금
+    brain: 3000,        // 뇌혈관 준비자금
+    heart: 3000,        // 심혈관 준비자금
+    medical: 5000,      // 실비 준비자금
+    hospital: 'O' as string,  // 입원수술 가입여부
+    dementia: 'X' as string,  // 치매간병 가입여부
   });
   
-  useEffect(() => { const saved = loadDesignData('insurance'); if (saved) setFormData(saved); }, []);
-  useEffect(() => { saveDesignData('insurance', formData); }, [formData]);
-  
-  // 필요 보장 계산 (연봉×3+부채, 암=연봉×2, 뇌/심=연봉×1, 실비=5천)
-  const requiredDeath = formData.annualIncome * 3 + formData.totalDebt;
-  const requiredDisability = formData.annualIncome * 3 + formData.totalDebt;
-  const requiredCancer = formData.annualIncome * 2;
-  const requiredBrain = formData.annualIncome;
-  const requiredHeart = formData.annualIncome;
-  const requiredMedical = 5000;
-  
-  // 부족 금액 계산
-  const lackDeath = Math.max(0, requiredDeath - formData.deathCoverage);
-  const lackDisability = Math.max(0, requiredDisability - formData.disabilityCoverage);
-  const lackCancer = Math.max(0, requiredCancer - formData.cancerCoverage);
-  const lackBrain = Math.max(0, requiredBrain - formData.brainCoverage);
-  const lackHeart = Math.max(0, requiredHeart - formData.heartCoverage);
-  const lackMedical = Math.max(0, requiredMedical - formData.medicalCoverage);
-  
-  // 부족 항목 개수
-  const lackCount = [lackDeath, lackDisability, lackCancer, lackBrain, lackHeart, lackMedical, formData.hasHospital ? 0 : 1, formData.hasDementia ? 0 : 1]
-    .filter(v => v > 0).length;
-  
-  // 가장 시급한 보장 찾기
-  const urgentItems = [
-    { name: '사망', lack: lackDeath },
-    { name: '장해', lack: lackDisability },
-    { name: '암진단', lack: lackCancer },
-    { name: '뇌질환', lack: lackBrain },
-    { name: '심질환', lack: lackHeart },
-  ].filter(item => item.lack > 0).sort((a, b) => b.lack - a.lack);
-  
-  const mostUrgent = urgentItems[0];
-  
-  // 금액 포맷팅 (억/천만원)
-  const formatAmount = (amount: number) => {
-    if (amount >= 10000) {
-      return `${(amount / 10000).toFixed(1)}억`;
+  useEffect(() => {
+    const saved = loadDesignData('insurance');
+    if (saved) {
+      if (saved.annualIncome) setFormData({ annualIncome: saved.annualIncome, totalDebt: saved.totalDebt || 40000 });
+      if (saved.prepared) setPrepared(saved.prepared);
     }
-    return `${(amount / 1000).toFixed(0)}천`;
+  }, []);
+  
+  useEffect(() => { saveDesignData('insurance', { ...formData, prepared }); }, [formData, prepared]);
+
+  // 필요자금 계산 (만원 단위)
+  const required = {
+    death: formData.annualIncome * 3 + formData.totalDebt,
+    disability: formData.annualIncome * 3 + formData.totalDebt,
+    cancer: formData.annualIncome * 2,
+    brain: formData.annualIncome,
+    heart: formData.annualIncome,
+    medical: 5000,
+  };
+
+  // 부족자금 계산
+  const lack = {
+    death: required.death - prepared.death,
+    disability: required.disability - prepared.disability,
+    cancer: required.cancer - prepared.cancer,
+    brain: required.brain - prepared.brain,
+    heart: required.heart - prepared.heart,
+    medical: required.medical - prepared.medical,
+  };
+
+  // 색상 결정: 부족=빨간색, 충분=녹색, 동일=파란색
+  const getLackColor = (val: number) => {
+    if (val > 0) return 'text-red-600';   // 부족
+    if (val < 0) return 'text-green-600'; // 충분 (초과)
+    return 'text-blue-600';               // 동일
+  };
+  const getLackBg = (val: number) => {
+    if (val > 0) return 'bg-red-50';
+    if (val < 0) return 'bg-green-50';
+    return 'bg-blue-50';
+  };
+
+  // 금액 포맷 (만원 → 억/천 표시)
+  const fmt = (amount: number) => {
+    if (amount >= 10000) return `${(amount / 10000).toFixed(1)}억`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}천`;
+    if (amount <= -10000) return `${(amount / 10000).toFixed(1)}억`;
+    if (amount <= -1000) return `${(amount / 1000).toFixed(0)}천`;
+    return `${amount}만`;
   };
   
+  // 부족자금 표시 텍스트
+  const fmtLack = (val: number) => {
+    if (val > 0) return fmt(val);        // 부족
+    if (val < 0) return `+${fmt(Math.abs(val))}`;  // 초과(충분)
+    return '0원';                         // 동일
+  };
+
+  // 특약 상태 색상
+  const getSpecialColor = (val: string) => {
+    const v = val.toUpperCase();
+    if (v === 'O' || v === '유' || v === 'Y') return 'text-green-600';
+    return 'text-red-600';
+  };
+  const getSpecialLack = (val: string) => {
+    const v = val.toUpperCase();
+    if (v === 'O' || v === '유' || v === 'Y') return { text: '-', color: 'text-green-600', bg: 'bg-green-50' };
+    return { text: '미가입', color: 'text-red-600', bg: 'bg-red-50' };
+  };
+
+  // 부족 항목 수 계산
+  const lackItems = [
+    lack.death > 0, lack.disability > 0, lack.cancer > 0, lack.brain > 0, lack.heart > 0, lack.medical > 0,
+    !['O','o','유','Y','y'].includes(prepared.hospital),
+    !['O','o','유','Y','y'].includes(prepared.dementia),
+  ];
+  const lackCount = lackItems.filter(Boolean).length;
+
+  // 가장 시급한 보장
+  const urgentList = [
+    { name: '사망', val: lack.death },
+    { name: '장해', val: lack.disability },
+    { name: '암진단', val: lack.cancer },
+    { name: '뇌혈관', val: lack.brain },
+    { name: '심혈관', val: lack.heart },
+    { name: '실비', val: lack.medical },
+  ].filter(i => i.val > 0).sort((a, b) => b.val - a.val);
+  const mostUrgent = urgentList[0];
+
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
+
+  // 저장 & 부족자금 계산
+  const handleSave = () => {
+    saveDesignData('insurance', { ...formData, prepared });
+    setShowSaveSuccess(true);
+    setTimeout(() => setShowSaveSuccess(false), 2500);
+  };
+
+  // 보험증권 업로드 (현재 +버튼 면책사항과 동일)
+  const handleUpload = () => {
+    alert('보험증권 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.');
+  };
+
+  const hospitalLack = getSpecialLack(prepared.hospital);
+  const dementiaLack = getSpecialLack(prepared.dementia);
 
   return (
     <div className="space-y-3">
+      {/* AI 멘트 */}
       <div className="flex gap-2.5">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-lg flex-shrink-0">🛡️</div>
         <div className="bg-white rounded-2xl rounded-tl-sm p-3 shadow-sm text-sm leading-relaxed max-w-[calc(100%-50px)]">
-          <p>마지막! <span className="text-teal-600 font-bold">보험설계</span>입니다. 8대 보장 분석으로 부족한 보장을 확인해볼게요! 🛡️</p>
+          <p>마지막! <span className="text-teal-600 font-bold">보험설계</span>입니다. <span className="text-teal-600 font-bold">8대 보장 분석</span>으로 부족한 보장을 확인해볼게요! 🛡️</p>
         </div>
       </div>
       
-      <div className="bg-white rounded-xl p-4 space-y-4 shadow-sm">
-        <h3 className="text-base font-bold text-gray-800">🛡️ 보험설계</h3>
-        
-        {/* 기본 정보 입력 */}
-        <div className="grid grid-cols-2 gap-3">
+      {/* 보험설계 카드 */}
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-200">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl">🛡️</div>
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-gray-800">보험설계</h3>
+            <p className="text-[11px] text-gray-400">8대 보장 분석</p>
+          </div>
+          <span className="text-[11px] text-teal-700 font-bold bg-teal-50 px-2 py-1 rounded-md">7/7</span>
+        </div>
+
+        {/* ④ 보험증권 업로드 UI */}
+        <div 
+          onClick={handleUpload}
+          className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 transition-all mb-4"
+        >
+          <div className="text-2xl mb-1">📋</div>
+          <div className="text-sm font-semibold text-gray-700">보험증권 업로드 (OCR 분석)</div>
+          <div className="text-[11px] text-gray-400 mt-1">PDF, 이미지 파일 지원 · AI 자동 인식</div>
+        </div>
+
+        {/* 기본 정보 입력 - 연봉/총부채 */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-700">연봉</label>
             <div className="flex items-center gap-1">
@@ -897,126 +854,174 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* 8대 보장 테이블 */}
-      <div className="bg-white rounded-xl p-3 shadow-sm overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="py-2 px-2 text-left font-semibold text-gray-600 rounded-l-lg">담보</th>
-              <th className="py-2 px-2 text-center font-semibold text-gray-600">필요</th>
-              <th className="py-2 px-2 text-center font-semibold text-gray-600">준비</th>
-              <th className="py-2 px-2 text-center font-semibold text-gray-600 rounded-r-lg">부족</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">사망</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredDeath)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.deathCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackDeath > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackDeath > 0 ? formatAmount(lackDeath) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">장해</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredDisability)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.disabilityCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackDisability > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackDisability > 0 ? formatAmount(lackDisability) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">암진단</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredCancer)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.cancerCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackCancer > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackCancer > 0 ? formatAmount(lackCancer) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">뇌질환</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredBrain)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.brainCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackBrain > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackBrain > 0 ? formatAmount(lackBrain) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">심질환</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredHeart)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.heartCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackHeart > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackHeart > 0 ? formatAmount(lackHeart) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">실비</td>
-              <td className="py-2 px-2 text-center text-gray-700">{formatAmount(requiredMedical)}</td>
-              <td className="py-2 px-2 text-center text-green-600">{formatAmount(formData.medicalCoverage)}</td>
-              <td className={`py-2 px-2 text-center font-bold ${lackMedical > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {lackMedical > 0 ? formatAmount(lackMedical) : '0원'}
-              </td>
-            </tr>
-            <tr className="border-b border-gray-100">
-              <td className="py-2 px-2 font-medium">입원</td>
-              <td className="py-2 px-2 text-center text-gray-700">가입</td>
-              <td className="py-2 px-2 text-center text-green-600">{formData.hasHospital ? 'O' : 'X'}</td>
-              <td className={`py-2 px-2 text-center font-bold ${formData.hasHospital ? 'text-green-500' : 'text-red-500'}`}>
-                {formData.hasHospital ? '-' : '미가입'}
-              </td>
-            </tr>
-            <tr>
-              <td className="py-2 px-2 font-medium">치매</td>
-              <td className="py-2 px-2 text-center text-gray-700">가입</td>
-              <td className="py-2 px-2 text-center text-green-600">{formData.hasDementia ? 'O' : 'X'}</td>
-              <td className={`py-2 px-2 text-center font-bold ${formData.hasDementia ? 'text-green-500' : 'text-red-500'}`}>
-                {formData.hasDementia ? '-' : '미가입'}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      
-      {/* 필요자금 기준 설명 */}
-      <div className="bg-blue-50 rounded-xl p-3 flex gap-2 border border-blue-200">
-        <span className="text-base">📋</span>
-        <p className="text-xs text-blue-700 leading-relaxed">
-          <strong>필요자금 기준:</strong> 사망/장해 = 연봉×3+부채, 암진단 = 연봉×2, 뇌/심 = 연봉×1, 실비 = 5천만원
-        </p>
-      </div>
-      
-      {/* 보험 분석 요약 */}
-      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 space-y-2 border border-purple-200">
-        <h3 className="text-sm font-bold text-purple-800 mb-2">📊 보험 분석 요약</h3>
-        <div className="flex justify-between text-sm py-1 border-b border-purple-200/50">
-          <span className="text-gray-700">총 부족 보장</span>
-          <span className={`font-bold ${lackCount > 0 ? 'text-red-500' : 'text-green-500'}`}>
-            {lackCount}개 항목
-          </span>
+
+        {/* ③ 스크롤 힌트 */}
+        <div className="flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-gray-400">
+          <span>👆</span> 좌우로 스크롤하여 8대 보장을 확인하세요 <span>👉</span>
         </div>
-        {mostUrgent && (
-          <div className="flex justify-between text-sm py-1 border-b border-purple-200/50">
-            <span className="text-gray-700">가장 시급한 보장</span>
-            <span className="font-bold text-gray-800">{mostUrgent.name} ({formatAmount(mostUrgent.lack)} 부족)</span>
+
+        {/* ②③ 8대 보장 가로스크롤 테이블 */}
+        <div className="mx-[-16px] px-[16px]">
+          <div className="overflow-x-auto pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <table className="border-collapse w-full" style={{ minWidth: '700px' }}>
+              {/* 헤더 */}
+              <thead>
+                <tr>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-gray-600 border border-gray-300 whitespace-nowrap" style={{ minWidth: '60px' }}>구분</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">사망</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">장해</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">암진단</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">뇌혈관</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">심혈관</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">실비</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">입원수술</th>
+                  <th className="py-2.5 px-2 text-center text-[11px] font-bold text-white bg-purple-700 border border-gray-300 whitespace-nowrap">치매간병</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* 필요자금 행 */}
+                <tr className="bg-purple-50">
+                  <td className="py-2 px-2 text-center text-xs font-bold text-purple-800 bg-purple-100 border border-gray-200 whitespace-nowrap">필요자금</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.death)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.disability)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.cancer)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.brain)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.heart)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">{fmt(required.medical)}</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">특약필요</td>
+                  <td className="py-2 px-2 text-center text-xs font-semibold text-purple-700 border border-gray-200 whitespace-nowrap">특약필요</td>
+                </tr>
+                {/* ⑤ 준비자금 행 - 클릭하여 직접 입력 */}
+                <tr className="bg-green-50">
+                  <td className="py-2 px-2 text-center text-xs font-bold text-green-800 bg-green-100 border border-gray-200 whitespace-nowrap">준비자금</td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.death} onChange={(e) => setPrepared({...prepared, death: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.disability} onChange={(e) => setPrepared({...prepared, disability: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.cancer} onChange={(e) => setPrepared({...prepared, cancer: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.brain} onChange={(e) => setPrepared({...prepared, brain: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.heart} onChange={(e) => setPrepared({...prepared, heart: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="number" value={prepared.medical} onChange={(e) => setPrepared({...prepared, medical: Number(e.target.value)})} onFocus={handleFocus}
+                      className="w-[58px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold text-green-700 bg-green-50 focus:border-teal-500 focus:bg-white outline-none" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="text" value={prepared.hospital} onChange={(e) => setPrepared({...prepared, hospital: e.target.value})} onFocus={handleFocus}
+                      className={`w-[40px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold ${getSpecialColor(prepared.hospital)} bg-green-50 focus:border-teal-500 focus:bg-white outline-none`} placeholder="유/무" />
+                  </td>
+                  <td className="py-1 px-1 text-center border border-gray-200">
+                    <input type="text" value={prepared.dementia} onChange={(e) => setPrepared({...prepared, dementia: e.target.value})} onFocus={handleFocus}
+                      className={`w-[40px] px-1 py-1 border-2 border-green-300 rounded-md text-center text-xs font-semibold ${getSpecialColor(prepared.dementia)} bg-green-50 focus:border-teal-500 focus:bg-white outline-none`} placeholder="유/무" />
+                  </td>
+                </tr>
+                {/* 부족자금 행 - 자동 계산 + 색상 표시 */}
+                <tr className="bg-red-50">
+                  <td className="py-2 px-2 text-center text-xs font-bold text-red-800 bg-red-100 border border-gray-200 whitespace-nowrap">부족자금</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.death)} ${getLackBg(lack.death)}`}>{fmtLack(lack.death)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.disability)} ${getLackBg(lack.disability)}`}>{fmtLack(lack.disability)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.cancer)} ${getLackBg(lack.cancer)}`}>{fmtLack(lack.cancer)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.brain)} ${getLackBg(lack.brain)}`}>{fmtLack(lack.brain)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.heart)} ${getLackBg(lack.heart)}`}>{fmtLack(lack.heart)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${getLackColor(lack.medical)} ${getLackBg(lack.medical)}`}>{fmtLack(lack.medical)}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${hospitalLack.color} ${hospitalLack.bg}`}>{hospitalLack.text}</td>
+                  <td className={`py-2 px-2 text-center text-[13px] font-extrabold border border-gray-200 whitespace-nowrap ${dementiaLack.color} ${dementiaLack.bg}`}>{dementiaLack.text}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
-        {!formData.hasDementia && (
-          <div className="flex justify-between text-sm py-1">
-            <span className="text-gray-700">치매 특약</span>
-            <span className="font-bold text-amber-600">미가입 (추가 권장)</span>
-          </div>
-        )}
+          {/* 스크롤바 힌트 */}
+          <div className="text-center py-1"><span className="text-[10px] text-gray-400">← 좌우로 스크롤하세요 →</span></div>
+        </div>
       </div>
-      
+
+      {/* 공식 보기 토글 */}
+      <button onClick={() => setShowFormula(!showFormula)} className="w-full flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 rounded-lg text-xs font-semibold text-gray-600 hover:bg-teal-50 hover:text-teal-700 transition-all border border-transparent hover:border-teal-200">
+        <span className={`text-[10px] transition-transform ${showFormula ? 'rotate-90' : ''}`}>▶</span>
+        <span>📐 필요자금 계산 방법 보기</span>
+      </button>
+      {showFormula && (
+        <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 space-y-1.5 text-[11px] text-purple-800">
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">사망</span><span className="font-bold text-purple-600">(연봉×3) + 총부채</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">장해</span><span className="font-bold text-purple-600">(연봉×3) + 총부채</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">암진단</span><span className="font-bold text-purple-600">연봉 × 2배</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">뇌혈관</span><span className="font-bold text-purple-600">연봉 × 1배</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">심혈관</span><span className="font-bold text-purple-600">연봉 × 1배</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">실비</span><span className="font-bold text-purple-600">5,000만원</span></div>
+          <div className="flex justify-between py-0.5 border-b border-purple-200/50"><span className="font-semibold">입원수술</span><span className="font-bold text-purple-600">특약 필요</span></div>
+          <div className="flex justify-between py-0.5"><span className="font-semibold">치매간병</span><span className="font-bold text-purple-600">특약 필요</span></div>
+        </div>
+      )}
+
+      {/* ⑥ 저장 버튼 */}
+      <button 
+        onClick={handleSave} 
+        className="w-full py-3.5 rounded-lg font-bold text-sm text-white bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 transition-all shadow-md"
+      >
+        💾 저장하고 부족자금 계산하기
+      </button>
+
+      {/* 저장 완료 메시지 */}
+      {showSaveSuccess && (
+        <div className="text-center py-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-300">
+          <div className="text-3xl mb-1">✅</div>
+          <div className="text-sm font-bold text-green-700">보험 분석 저장 완료!</div>
+        </div>
+      )}
+
+      {/* 분석 요약 */}
+      <div className="bg-gradient-to-br from-teal-50/50 to-teal-100/30 rounded-xl p-4 border border-teal-200/50">
+        <div className="text-xs font-bold text-teal-700 mb-3 flex items-center gap-1.5">📊 보험 분석 요약</div>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center py-1.5 border-b border-teal-200/30">
+            <span className="text-xs text-gray-600">총 부족 보장</span>
+            <span className={`text-sm font-bold ${lackCount > 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {lackCount > 0 ? `${lackCount}개 항목` : '모두 충족! ✅'}
+            </span>
+          </div>
+          {mostUrgent && (
+            <div className="flex justify-between items-center py-1.5 border-b border-teal-200/30">
+              <span className="text-xs text-gray-600">가장 시급한 보장</span>
+              <span className="text-sm font-bold text-gray-800">{mostUrgent.name} ({fmt(mostUrgent.val)} 부족)</span>
+            </div>
+          )}
+          {!['O','o','유','Y','y'].includes(prepared.dementia) && (
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-xs text-gray-600">치매간병 특약</span>
+              <span className="text-sm font-bold text-amber-600">미가입 (추가 권장)</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* AI 추천 */}
+      {mostUrgent && (
+        <div className="bg-blue-50 rounded-xl p-3 flex gap-2 border border-blue-200">
+          <span className="text-base">🤖</span>
+          <p className="text-xs text-blue-700 leading-relaxed">
+            <strong>AI머니야 추천:</strong> {mostUrgent.name}보장이 가장 부족해요. {mostUrgent.name}
+            {urgentList.length > 1 ? ` + ${urgentList[1].name}` : ''} 보장을 우선 보완하시는 것을 권장합니다.
+          </p>
+        </div>
+      )}
+
       {/* 면책조항 */}
-      <div className="mt-3 p-2 bg-gray-100 rounded-lg">
-        <p className="text-[10px] text-gray-500 text-center">
-          ※ AI는 틀릴 수 있습니다. 정확한 보험 분석은 전문 설계사 상담을 권장합니다.
-        </p>
+      <div className="p-2 bg-gray-100 rounded-lg">
+        <p className="text-[10px] text-gray-500 text-center">※ AI 분석은 틀릴 수 있습니다. 정확한 보험 분석은 전문 설계사 상담을 권장합니다.</p>
       </div>
-      
+
       <DisclaimerBox />
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
