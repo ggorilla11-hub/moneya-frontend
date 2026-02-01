@@ -19,6 +19,7 @@ interface CardProps {
   onNext: () => void;
   onPrev: () => void;
   isLast?: boolean;
+  onOpenOCR?: () => void;
 }
 
 const DisclaimerBox = () => (
@@ -752,8 +753,6 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
 
   // 72법칙 시뮬레이션
   const doublingYears = inheritData.inflationRate > 0 ? Math.round(72 / inheritData.inflationRate) : 0;
-  const yearsUntilDeath = Math.max(0, inheritData.expectedLifespan - inheritData.currentAge);
-  
   // 시뮬레이션 타임라인 생성
   const simTimeline: { age: number; assets: number; tax: number }[] = [];
   if (doublingYears > 0 && netAssets > 0) {
@@ -1163,7 +1162,7 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
 // ============================================
 // 7. 보험설계 카드 (v4.1) - 시뮬레이터 방식 가로스크롤 + 보험증권 업로드 + 준비자금 직접입력
 // ============================================
-export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
+export function InsurancePlanCard({ onNext, onPrev, isLast, onOpenOCR }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -1282,9 +1281,11 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
 
   // 보험증권 업로드 (현재 +버튼 면책사항과 동일)
   const handleUpload = () => {
-    alert('보험증권 업로드 기능은 추후 업데이트 예정입니다.\
-\
-⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.');
+    if (onOpenOCR) {
+      onOpenOCR();
+    } else {
+      alert('보험증권 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.');
+    }
   };
 
   const hospitalLack = getSpecialLack(prepared.hospital);
