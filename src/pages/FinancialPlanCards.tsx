@@ -1078,7 +1078,11 @@ export function TaxPlanCard({ onNext, onPrev, onOpenOCR }: CardProps) {
         </div>
       )}
 
-      <DisclaimerBox />
+      <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+        <p className="text-[10px] text-amber-700 text-center">
+          ⚠️ 본 설계는 이해를 돕기 위한 일반적인 예시이므로 참고만 하시기 바랍니다. 구체적인 사항은 반드시 해당 전문가와 상담하시기 바랍니다.
+        </p>
+      </div>
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
@@ -1651,7 +1655,11 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
         </div>
       )}
 
-      <DisclaimerBox />
+      <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+        <p className="text-[10px] text-amber-700 text-center">
+          ⚠️ 본 설계는 이해를 돕기 위한 일반적인 예시이므로 참고만 하시기 바랍니다. 구체적인 사항은 반드시 해당 전문가와 상담하시기 바랍니다.
+        </p>
+      </div>
       <div className="flex gap-2 pt-2">
         <button onClick={onPrev} className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm">← 이전</button>
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">다음 →</button>
