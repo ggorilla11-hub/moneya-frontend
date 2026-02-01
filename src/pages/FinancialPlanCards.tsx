@@ -552,6 +552,10 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
     employInsurance: 0,      // 고용보험료 (만원)
     housingSubscription: 0,  // 주택청약저축 납입 (만원)
     creditCardDeduction: 0,  // 신용카드 등 공제 (만원)
+    investmentPartnership: 0,  // 투자조합출자 (만원)
+    rentLoanRepayment: 0,      // 전세대출원리금 (만원)
+    mortgageLoanInterest: 0,   // 주택담보대출이자 (만원)
+    yellowUmbrella: 0,         // 노란우산공제 (만원)
     // 세액공제 항목
     insurancePremium: 0,     // 보장성보험료 (만원)
     medicalExpense: 0,       // 의료비 (만원)
@@ -682,7 +686,9 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   const housingDeductionAmount = Math.round(Math.min(incomeData.housingSubscription, 300) * 0.4);
   const totalIncomeDeduction = incomeData.selfDeduction + dependentDeduction + 
     incomeData.nationalPension + incomeData.healthInsurance + incomeData.employInsurance +
-    housingDeductionAmount + incomeData.creditCardDeduction;
+    housingDeductionAmount + incomeData.creditCardDeduction +
+    incomeData.investmentPartnership + incomeData.rentLoanRepayment +
+    incomeData.mortgageLoanInterest + incomeData.yellowUmbrella;
   
   // 과세표준
   const taxBase = Math.max(0, earnedIncome - totalIncomeDeduction);
@@ -792,7 +798,7 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} onFocus={handleFocus}
-          className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
+          className="w-28 px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
         <span className="text-[10px] text-gray-400 w-6">{unit}</span>
       </div>
     </div>
@@ -864,6 +870,10 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
                 <InputRow label="고용보험료" value={incomeData.employInsurance} onChange={v => setIncomeData({...incomeData, employInsurance: v})} />
                 <InputRow label="주택청약저축 (납입액)" value={incomeData.housingSubscription} onChange={v => setIncomeData({...incomeData, housingSubscription: v})} badge="40%공제" badgeColor="bg-orange-100 text-orange-600" />
                 <InputRow label="신용카드 등 공제액" value={incomeData.creditCardDeduction} onChange={v => setIncomeData({...incomeData, creditCardDeduction: v})} />
+                <InputRow label="투자조합출자" value={incomeData.investmentPartnership} onChange={v => setIncomeData({...incomeData, investmentPartnership: v})} />
+                <InputRow label="전세대출원리금" value={incomeData.rentLoanRepayment} onChange={v => setIncomeData({...incomeData, rentLoanRepayment: v})} badge="주택임차차입금" badgeColor="bg-purple-100 text-purple-600" />
+                <InputRow label="주택담보대출이자" value={incomeData.mortgageLoanInterest} onChange={v => setIncomeData({...incomeData, mortgageLoanInterest: v})} badge="장기주택저당" badgeColor="bg-purple-100 text-purple-600" />
+                <InputRow label="노란우산공제" value={incomeData.yellowUmbrella} onChange={v => setIncomeData({...incomeData, yellowUmbrella: v})} badge="소기업·소상공인" badgeColor="bg-yellow-100 text-yellow-700" />
                 <div className="flex justify-between pt-2 border-t border-blue-200">
                   <span className="text-xs font-bold text-blue-700">소득공제 합계</span>
                   <span className="text-sm font-black text-blue-600">{fmt(totalIncomeDeduction)}만원</span>
