@@ -768,7 +768,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, ini
           {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {/* ★★★ v5.2 수정: onOpenOCR props 추가 → 원천징수영수증 업로드 클릭 시 +버튼 OCR 모달 열기 ★★★ */}
-          {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab onOpenOCR={() => setIsOCRModalOpen(true)} />}
+          {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} onOpenOCR={() => setIsOCRModalOpen(true)} />}
           {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {/* ★★★ v5.1 수정: onOpenOCR props 추가 → 보험증권 업로드 클릭 시 +버튼 OCR 모달 열기 ★★★ */}
           {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast onOpenOCR={() => setIsOCRModalOpen(true)} />}
