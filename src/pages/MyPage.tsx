@@ -3,7 +3,7 @@
 // v2.0: 전체 개편 (구독상태, 뱃지, 성장기록, 개인정보 등)
 // v2.2: 온라인강좌 페이지 연결 추가
 // v2.3 변경사항:
-// - C-1: "전문가 상담 · 강의 신청" → "강의상담" 제목 변경
+// - C-1: "전문가 상담 · 강의 신청" → "오상열 대표 강의·상담 신청" 제목 변경
 // - C-2: 공유하기 모달 내 모든 URL을 stable 브랜치 URL로 변경
 //         (https://moneya.vercel.app → https://moneya-frontend.vercel.app)
 
@@ -73,7 +73,7 @@ const FAQ_DATA = [
   { q: '유료 구독 요금은 얼마인가요?', a: '일반인용: 베이직 12,900원, 스탠다드 29,000원, 프리미엄 59,000원 / FP용: 베이직 33,000원, 스탠다드 59,000원, 프리미엄 99,000원입니다.' },
   { q: 'AI 지출 상담은 어떻게 이용하나요?', a: 'AI지출 탭에서 음성 또는 텍스트로 지출에 대해 상담받으실 수 있습니다. 무료 이용은 월 5회입니다.' },
   { q: '재무설계 리포트는 어디서 볼 수 있나요?', a: '더보기 > 월간 리포트에서 확인하실 수 있습니다.' },
-  { q: '전문가 상담은 어떻게 신청하나요?', a: '더보기 > 강의상담에서 원하시는 상담 유형을 선택하여 신청하실 수 있습니다.' },
+  { q: '전문가 상담은 어떻게 신청하나요?', a: '더보기 > 오상열 대표 강의·상담 신청에서 원하시는 상담 유형을 선택하여 신청하실 수 있습니다.' },
   { q: '개인정보는 안전하게 보호되나요?', a: '네, 모든 개인정보는 암호화되어 안전하게 보관됩니다. 자세한 내용은 개인정보처리방침을 확인해주세요.' },
   { q: '회원 탈퇴는 어떻게 하나요?', a: '더보기 > 회원탈퇴에서 탈퇴 신청하실 수 있습니다. 탈퇴 시 모든 데이터가 삭제됩니다.' },
 ];
@@ -312,11 +312,11 @@ export default function MyPage({
           <span className="text-gray-400 text-sm">›</span>
         </button>
 
-        {/* ★★★ v2.3 C-1: "전문가 상담 · 강의 신청" → "강의상담" ★★★ */}
+        {/* ★★★ v2.3 C-1: "전문가 상담 · 강의 신청" → "오상열 대표 강의·상담 신청" ★★★ */}
         <button onClick={() => onNavigate('consulting')} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-base">👨‍🏫</div>
           <div className="flex-1 text-left">
-            <span className="text-sm font-semibold text-gray-900">강의상담</span>
+            <span className="text-sm font-semibold text-gray-900">오상열 대표 강의·상담 신청</span>
             <p className="text-[10px] text-gray-400">일반인 상담 / 재테크 강의 / FP 과정</p>
           </div>
           <span className="text-gray-400 text-sm">›</span>
