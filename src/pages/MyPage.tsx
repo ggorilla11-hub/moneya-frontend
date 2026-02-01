@@ -1,12 +1,11 @@
 // src/pages/MyPage.tsx
-// v2.0: 마이페이지 전체 개편
-// - 구독 상태: "프리미엄급 이용 중 무료체험"
-// - 뱃지 시스템: 가로 스크롤, 활성/비활성 구분
-// - 성장기록: 실제 데이터 연동, 색상 표시
-// - 개인정보 관리, 설정, 고객센터/FAQ, 회원탈퇴 기능
-// - 전문가 상담/강의 명칭 변경
-// - 신규 메뉴: DESIRE 로드맵, 온라인강좌, 전자책
+// v2.3: 마이페이지
+// v2.0: 전체 개편 (구독상태, 뱃지, 성장기록, 개인정보 등)
 // v2.2: 온라인강좌 페이지 연결 추가
+// v2.3 변경사항:
+// - C-1: "전문가 상담 · 강의 신청" → "강의상담" 제목 변경
+// - C-2: 공유하기 모달 내 모든 URL을 stable 브랜치 URL로 변경
+//         (https://moneya.vercel.app → https://moneya-frontend.vercel.app)
 
 import { useState, useEffect } from 'react';
 
@@ -18,6 +17,9 @@ const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72
 
 // 금융집짓기 V2.0 전자책 표지 (임시)
 const EBOOK_COVER_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/financial-house-exterior.png.png?alt=media&token=e1651823-af8e-4ed3-9b3d-557a1bf0eb10';
+
+// ★★★ v2.3: stable 브랜치 공유 URL (C-2) ★★★
+const SHARE_URL = 'https://moneya-frontend.vercel.app';
 
 interface FinancialResult {
   name: string;
@@ -71,7 +73,7 @@ const FAQ_DATA = [
   { q: '유료 구독 요금은 얼마인가요?', a: '일반인용: 베이직 12,900원, 스탠다드 29,000원, 프리미엄 59,000원 / FP용: 베이직 33,000원, 스탠다드 59,000원, 프리미엄 99,000원입니다.' },
   { q: 'AI 지출 상담은 어떻게 이용하나요?', a: 'AI지출 탭에서 음성 또는 텍스트로 지출에 대해 상담받으실 수 있습니다. 무료 이용은 월 5회입니다.' },
   { q: '재무설계 리포트는 어디서 볼 수 있나요?', a: '더보기 > 월간 리포트에서 확인하실 수 있습니다.' },
-  { q: '전문가 상담은 어떻게 신청하나요?', a: '더보기 > 전문가 상담·강의 신청에서 원하시는 상담 유형을 선택하여 신청하실 수 있습니다.' },
+  { q: '전문가 상담은 어떻게 신청하나요?', a: '더보기 > 강의상담에서 원하시는 상담 유형을 선택하여 신청하실 수 있습니다.' },
   { q: '개인정보는 안전하게 보호되나요?', a: '네, 모든 개인정보는 암호화되어 안전하게 보관됩니다. 자세한 내용은 개인정보처리방침을 확인해주세요.' },
   { q: '회원 탈퇴는 어떻게 하나요?', a: '더보기 > 회원탈퇴에서 탈퇴 신청하실 수 있습니다. 탈퇴 시 모든 데이터가 삭제됩니다.' },
 ];
@@ -310,11 +312,11 @@ export default function MyPage({
           <span className="text-gray-400 text-sm">›</span>
         </button>
 
-        {/* ★★★ v2.0: 전문가 상담·강의 신청 - 명칭 변경 ★★★ */}
+        {/* ★★★ v2.3 C-1: "전문가 상담 · 강의 신청" → "강의상담" ★★★ */}
         <button onClick={() => onNavigate('consulting')} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-base">👨‍🏫</div>
           <div className="flex-1 text-left">
-            <span className="text-sm font-semibold text-gray-900">전문가 상담 · 강의 신청</span>
+            <span className="text-sm font-semibold text-gray-900">강의상담</span>
             <p className="text-[10px] text-gray-400">일반인 상담 / 재테크 강의 / FP 과정</p>
           </div>
           <span className="text-gray-400 text-sm">›</span>
@@ -420,7 +422,7 @@ export default function MyPage({
         <button onClick={() => setShowWithdraw(true)} className="w-full text-left py-2.5 text-sm text-red-500 hover:text-red-700">
           ⚠️ 회원탈퇴
         </button>
-        <p className="text-center text-xs text-gray-400 py-4">앱 버전 v2.2.0</p>
+        <p className="text-center text-xs text-gray-400 py-4">앱 버전 v2.3.0</p>
       </div>
 
       {/* ========== 모달들 ========== */}
@@ -707,7 +709,7 @@ export default function MyPage({
         </div>
       )}
 
-      {/* ★★★ v2.1: 친구에게 공유하기 모달 ★★★ */}
+      {/* ★★★ v2.3 C-2: 친구에게 공유하기 모달 - 모든 URL을 stable 브랜치로 변경 ★★★ */}
       {showShare && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
@@ -730,19 +732,19 @@ export default function MyPage({
                 />
               </div>
               
-              {/* URL 복사 */}
+              {/* ★★★ v2.3 C-2: URL 복사 - stable URL 사용 ★★★ */}
               <div className="bg-gray-50 rounded-xl p-3 mb-4">
                 <p className="text-xs text-gray-500 mb-1">공유 링크</p>
                 <div className="flex items-center gap-2">
                   <input 
                     type="text" 
-                    value="https://moneya.vercel.app" 
+                    value={SHARE_URL} 
                     readOnly 
                     className="flex-1 text-sm text-gray-700 bg-transparent outline-none"
                   />
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText('https://moneya.vercel.app');
+                      navigator.clipboard.writeText(SHARE_URL);
                       alert('링크가 복사되었습니다!');
                     }}
                     className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg"
@@ -752,13 +754,13 @@ export default function MyPage({
                 </div>
               </div>
 
-              {/* 공유 버튼들 */}
+              {/* 공유 버튼들 - 모든 URL을 SHARE_URL 상수 사용 */}
               <div className="space-y-2">
                 {/* 카카오톡 */}
                 <button 
                   onClick={() => {
-                    const text = '💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app';
-                    window.open(`https://sharer.kakao.com/talk/friends/picker/link?url=${encodeURIComponent('https://moneya.vercel.app')}&text=${encodeURIComponent(text)}`, '_blank', 'width=500,height=600');
+                    const text = `💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 ${SHARE_URL}`;
+                    window.open(`https://sharer.kakao.com/talk/friends/picker/link?url=${encodeURIComponent(SHARE_URL)}&text=${encodeURIComponent(text)}`, '_blank', 'width=500,height=600');
                   }}
                   className="w-full py-3.5 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-2"
                 >
@@ -768,7 +770,7 @@ export default function MyPage({
                 {/* 문자 */}
                 <button 
                   onClick={() => {
-                    const text = '💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app';
+                    const text = `💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 ${SHARE_URL}`;
                     window.location.href = `sms:?body=${encodeURIComponent(text)}`;
                   }}
                   className="w-full py-3.5 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"
@@ -780,7 +782,7 @@ export default function MyPage({
                 <button 
                   onClick={() => {
                     const subject = '[추천] AI머니야 - AI 기반 재무관리 앱';
-                    const body = '안녕하세요!\n\nAI머니야를 추천드립니다.\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 https://moneya.vercel.app\n\nQR코드로도 접속 가능합니다.';
+                    const body = `안녕하세요!\n\nAI머니야를 추천드립니다.\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 ${SHARE_URL}\n\nQR코드로도 접속 가능합니다.`;
                     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                   }}
                   className="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"
@@ -796,7 +798,7 @@ export default function MyPage({
                         await navigator.share({
                           title: 'AI머니야 - AI 기반 재무관리 앱',
                           text: '금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!',
-                          url: 'https://moneya.vercel.app'
+                          url: SHARE_URL
                         });
                       } catch (err) {
                         console.log('공유 취소됨');
