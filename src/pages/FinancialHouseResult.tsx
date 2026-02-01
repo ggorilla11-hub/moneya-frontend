@@ -11,6 +11,9 @@
 //       - 3) 7개 영역 세부 내용 교체 (대표님 지시사항 반영)
 //       - 4) 지붕 텍스트 위치 조정 (투자→우측, 세금→좌측)
 //       - 5) 보험 영역: 고동색 배경 + 노랑 막대 + 기준선 비율 방식
+// ★★★ v5.1: 수직선 위치 보정 ★★★
+//       - 기둥 섹션 flex 비율 53:47 → 50:50 (지붕 중앙선 170/340=50%와 일치)
+//       - 리포트 내 금융집도 동일하게 50:50 적용
 // UI 수정: 10가지 수정사항 반영
 
 import { useState, useRef, useEffect } from 'react';
@@ -450,15 +453,13 @@ const FinancialHouseResult = ({
               </button>
             </div>
 
-            {/* ★★★ v5.0 전면 수정: 슬라이드 1 - SVG 금융집 다이어그램 ★★★ */}
+            {/* ★★★ v5.1 수정: 슬라이드 1 - 수직선 위치 보정 (flex 50:50) ★★★ */}
             <div className="min-w-full h-full relative flex items-center justify-center bg-gradient-to-b from-teal-400 to-teal-500 p-3 overflow-hidden">
               
               {/* SVG 금융집 전체 */}
               <div className="w-full max-w-[340px] mx-auto">
                 
                 {/* ===== 지붕 섹션 (세금-좌/투자-우/부동산-굴뚝) ===== */}
-                {/* ★★★ v5.0: 색상 변경 - 좌측 붉은색(세금), 우측 녹색(투자) ★★★ */}
-                {/* ★★★ v5.0: 텍스트 위치 - 세금 좌측이동, 투자 우측이동 ★★★ */}
                 <div className="relative">
                   <svg viewBox="0 0 340 70" className="w-full" preserveAspectRatio="xMidYMid meet">
                     {/* 지붕 좌측 (세금) - 붉은색 */}
@@ -473,13 +474,13 @@ const FinancialHouseResult = ({
                   
                   {/* 지붕 내용 오버레이 */}
                   <div className="absolute inset-0 flex">
-                    {/* ★★★ v5.0: 세금 영역 (좌측) - 좌측으로 이동 ★★★ */}
+                    {/* 세금 영역 (좌측) */}
                     <div className="flex-1 flex flex-col items-start justify-center pt-5 pl-4">
                       <p className="text-[11px] font-extrabold text-white">💸 세금</p>
                       <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{taxAmount > 0 ? formatManwon(taxAmount) : '-'}</span></p>
                       <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{estimatedInheritanceTax > 0 ? formatManwon(estimatedInheritanceTax) : '-'}</span></p>
                     </div>
-                    {/* ★★★ v5.0: 투자 영역 (우측) - 우측으로 이동 ★★★ */}
+                    {/* 투자 영역 (우측) */}
                     <div className="flex-1 flex flex-col items-end justify-center pt-5 pr-16">
                       <p className="text-[11px] font-extrabold text-white">📈 투자</p>
                       <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{wealthIndex > 0 ? `${wealthIndex}%` : '-'}</span></p>
@@ -538,10 +539,10 @@ const FinancialHouseResult = ({
                 </div>
                 
                 {/* ===== 기둥 섹션 (부채/저축 + 은퇴) ===== */}
-                {/* ★★★ v5.0: 색상 변경 - 역삼각형 노랑(부채), 정삼각형 고동색(저축), 우측 기둥 파랑(은퇴) ★★★ */}
+                {/* ★★★ v5.1 수정: flex 비율 53:47 → 50:50 (지붕 중앙선 170/340=50%와 일치) ★★★ */}
                 <div className="flex border-x-2 border-gray-800" style={{ height: '110px' }}>
-                  {/* 부채/저축 영역 (53%) */}
-                  <div className="relative border-r-2 border-gray-800" style={{ flex: '53' }}>
+                  {/* 부채/저축 영역 (50%) ← v5.0에서 53% → 50%로 변경 */}
+                  <div className="relative border-r-2 border-gray-800" style={{ flex: '50' }}>
                     <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
                       {/* 부채 (위쪽 역삼각형) - 노란색 */}
                       <polygon points="0,0 100,0 0,100" fill="#F1C40F"/>
@@ -551,14 +552,14 @@ const FinancialHouseResult = ({
                       <line x1="0" y1="100" x2="100" y2="0" stroke="#333" strokeWidth="0.5"/>
                     </svg>
                     
-                    {/* ★★★ v5.0: 부채 정보 - 총부채, 부채비율 (2개) ★★★ */}
+                    {/* 부채 정보 */}
                     <div className="absolute top-2 left-2 text-left">
                       <p className="text-[10px] font-extrabold text-gray-800">💳 부채 <span className="text-red-500">↓</span></p>
                       <p className="text-[8px] text-gray-700">총부채 <span className="font-bold">{totalDebt > 0 ? formatEok(totalDebt) : '-'}</span></p>
                       <p className="text-[8px] text-gray-700">부채비율 <span className="font-bold text-red-600">{debtRatio > 0 ? `${debtRatio}%` : '-'}</span></p>
                     </div>
                     
-                    {/* ★★★ v5.0: 저축 정보 - 목적, 기간, 금액, 월필요저축액 ★★★ */}
+                    {/* 저축 정보 */}
                     <div className="absolute bottom-2 right-2 text-right">
                       <p className="text-[10px] font-extrabold text-white"><span className="text-green-300">↑</span> 💰 저축</p>
                       <p className="text-[8px] text-white/90">목적: {savingPurpose}</p>
@@ -567,15 +568,15 @@ const FinancialHouseResult = ({
                     </div>
                   </div>
                   
-                  {/* ★★★ v5.0: 은퇴 영역 (47%) - 파란색 기둥 ★★★ */}
-                  <div className="flex flex-col bg-gradient-to-b from-blue-100 to-blue-200" style={{ flex: '47' }}>
+                  {/* 은퇴 영역 (50%) ← v5.0에서 47% → 50%로 변경 */}
+                  <div className="flex flex-col bg-gradient-to-b from-blue-100 to-blue-200" style={{ flex: '50' }}>
                     {/* 은퇴 헤더 - 파란색 */}
                     <div className="bg-blue-600 px-2 py-1 flex justify-between items-center">
                       <p className="text-[10px] font-extrabold text-white">🏖️ 은퇴</p>
                       <p className="text-[9px] font-semibold text-white">준비율 {retirementReadyRate}%</p>
                     </div>
                     
-                    {/* ★★★ v5.0: 은퇴 내용 - 6개 항목 ★★★ */}
+                    {/* 은퇴 내용 - 6개 항목 */}
                     <div className="flex-1 px-2 py-1 flex flex-col justify-center gap-0.5">
                       <div className="flex justify-between">
                         <span className="text-[8px] text-gray-600">필요자금(월)</span>
@@ -607,13 +608,13 @@ const FinancialHouseResult = ({
                   </div>
                 </div>
                 
-                {/* ★★★ v5.0 전면 수정: 보험 섹션 - 고동색 배경 + 노랑 막대 + 기준선 비율 ★★★ */}
+                {/* 보험 섹션 - 고동색 배경 + 노랑 막대 + 기준선 비율 */}
                 <div className="border-2 border-t-0 border-gray-800 px-2 py-2" style={{ backgroundColor: '#3E2723' }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-[10px] font-extrabold text-amber-300">🛡️ 보장성 보험 (8대 보장)</p>
                   </div>
                   
-                  {/* 막대 차트 - 기준선 = 필요자금, 막대 = 준비자금 비율 */}
+                  {/* 막대 차트 */}
                   <div className="flex gap-1">
                     {insuranceItems.map((item, idx) => {
                       const ins = getInsuranceData(item.key);
@@ -622,11 +623,8 @@ const FinancialHouseResult = ({
                       
                       return (
                         <div key={idx} className="flex-1 flex flex-col items-center">
-                          {/* 막대 - 노랑색 */}
                           <div className="w-full h-10 rounded-sm overflow-hidden flex flex-col justify-end relative" style={{ backgroundColor: '#5D4037' }}>
-                            {/* 기준선 (100% = 필요자금) */}
                             <div className="absolute top-0 left-0 right-0 h-[1px] bg-red-400" style={{ top: '0px' }}></div>
-                            {/* 준비자금 막대 (노랑) */}
                             {hasData && (
                               <div 
                                 className="w-full rounded-t-sm" 
@@ -643,11 +641,9 @@ const FinancialHouseResult = ({
                               </div>
                             )}
                           </div>
-                          {/* 비율 표시 */}
                           <p className={`text-[7px] font-semibold mt-0.5 ${ratio >= 80 ? 'text-green-400' : ratio > 0 ? 'text-amber-300' : 'text-gray-500'}`}>
                             {hasData ? `${Math.round(ratio)}%` : '-'}
                           </p>
-                          {/* 항목명 */}
                           <p className="text-[6px] text-amber-200/80 leading-tight text-center whitespace-pre-line">{item.label}</p>
                         </div>
                       );
@@ -754,7 +750,7 @@ const FinancialHouseResult = ({
             특허 제10-2202486호 | 상표권 제41-0388261호
           </p>
           
-          {/* ★★★ v3.1: 두 버튼 나란히 배치 ★★★ */}
+          {/* 두 버튼 나란히 배치 */}
           <div className="flex justify-center gap-4 mt-3">
             <button 
               onClick={() => setShowReportModal(true)}
@@ -958,7 +954,7 @@ const FinancialHouseResult = ({
                 </div>
               </div>
 
-              {/* ★★★ v5.0 수정: 금융집 시각화 (리포트 내) - 색상 통일 ★★★ */}
+              {/* ★★★ v5.1 수정: 리포트 내 금융집 시각화 - 기둥 비율도 50:50 ★★★ */}
               <div className="bg-white mx-4 my-4 rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-teal-500">
                   <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center text-xl">🏠</div>
@@ -973,7 +969,7 @@ const FinancialHouseResult = ({
                   <p className="text-center text-white text-sm font-bold mb-2">🏠 {userName || '고객'}님의 금융집</p>
                   
                   <div className="max-w-[300px] mx-auto">
-                    {/* 지붕 - 색상 통일 */}
+                    {/* 지붕 */}
                     <div className="relative">
                       <svg viewBox="0 0 300 60" className="w-full" preserveAspectRatio="xMidYMid meet">
                         <polygon points="150,0 0,60 150,60" fill="#C0392B" stroke="#333" strokeWidth="1"/>
@@ -1006,9 +1002,9 @@ const FinancialHouseResult = ({
                       <span className="font-bold">{lifeExpectancy}</span>
                     </div>
 
-                    {/* 기둥 - 색상 통일 */}
+                    {/* ★★★ v5.1: 리포트 기둥도 50:50 ★★★ */}
                     <div className="flex border-x border-gray-800" style={{ height: '80px' }}>
-                      <div className="relative border-r border-gray-800" style={{ flex: '53' }}>
+                      <div className="relative border-r border-gray-800" style={{ flex: '50' }}>
                         <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
                           <polygon points="0,0 100,0 0,100" fill="#F1C40F"/>
                           <polygon points="100,0 100,100 0,100" fill="#8B4513"/>
@@ -1022,7 +1018,7 @@ const FinancialHouseResult = ({
                           <p className="text-[6px] text-white/90">{savingPurpose}</p>
                         </div>
                       </div>
-                      <div className="bg-blue-100" style={{ flex: '47' }}>
+                      <div className="bg-blue-100" style={{ flex: '50' }}>
                         <div className="bg-blue-600 px-1 py-0.5 flex justify-between">
                           <span className="text-[8px] font-bold text-white">🏖️ 은퇴</span>
                           <span className="text-[7px] text-white">{retirementReadyRate}%</span>
@@ -1035,7 +1031,7 @@ const FinancialHouseResult = ({
                       </div>
                     </div>
 
-                    {/* 보험 - 색상 통일 */}
+                    {/* 보험 */}
                     <div className="border-x border-b border-gray-800 p-2" style={{ backgroundColor: '#3E2723' }}>
                       <p className="text-[8px] font-bold mb-1 text-amber-300">🛡️ 8대 보장</p>
                       <div className="flex gap-0.5">
