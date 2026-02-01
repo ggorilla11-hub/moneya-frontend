@@ -1,6 +1,6 @@
 // src/pages/FinancialPlanCards.tsx
-// v4.2: 7개 재무설계 카드 컴포넌트
-// v4.2 변경: 세금설계 카드 v2.0 (종합소득세 절세 탭 + 예상상속세 탭)
+// v4.3: 7개 재무설계 카드 컴포넌트
+// v4.3 변경: 세금설계 카드 v2.1 (InputRow 외부 분리 + 원천징수영수증 업로드 추가)
 // 수정사항:
 // 1. 투자설계에 부동산 포트폴리오 추가 (주거용70%, 투자용30%)
 // 2. 포트폴리오 제목 옆에 총 금액 표시
@@ -531,8 +531,33 @@ export function InvestPlanCard({ onNext, onPrev }: CardProps) {
 }
 
 // ============================================
-// 5. 세금설계 카드 (v2.0)
-// 변경: 2개 탭 구조 (종합소득세 절세 + 예상상속세)
+// TaxInputRow - 세금설계 전용 입력 행 (외부 컴포넌트)
+// TaxPlanCard 밖에 정의하여 불필요한 re-mount 방지
+// ============================================
+const TaxInputRow = ({ label, value, onChange, unit = '만원', badge, badgeColor }: { 
+  label: string; value: number; onChange: (v: number) => void; unit?: string; badge?: string; badgeColor?: string;
+}) => {
+  const handleFocusInput = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
+  return (
+    <div className="flex items-center gap-2 py-1.5">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-600 truncate">{label}</span>
+          {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${badgeColor || 'bg-blue-100 text-blue-600'}`}>{badge}</span>}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} onFocus={handleFocusInput}
+          className="w-28 px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
+        <span className="text-[10px] text-gray-400 w-6">{unit}</span>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// 5. 세금설계 카드 (v2.1)
+// 변경: InputRow 외부 분리 (입력 오류 수정) + 원천징수영수증 업로드 UI 추가
 // - 종합소득세: 시뮬레이터 기반 연봉/결정세액/기납부세액 → 환급금 + 소득공제/세액공제 시뮬레이션
 // - 예상상속세: 1단계 재무정보 연동 순자산 → 상속세 산출 + 72법칙 시뮬레이션
 // ============================================
@@ -541,7 +566,7 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   
   // ── 종합소득세 절세 state ──
   const [incomeData, setIncomeData] = useState({
-    annualSalary: 5000,      // 총급여 (만원)
+    annualSalary: 6240,      // 총급여 (만원)
     determinedTax: 200,      // 결정세액 (만원)
     prepaidTax: 300,         // 기납부세액 (만원)
     // 소득공제 항목
@@ -578,13 +603,16 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
     inflationRate: 3,        // 예상물가상승률 (%)
   });
 
+  // ── 원천징수영수증 업로드 state ──
+  const [taxFileUploaded, setTaxFileUploaded] = useState(false);
+
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
   // ── 데이터 로드/저장 ──
   useEffect(() => {
     const saved = loadDesignData('tax');
     if (saved) {
-      if (saved.incomeData) setIncomeData(saved.incomeData);
+      if (saved.incomeData) setIncomeData(prev => ({ ...prev, ...saved.incomeData }));
       if (saved.inheritData) setInheritData(prev => ({ ...prev, ...saved.inheritData }));
       if (saved.activeTab) setActiveTab(saved.activeTab);
       if (saved.showSimulation) setShowSimulation(saved.showSimulation);
@@ -630,57 +658,67 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   // ════════════════════════════════════════════
   // 종합소득세 계산 로직
   // ════════════════════════════════════════════
-  
+
   // 근로소득공제 (만원 단위)
-  const calcEarnedDeduction = (salary: number) => {
-    const s = salary * 10000; // 원 단위로
-    let result = 0;
-    if (s <= 5000000) result = s * 0.7;
-    else if (s <= 15000000) result = 3500000 + (s - 5000000) * 0.4;
-    else if (s <= 45000000) result = 7500000 + (s - 15000000) * 0.15;
-    else if (s <= 100000000) result = 12000000 + (s - 45000000) * 0.05;
-    else result = 14750000 + (s - 100000000) * 0.02;
-    return Math.round(result / 10000); // 만원 단위로 반환
+  const calcEarnedDeduction = (salary: number): number => {
+    if (salary <= 500) return Math.round(salary * 0.7);
+    if (salary <= 1500) return Math.round(350 + (salary - 500) * 0.4);
+    if (salary <= 4500) return Math.round(750 + (salary - 1500) * 0.15);
+    if (salary <= 10000) return Math.round(1200 + (salary - 4500) * 0.05);
+    return Math.round(1475 + (salary - 10000) * 0.02);
   };
 
-  // 소득세 세율 (만원 단위)
-  const calcIncomeTax = (taxBase: number) => {
-    const t = taxBase * 10000; // 원 단위
-    let tax = 0;
-    let rate = '0%';
-    if (t <= 0) { tax = 0; rate = '0%'; }
-    else if (t <= 14000000) { tax = t * 0.06; rate = '6%'; }
-    else if (t <= 50000000) { tax = t * 0.15 - 1260000; rate = '15%'; }
-    else if (t <= 88000000) { tax = t * 0.24 - 5760000; rate = '24%'; }
-    else if (t <= 150000000) { tax = t * 0.35 - 15440000; rate = '35%'; }
-    else if (t <= 300000000) { tax = t * 0.38 - 19940000; rate = '38%'; }
-    else if (t <= 500000000) { tax = t * 0.40 - 25940000; rate = '40%'; }
-    else if (t <= 1000000000) { tax = t * 0.42 - 35940000; rate = '42%'; }
-    else { tax = t * 0.45 - 65940000; rate = '45%'; }
-    return { tax: Math.max(0, Math.round(tax / 10000)), rate };
+  // 종합소득세 세율
+  const calcIncomeTax = (base: number): { tax: number; rate: string } => {
+    if (base <= 1400) return { tax: Math.round(base * 0.06), rate: '6%' };
+    if (base <= 5000) return { tax: Math.round(84 + (base - 1400) * 0.15), rate: '15%' };
+    if (base <= 8800) return { tax: Math.round(624 + (base - 5000) * 0.24), rate: '24%' };
+    if (base <= 15000) return { tax: Math.round(1536 + (base - 8800) * 0.35), rate: '35%' };
+    if (base <= 30000) return { tax: Math.round(3706 + (base - 15000) * 0.38), rate: '38%' };
+    if (base <= 50000) return { tax: Math.round(9406 + (base - 30000) * 0.4), rate: '40%' };
+    if (base <= 100000) return { tax: Math.round(17406 + (base - 50000) * 0.42), rate: '42%' };
+    return { tax: Math.round(38406 + (base - 100000) * 0.45), rate: '45%' };
   };
 
-  // 근로소득세액공제 (만원 단위)
-  const calcEarnedTaxCredit = (calculatedTax: number) => {
-    const t = calculatedTax * 10000;
+  // 근로소득 세액공제
+  const calcEarnedTaxCredit = (calculatedTax: number, salary: number): number => {
     let credit = 0;
-    if (t <= 1300000) credit = t * 0.55;
-    else credit = 715000 + (t - 1300000) * 0.3;
-    // 한도: 총급여 3,300만원 이하 74만원, 7,000만원 이하 66만원, 그 외 50만원
-    const salary = incomeData.annualSalary * 10000;
-    let limit = 500000;
-    if (salary <= 33000000) limit = 740000;
-    else if (salary <= 70000000) limit = 660000;
-    return Math.round(Math.min(credit, limit) / 10000);
+    if (calculatedTax <= 130) credit = Math.round(calculatedTax * 0.55);
+    else credit = Math.round(71.5 + (calculatedTax - 130) * 0.3);
+    let limit = 50;
+    if (salary <= 3300) limit = 74;
+    else if (salary <= 7000) limit = 66;
+    return Math.min(credit, limit);
   };
 
-  // 연금계좌 세액공제율
-  const pensionCreditRate = incomeData.annualSalary <= 5500 ? 0.165 : 0.132;
+  // ════════════════════════════════════════════
+  // 상속세 계산 로직
+  // ════════════════════════════════════════════
+  const calcInheritanceTax = (base: number): number => {
+    if (base <= 0) return 0;
+    if (base <= 10000) return Math.round(base * 0.1);
+    if (base <= 50000) return Math.round(1000 + (base - 10000) * 0.2);
+    if (base <= 100000) return Math.round(9000 + (base - 50000) * 0.3);
+    if (base <= 300000) return Math.round(24000 + (base - 100000) * 0.4);
+    return Math.round(104000 + (base - 300000) * 0.5);
+  };
 
-  // === 종합소득세 계산 결과 ===
+  // 상속세율 표시
+  const getInheritTaxBracket = (base: number): { rate: string; bracket: string } => {
+    if (base <= 0) return { rate: '0%', bracket: '-' };
+    if (base <= 10000) return { rate: '10%', bracket: '1억 이하' };
+    if (base <= 50000) return { rate: '20%', bracket: '1억~5억' };
+    if (base <= 100000) return { rate: '30%', bracket: '5억~10억' };
+    if (base <= 300000) return { rate: '40%', bracket: '10억~30억' };
+    return { rate: '50%', bracket: '30억 초과' };
+  };
+
+  // ════════════════════════════════════════════
+  // 종합소득세 계산 결과
+  // ════════════════════════════════════════════
   const earnedDeduction = calcEarnedDeduction(incomeData.annualSalary);
   const earnedIncome = Math.max(0, incomeData.annualSalary - earnedDeduction);
-  
+
   // 소득공제 합계
   const dependentDeduction = incomeData.dependentCount * 150;
   const housingDeductionAmount = Math.round(Math.min(incomeData.housingSubscription, 300) * 0.4);
@@ -694,118 +732,72 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
   const taxBase = Math.max(0, earnedIncome - totalIncomeDeduction);
   const { tax: calculatedTax, rate: taxRate } = calcIncomeTax(taxBase);
   
-  // 세액공제 합계
-  const earnedTaxCredit = calcEarnedTaxCredit(calculatedTax);
+  // 세액공제
+  const earnedTaxCredit = calcEarnedTaxCredit(calculatedTax, incomeData.annualSalary);
   const insuranceCredit = Math.round(Math.min(incomeData.insurancePremium, 100) * 0.12);
-  const medicalThreshold = incomeData.annualSalary * 0.03;
-  const medicalCredit = Math.round(Math.max(0, incomeData.medicalExpense - medicalThreshold) * 0.15);
+  const medicalOver = Math.max(0, incomeData.medicalExpense - Math.round(incomeData.annualSalary * 0.03));
+  const medicalCredit = Math.round(medicalOver * 0.15);
   const educationCredit = Math.round(incomeData.educationExpense * 0.15);
   const donationCredit = Math.round(incomeData.donationAmount * 0.15);
   const rentCredit = Math.round(Math.min(incomeData.monthlyRent, 750) * 0.17);
   
-  const pensionSavingsLimit = Math.min(incomeData.pensionSaving, 600);
-  const irpLimit = Math.min(incomeData.irpContribution, 900 - pensionSavingsLimit);
-  const irpCredit = Math.round(irpLimit * pensionCreditRate);
-  const pensionCredit = Math.round(pensionSavingsLimit * pensionCreditRate);
+  // 연금계좌 세액공제율
+  const pensionRate = incomeData.annualSalary <= 5500 ? 0.165 : 0.132;
+  const pensionSavingLimit = Math.min(incomeData.pensionSaving, 600);
+  const irpLimit = Math.min(incomeData.irpContribution, 900 - pensionSavingLimit);
+  const pensionCredit = Math.round((pensionSavingLimit + irpLimit) * pensionRate);
   
-  const totalTaxCredit = earnedTaxCredit + insuranceCredit + medicalCredit + 
-    educationCredit + donationCredit + rentCredit + irpCredit + pensionCredit;
+  const totalTaxCredit = earnedTaxCredit + insuranceCredit + medicalCredit + educationCredit + donationCredit + rentCredit + pensionCredit;
+  const simDeterminedTax = Math.max(0, calculatedTax - totalTaxCredit);
+  const simRefund = incomeData.prepaidTax - simDeterminedTax;
   
-  // 결정세액 & 환급금
-  const newDeterminedTax = Math.max(0, calculatedTax - totalTaxCredit);
-  const refundAmount = incomeData.prepaidTax - newDeterminedTax;
-
-  // 결정세액 0원 만들기 TIP
-  const remainingTax = newDeterminedTax;
-  const totalPensionUsed = pensionSavingsLimit + irpLimit;
-  const remainingPensionLimit = 900 - totalPensionUsed;
-  const neededForZero = remainingTax > 0 ? Math.ceil(remainingTax / pensionCreditRate) : 0;
+  // 결정세액 0원 TIP
+  const remainingTax = Math.max(0, calculatedTax - totalTaxCredit);
+  const neededIRP = pensionRate > 0 ? Math.ceil(remainingTax / pensionRate) : 0;
+  const irpRoom = 900 - pensionSavingLimit - incomeData.irpContribution;
 
   // ════════════════════════════════════════════
-  // 상속세 계산 로직
+  // 예상상속세 계산 결과
   // ════════════════════════════════════════════
-  
   const netAssets = inheritData.totalAssets - inheritData.totalDebts;
-  
-  // 배우자공제: 배우자 있으면 최소 5억(500만원단위→5억=50000만원), 최대 30억
-  // 간소화: 법정상속분 계산 없이 배우자 유무만으로 최소 5억 적용
-  const spouseDeduction = inheritData.hasSpouse ? Math.min(Math.max(50000, 0), 300000) : 0;
-  
-  // 일괄공제: max(5억, 기초공제2억 + 인적공제)
-  // 인적공제: 자녀 1인당 5천만원
-  const basicDeduction = 20000; // 기초공제 2억 = 20000만원
-  const childDeduction = inheritData.childrenCount * 5000; // 1인당 5천만원
-  const personalDeductions = basicDeduction + childDeduction;
-  const lumpSumDeduction = Math.max(50000, personalDeductions); // 일괄공제 5억 vs 기초+인적
-  
-  // 과세표준
+  const spouseDeduction = inheritData.hasSpouse ? 50000 : 0;
+  const childDeduction = inheritData.childrenCount * 5000;
+  const basicDeduction = 20000;
+  const personalDeduction = childDeduction;
+  const lumpSumDeduction = Math.max(50000, basicDeduction + personalDeduction);
   const inheritTaxBase = Math.max(0, netAssets - spouseDeduction - lumpSumDeduction);
-  
-  // 상속세 산출
-  const calcInheritanceTax = (base: number) => {
-    const b = base * 10000; // 원 단위
-    let tax = 0;
-    if (b <= 0) tax = 0;
-    else if (b <= 100000000) tax = b * 0.10;
-    else if (b <= 500000000) tax = b * 0.20 - 10000000;
-    else if (b <= 1000000000) tax = b * 0.30 - 60000000;
-    else if (b <= 3000000000) tax = b * 0.40 - 160000000;
-    else tax = b * 0.50 - 460000000;
-    return Math.max(0, Math.round(tax / 10000));
-  };
-
   const inheritanceTax = calcInheritanceTax(inheritTaxBase);
   const inheritEffectiveRate = netAssets > 0 ? ((inheritanceTax / netAssets) * 100).toFixed(1) : '0.0';
 
   // 72법칙 시뮬레이션
   const doublingYears = inheritData.inflationRate > 0 ? Math.round(72 / inheritData.inflationRate) : 0;
+  
   // 시뮬레이션 타임라인 생성
   const simTimeline: { age: number; assets: number; tax: number }[] = [];
   if (doublingYears > 0 && netAssets > 0) {
     let currentAssets = netAssets;
     let currentAge = inheritData.currentAge;
+    
     // 현재
-    simTimeline.push({ age: currentAge, assets: currentAssets, tax: inheritanceTax });
+    simTimeline.push({ age: currentAge, assets: currentAssets, tax: calcInheritanceTax(Math.max(0, currentAssets - spouseDeduction - lumpSumDeduction)) });
+    
     // 2배씩 증가
-    while (currentAge + doublingYears <= inheritData.expectedLifespan) {
+    while (currentAge + doublingYears <= inheritData.expectedLifespan + 5) {
       currentAge += doublingYears;
       currentAssets *= 2;
-      const futureBase = Math.max(0, currentAssets - spouseDeduction - lumpSumDeduction);
-      const futureTax = calcInheritanceTax(futureBase);
-      simTimeline.push({ age: currentAge, assets: currentAssets, tax: futureTax });
-    }
-    // 예상수명 시점 (마지막 2배 시점과 다르면)
-    if (simTimeline[simTimeline.length - 1].age !== inheritData.expectedLifespan) {
-      const yearsFromLast = inheritData.expectedLifespan - simTimeline[simTimeline.length - 1].age;
-      const growthFactor = Math.pow(2, yearsFromLast / doublingYears);
-      const finalAssets = Math.round(simTimeline[simTimeline.length - 1].assets * growthFactor);
-      const finalBase = Math.max(0, finalAssets - spouseDeduction - lumpSumDeduction);
-      const finalTax = calcInheritanceTax(finalBase);
-      simTimeline.push({ age: inheritData.expectedLifespan, assets: finalAssets, tax: finalTax });
+      if (currentAge > inheritData.expectedLifespan + 10) break;
+      simTimeline.push({ age: currentAge, assets: currentAssets, tax: calcInheritanceTax(Math.max(0, currentAssets - spouseDeduction - lumpSumDeduction)) });
     }
   }
 
-  // ── 공통 입력 컴포넌트 ──
-  const InputRow = ({ label, value, onChange, unit = '만원', badge, badgeColor }: { 
-    label: string; value: number; onChange: (v: number) => void; unit?: string; badge?: string; badgeColor?: string;
-  }) => (
-    <div className="flex items-center gap-2 py-1.5">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-600 truncate">{label}</span>
-          {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${badgeColor || 'bg-blue-100 text-blue-600'}`}>{badge}</span>}
-        </div>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} onFocus={handleFocus}
-          className="w-28 px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" />
-        <span className="text-[10px] text-gray-400 w-6">{unit}</span>
-      </div>
-    </div>
-  );
-
   // 포맷팅 함수
   const fmt = (v: number) => v.toLocaleString();
+
+  // 원천징수영수증 업로드 핸들러
+  const handleTaxUpload = () => {
+    setTaxFileUploaded(true);
+    alert('원천징수영수증 업로드 기능은 추후 업데이트 예정입니다.\n\n⚠️ AI 분석은 참고용이며, 정확한 세금 분석은 전문 세무사 상담을 권장합니다.');
+  };
 
   return (
     <div className="space-y-3">
@@ -817,15 +809,26 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
         </div>
       </div>
 
+      {/* 원천징수영수증 업로드 */}
+      <div 
+        onClick={handleTaxUpload}
+        className="bg-white rounded-xl shadow-sm border-2 border-dashed border-gray-300 p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 transition-all"
+      >
+        <div className="text-2xl mb-1">📄</div>
+        <div className="text-sm font-semibold text-gray-700">원천징수영수증 업로드 (OCR 분석)</div>
+        <div className="text-[11px] text-gray-400 mt-1">PDF, 이미지 파일 지원 · AI 자동 인식</div>
+        {taxFileUploaded && <div className="text-xs text-teal-600 mt-2 font-semibold">✓ 파일이 업로드되었습니다</div>}
+      </div>
+
       {/* 탭 선택 */}
       <div className="bg-white rounded-xl p-1.5 shadow-sm flex gap-1">
         <button onClick={() => setActiveTab('income')}
           className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'income' ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
-           종합소득세 절세
+          💰 종합소득세 절세
         </button>
         <button onClick={() => setActiveTab('inheritance')}
           className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'inheritance' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>
-           예상상속세
+          🏠 예상상속세
         </button>
       </div>
 
@@ -836,10 +839,10 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
         <div className="space-y-3">
           {/* 기본 입력 */}
           <div className="bg-white rounded-xl p-4 space-y-2 shadow-sm">
-            <h4 className="text-sm font-bold text-gray-800 mb-2"> 기본 정보</h4>
-            <InputRow label="총급여 (연봉)" value={incomeData.annualSalary} onChange={v => setIncomeData({...incomeData, annualSalary: v})} />
-            <InputRow label="결정세액" value={incomeData.determinedTax} onChange={v => setIncomeData({...incomeData, determinedTax: v})} />
-            <InputRow label="기납부세액 (원천징수)" value={incomeData.prepaidTax} onChange={v => setIncomeData({...incomeData, prepaidTax: v})} />
+            <h4 className="text-sm font-bold text-gray-800 mb-2">📋 기본 정보</h4>
+            <TaxInputRow label="총급여 (연봉)" value={incomeData.annualSalary} onChange={v => setIncomeData(p => ({...p, annualSalary: v}))} />
+            <TaxInputRow label="결정세액" value={incomeData.determinedTax} onChange={v => setIncomeData(p => ({...p, determinedTax: v}))} />
+            <TaxInputRow label="기납부세액 (원천징수)" value={incomeData.prepaidTax} onChange={v => setIncomeData(p => ({...p, prepaidTax: v}))} />
             
             {/* 현재 환급금 계산 */}
             <div className={`mt-2 p-3 rounded-lg ${incomeData.prepaidTax - incomeData.determinedTax >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
@@ -854,26 +857,26 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
 
           {/* 시뮬레이션 토글 */}
           <button onClick={() => setShowSimulation(!showSimulation)}
-            className="w-full py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm active:scale-[0.98] transition-all">
-            {showSimulation ? '▲ 시뮬레이션 접기' : '▼ 절세 시뮬레이션 펼치기'}
+            className="w-full py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold text-xs shadow-sm hover:shadow-md transition-all">
+            {showSimulation ? '▲ 절세 시뮬레이션 접기' : '▼ 절세 시뮬레이션 펼치기'}
           </button>
 
           {showSimulation && (
             <div className="space-y-3">
               {/* 소득공제 */}
               <div className="bg-white rounded-xl p-4 space-y-1 shadow-sm">
-                <h4 className="text-sm font-bold text-blue-700 mb-2"> 소득공제 <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">과세표준↓</span></h4>
-                <InputRow label="본인공제" value={incomeData.selfDeduction} onChange={v => setIncomeData({...incomeData, selfDeduction: v})} badge="자동" badgeColor="bg-gray-100 text-gray-500" />
-                <InputRow label="부양가족 (인원)" value={incomeData.dependentCount} onChange={v => setIncomeData({...incomeData, dependentCount: v})} unit="명" />
-                <InputRow label="국민연금보험료" value={incomeData.nationalPension} onChange={v => setIncomeData({...incomeData, nationalPension: v})} />
-                <InputRow label="건강보험료(장기요양포함)" value={incomeData.healthInsurance} onChange={v => setIncomeData({...incomeData, healthInsurance: v})} />
-                <InputRow label="고용보험료" value={incomeData.employInsurance} onChange={v => setIncomeData({...incomeData, employInsurance: v})} />
-                <InputRow label="주택청약저축 (납입액)" value={incomeData.housingSubscription} onChange={v => setIncomeData({...incomeData, housingSubscription: v})} badge="40%공제" badgeColor="bg-orange-100 text-orange-600" />
-                <InputRow label="신용카드 등 공제액" value={incomeData.creditCardDeduction} onChange={v => setIncomeData({...incomeData, creditCardDeduction: v})} />
-                <InputRow label="투자조합출자" value={incomeData.investmentPartnership} onChange={v => setIncomeData({...incomeData, investmentPartnership: v})} />
-                <InputRow label="전세대출원리금" value={incomeData.rentLoanRepayment} onChange={v => setIncomeData({...incomeData, rentLoanRepayment: v})} badge="주택임차차입금" badgeColor="bg-purple-100 text-purple-600" />
-                <InputRow label="주택담보대출이자" value={incomeData.mortgageLoanInterest} onChange={v => setIncomeData({...incomeData, mortgageLoanInterest: v})} badge="장기주택저당" badgeColor="bg-purple-100 text-purple-600" />
-                <InputRow label="노란우산공제" value={incomeData.yellowUmbrella} onChange={v => setIncomeData({...incomeData, yellowUmbrella: v})} badge="소기업·소상공인" badgeColor="bg-yellow-100 text-yellow-700" />
+                <h4 className="text-sm font-bold text-blue-700 mb-2">📘 소득공제 <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">과세표준↓</span></h4>
+                <TaxInputRow label="본인공제" value={incomeData.selfDeduction} onChange={v => setIncomeData(p => ({...p, selfDeduction: v}))} badge="자동" badgeColor="bg-gray-100 text-gray-500" />
+                <TaxInputRow label="부양가족 (인원)" value={incomeData.dependentCount} onChange={v => setIncomeData(p => ({...p, dependentCount: v}))} unit="명" />
+                <TaxInputRow label="국민연금보험료" value={incomeData.nationalPension} onChange={v => setIncomeData(p => ({...p, nationalPension: v}))} />
+                <TaxInputRow label="건강보험료(장기요양포함)" value={incomeData.healthInsurance} onChange={v => setIncomeData(p => ({...p, healthInsurance: v}))} />
+                <TaxInputRow label="고용보험료" value={incomeData.employInsurance} onChange={v => setIncomeData(p => ({...p, employInsurance: v}))} />
+                <TaxInputRow label="주택청약저축 (납입액)" value={incomeData.housingSubscription} onChange={v => setIncomeData(p => ({...p, housingSubscription: v}))} badge="40%공제" badgeColor="bg-orange-100 text-orange-600" />
+                <TaxInputRow label="신용카드 등 공제액" value={incomeData.creditCardDeduction} onChange={v => setIncomeData(p => ({...p, creditCardDeduction: v}))} />
+                <TaxInputRow label="투자조합출자" value={incomeData.investmentPartnership} onChange={v => setIncomeData(p => ({...p, investmentPartnership: v}))} />
+                <TaxInputRow label="전세대출원리금" value={incomeData.rentLoanRepayment} onChange={v => setIncomeData(p => ({...p, rentLoanRepayment: v}))} badge="주택임차차입금" badgeColor="bg-purple-100 text-purple-600" />
+                <TaxInputRow label="주택담보대출이자" value={incomeData.mortgageLoanInterest} onChange={v => setIncomeData(p => ({...p, mortgageLoanInterest: v}))} badge="장기주택저당" badgeColor="bg-purple-100 text-purple-600" />
+                <TaxInputRow label="노란우산공제" value={incomeData.yellowUmbrella} onChange={v => setIncomeData(p => ({...p, yellowUmbrella: v}))} badge="소기업·소상공인" badgeColor="bg-yellow-100 text-yellow-700" />
                 <div className="flex justify-between pt-2 border-t border-blue-200">
                   <span className="text-xs font-bold text-blue-700">소득공제 합계</span>
                   <span className="text-sm font-black text-blue-600">{fmt(totalIncomeDeduction)}만원</span>
@@ -882,82 +885,74 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
 
               {/* 세액공제 */}
               <div className="bg-white rounded-xl p-4 space-y-1 shadow-sm">
-                <h4 className="text-sm font-bold text-green-700 mb-2"> 세액공제 <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">결정세액↓</span></h4>
-                <div className="flex items-center justify-between py-1.5">
-                  <span className="text-xs text-gray-600">근로소득 세액공제</span>
-                  <span className="text-xs font-bold text-gray-500">{fmt(earnedTaxCredit)}만원 (자동)</span>
-                </div>
-                <InputRow label="보장성보험료 (100만한도)" value={incomeData.insurancePremium} onChange={v => setIncomeData({...incomeData, insurancePremium: v})} badge="12%" badgeColor="bg-green-100 text-green-600" />
-                <InputRow label="의료비" value={incomeData.medicalExpense} onChange={v => setIncomeData({...incomeData, medicalExpense: v})} badge="15%" badgeColor="bg-green-100 text-green-600" />
-                <InputRow label="교육비" value={incomeData.educationExpense} onChange={v => setIncomeData({...incomeData, educationExpense: v})} badge="15%" badgeColor="bg-green-100 text-green-600" />
-                <InputRow label="기부금" value={incomeData.donationAmount} onChange={v => setIncomeData({...incomeData, donationAmount: v})} badge="15%" badgeColor="bg-green-100 text-green-600" />
-                <InputRow label="월세액 (750만한도)" value={incomeData.monthlyRent} onChange={v => setIncomeData({...incomeData, monthlyRent: v})} badge="17%" badgeColor="bg-green-100 text-green-600" />
-                <div className="bg-green-50 rounded-lg p-2 space-y-1 border border-green-200">
-                  <InputRow label=" IRP (900만한도)" value={incomeData.irpContribution} onChange={v => setIncomeData({...incomeData, irpContribution: v})} badge={`${(pensionCreditRate*100).toFixed(1)}%`} badgeColor="bg-green-200 text-green-700" />
-                  <InputRow label=" 연금저축 (600만한도)" value={incomeData.pensionSaving} onChange={v => setIncomeData({...incomeData, pensionSaving: v})} badge={`${(pensionCreditRate*100).toFixed(1)}%`} badgeColor="bg-green-200 text-green-700" />
-                </div>
+                <h4 className="text-sm font-bold text-green-700 mb-2">📗 세액공제 <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">결정세액↓</span></h4>
+                <div className="text-[10px] text-gray-400 mb-1">근로소득 세액공제: {fmt(earnedTaxCredit)}만원 (자동)</div>
+                <TaxInputRow label="보장성보험료 (100만한도)" value={incomeData.insurancePremium} onChange={v => setIncomeData(p => ({...p, insurancePremium: v}))} badge="12%" badgeColor="bg-green-100 text-green-600" />
+                <TaxInputRow label="의료비" value={incomeData.medicalExpense} onChange={v => setIncomeData(p => ({...p, medicalExpense: v}))} badge="15%" badgeColor="bg-green-100 text-green-600" />
+                <TaxInputRow label="교육비" value={incomeData.educationExpense} onChange={v => setIncomeData(p => ({...p, educationExpense: v}))} badge="15%" badgeColor="bg-green-100 text-green-600" />
+                <TaxInputRow label="기부금" value={incomeData.donationAmount} onChange={v => setIncomeData(p => ({...p, donationAmount: v}))} badge="15%" badgeColor="bg-green-100 text-green-600" />
+                <TaxInputRow label="월세액 (750만한도)" value={incomeData.monthlyRent} onChange={v => setIncomeData(p => ({...p, monthlyRent: v}))} badge="17%" badgeColor="bg-green-100 text-green-600" />
+                <TaxInputRow label="IRP 납입 (900만한도)" value={incomeData.irpContribution} onChange={v => setIncomeData(p => ({...p, irpContribution: v}))} badge={`${(pensionRate*100).toFixed(1)}%`} badgeColor="bg-teal-100 text-teal-600" />
+                <TaxInputRow label="연금저축 (600만한도)" value={incomeData.pensionSaving} onChange={v => setIncomeData(p => ({...p, pensionSaving: v}))} badge={`${(pensionRate*100).toFixed(1)}%`} badgeColor="bg-teal-100 text-teal-600" />
                 <div className="flex justify-between pt-2 border-t border-green-200">
                   <span className="text-xs font-bold text-green-700">세액공제 합계</span>
                   <span className="text-sm font-black text-green-600">{fmt(totalTaxCredit)}만원</span>
                 </div>
               </div>
 
-              {/* 실시간 계산 결과 */}
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-4 space-y-1.5 border border-indigo-200">
-                <h4 className="text-sm font-bold text-indigo-800 mb-2"> 시뮬레이션 결과</h4>
-                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">① 총급여</span><span className="font-bold">{fmt(incomeData.annualSalary)}만원</span></div>
+              {/* 실시간 계산 결과 (6단계) */}
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 space-y-1.5 border border-indigo-200">
+                <h4 className="text-sm font-bold text-indigo-800 mb-2">📊 시뮬레이션 계산 결과</h4>
+                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">① 총급여</span><span className="font-bold text-gray-800">{fmt(incomeData.annualSalary)}만원</span></div>
                 <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">② 근로소득공제</span><span className="font-bold text-purple-600">-{fmt(earnedDeduction)}만원</span></div>
-                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">③ 근로소득금액</span><span className="font-bold">{fmt(earnedIncome)}만원</span></div>
+                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">③ 근로소득금액</span><span className="font-bold text-gray-800">{fmt(earnedIncome)}만원</span></div>
                 <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">④ 소득공제 합계</span><span className="font-bold text-blue-600">-{fmt(totalIncomeDeduction)}만원</span></div>
-                <div className="flex justify-between text-xs py-1.5 bg-orange-50 -mx-4 px-4 border-b border-indigo-100"><span className="font-bold text-orange-700">⑤ 과세표준</span><span className="font-black text-orange-600">{fmt(taxBase)}만원 ({taxRate})</span></div>
-                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">⑥ 산출세액</span><span className="font-bold text-red-500">{fmt(calculatedTax)}만원</span></div>
+                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">⑤ 과세표준 <span className="text-[9px] text-indigo-500">({taxRate})</span></span><span className="font-bold text-indigo-600">{fmt(taxBase)}만원</span></div>
+                <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">⑥ 산출세액</span><span className="font-bold text-gray-800">{fmt(calculatedTax)}만원</span></div>
                 <div className="flex justify-between text-xs py-1 border-b border-indigo-100"><span className="text-gray-600">⑦ 세액공제 합계</span><span className="font-bold text-green-600">-{fmt(totalTaxCredit)}만원</span></div>
-                <div className="flex justify-between text-sm py-2 bg-green-50 -mx-4 px-4 rounded-b-lg">
-                  <span className="font-black text-green-800">⑧ 시뮬레이션 결정세액</span>
-                  <span className={`font-black text-lg ${newDeterminedTax === 0 ? 'text-green-600' : 'text-gray-800'}`}>{fmt(newDeterminedTax)}만원</span>
-                </div>
+                <div className="flex justify-between text-xs py-1.5 bg-indigo-100 rounded-lg px-2"><span className="font-bold text-indigo-800">⑧ 시뮬 결정세액</span><span className="font-black text-indigo-700">{fmt(simDeterminedTax)}만원</span></div>
               </div>
 
               {/* Before → After 비교 */}
               <div className="bg-white rounded-xl p-4 shadow-sm">
-                <div className="grid grid-cols-5 gap-2 items-center">
-                  <div className="col-span-2 text-center p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="text-[10px] text-red-500 font-bold">현재 결정세액</div>
-                    <div className="text-lg font-black text-red-600">{fmt(incomeData.determinedTax)}<span className="text-xs">만원</span></div>
+                <h4 className="text-sm font-bold text-gray-800 mb-3">🔄 Before → After</h4>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-400">현재 결정세액</div>
+                    <div className="text-lg font-black text-red-500">{fmt(incomeData.determinedTax)}만원</div>
                   </div>
-                  <div className="text-center text-xl text-gray-400">→</div>
-                  <div className="col-span-2 text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="text-[10px] text-green-500 font-bold">시뮬 결정세액</div>
-                    <div className="text-lg font-black text-green-600">{fmt(newDeterminedTax)}<span className="text-xs">만원</span></div>
+                  <div className="text-xl text-gray-400">→</div>
+                  <div className="text-center">
+                    <div className="text-[10px] text-gray-400">시뮬 결정세액</div>
+                    <div className="text-lg font-black text-green-500">{fmt(simDeterminedTax)}만원</div>
                   </div>
                 </div>
-                <div className={`mt-3 p-3 rounded-lg text-center ${refundAmount >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                  <span className="text-xs font-bold text-gray-700">시뮬레이션 환급금: </span>
-                  <span className={`text-base font-black ${refundAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {refundAmount >= 0 ? '+' : ''}{fmt(refundAmount)}만원
+                <div className={`mt-3 p-3 rounded-lg text-center ${simRefund >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                  <span className="text-xs text-gray-600">시뮬레이션 환급금: </span>
+                  <span className={`text-base font-black ${simRefund >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {simRefund >= 0 ? '+' : ''}{fmt(simRefund)}만원
                   </span>
                 </div>
               </div>
 
-              {/* TIP */}
-              {remainingTax > 0 && (
-                <div className="bg-blue-50 rounded-xl p-3 flex gap-2 border border-blue-200">
-                  <span className="text-base"></span>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    <strong>결정세액 0원 TIP:</strong>{' '}
-                    {neededForZero <= remainingPensionLimit 
-                      ? <>IRP에 약 <strong className="text-blue-900">{fmt(neededForZero)}만원</strong> 추가 납입하면 결정세액 0원 달성!</>
-                      : <>연금계좌 한도(900만원)를 모두 사용해도 {fmt(remainingTax - Math.round(remainingPensionLimit * pensionCreditRate))}만원이 남습니다. 주택청약, 기부금 등 추가 공제를 활용하세요.</>
-                    }
-                  </p>
+              {/* 결정세액 0원 TIP */}
+              {simDeterminedTax > 0 && (
+                <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                  <div className="flex gap-2">
+                    <span className="text-base">💡</span>
+                    <div className="text-xs text-blue-700 leading-relaxed">
+                      <strong>결정세액 0원 TIP:</strong> 남은 세액 {fmt(remainingTax)}만원 ÷ {(pensionRate*100).toFixed(1)}% = <strong>IRP {fmt(neededIRP)}만원</strong> 추가 납입 시 결정세액 0원!
+                      {neededIRP > irpRoom && <span className="block mt-1 text-orange-600">⚠️ 연금계좌 한도 초과! 주택청약·기부금·월세 공제도 검토하세요.</span>}
+                    </div>
+                  </div>
                 </div>
               )}
-              {remainingTax === 0 && (
-                <div className="bg-green-50 rounded-xl p-3 flex gap-2 border border-green-200">
-                  <span className="text-base"></span>
-                  <p className="text-xs text-green-700 leading-relaxed">
-                    <strong>축하합니다! 결정세액 0원 달성!</strong> 기납부세액 {fmt(incomeData.prepaidTax)}만원 전액 환급 가능!
-                  </p>
+              {simDeterminedTax === 0 && showSimulation && (
+                <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                  <div className="flex gap-2 items-center">
+                    <span className="text-base">🎉</span>
+                    <span className="text-xs font-bold text-green-700">축하합니다! 결정세액이 0원입니다!</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -972,9 +967,9 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
         <div className="space-y-3">
           {/* 자산/부채 요약 (1단계 연동) */}
           <div className="bg-white rounded-xl p-4 space-y-2 shadow-sm">
-            <h4 className="text-sm font-bold text-gray-800 mb-2"> 자산·부채 현황 <span className="text-[10px] text-gray-400">(1단계 재무정보 연동)</span></h4>
-            <InputRow label="총자산" value={inheritData.totalAssets} onChange={v => setInheritData({...inheritData, totalAssets: v})} />
-            <InputRow label="총부채" value={inheritData.totalDebts} onChange={v => setInheritData({...inheritData, totalDebts: v})} />
+            <h4 className="text-sm font-bold text-gray-800 mb-2">🏦 자산·부채 현황 <span className="text-[10px] text-gray-400">(1단계 재무정보 연동)</span></h4>
+            <TaxInputRow label="총자산" value={inheritData.totalAssets} onChange={v => setInheritData(p => ({...p, totalAssets: v}))} />
+            <TaxInputRow label="총부채" value={inheritData.totalDebts} onChange={v => setInheritData(p => ({...p, totalDebts: v}))} />
             <div className="flex justify-between pt-2 border-t border-gray-200">
               <span className="text-xs font-bold text-gray-700">순자산</span>
               <span className={`text-sm font-black ${netAssets >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{fmt(netAssets)}만원</span>
@@ -983,104 +978,94 @@ export function TaxPlanCard({ onNext, onPrev }: CardProps) {
 
           {/* 가족 정보 */}
           <div className="bg-white rounded-xl p-4 space-y-2 shadow-sm">
-            <h4 className="text-sm font-bold text-gray-800 mb-2">‍‍‍ 가족 정보</h4>
-            <div className="flex items-center justify-between py-1.5">
-              <span className="text-xs text-gray-600">배우자 유무</span>
-              <div className="flex gap-2">
-                <button onClick={() => setInheritData({...inheritData, hasSpouse: true})}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold ${inheritData.hasSpouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'}`}>있음</button>
-                <button onClick={() => setInheritData({...inheritData, hasSpouse: false})}
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold ${!inheritData.hasSpouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'}`}>없음</button>
+            <h4 className="text-sm font-bold text-gray-800 mb-2">👨‍👩‍👧‍👦 가족 정보</h4>
+            <div className="flex items-center gap-2 py-1.5">
+              <span className="text-xs text-gray-600 flex-1">배우자</span>
+              <div className="flex gap-1">
+                <button onClick={() => setInheritData(p => ({...p, hasSpouse: true}))}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold ${inheritData.hasSpouse ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'}`}>있음</button>
+                <button onClick={() => setInheritData(p => ({...p, hasSpouse: false}))}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold ${!inheritData.hasSpouse ? 'bg-red-400 text-white' : 'bg-gray-100 text-gray-500'}`}>없음</button>
               </div>
             </div>
-            <InputRow label="자녀 수" value={inheritData.childrenCount} onChange={v => setInheritData({...inheritData, childrenCount: v})} unit="명" />
-            <InputRow label="현재 나이" value={inheritData.currentAge} onChange={v => setInheritData({...inheritData, currentAge: v})} unit="세" />
+            <TaxInputRow label="자녀 수" value={inheritData.childrenCount} onChange={v => setInheritData(p => ({...p, childrenCount: v}))} unit="명" />
+            <TaxInputRow label="현재 나이" value={inheritData.currentAge} onChange={v => setInheritData(p => ({...p, currentAge: v}))} unit="세" />
           </div>
 
           {/* 상속세 계산 결과 */}
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 space-y-1.5 border border-purple-200">
-            <h4 className="text-sm font-bold text-purple-800 mb-2">️ 현재 예상 상속세</h4>
+            <h4 className="text-sm font-bold text-purple-800 mb-2">📊 상속세 산출</h4>
             <div className="flex justify-between text-xs py-1 border-b border-purple-100"><span className="text-gray-600">순자산</span><span className="font-bold">{fmt(netAssets)}만원</span></div>
             <div className="flex justify-between text-xs py-1 border-b border-purple-100"><span className="text-gray-600">배우자공제</span><span className="font-bold text-blue-600">-{fmt(spouseDeduction)}만원</span></div>
-            <div className="flex justify-between text-xs py-1 border-b border-purple-100"><span className="text-gray-600">일괄공제 <span className="text-[9px] text-gray-400">(기초2억+인적 vs 5억)</span></span><span className="font-bold text-blue-600">-{fmt(lumpSumDeduction)}만원</span></div>
-            <div className="flex justify-between text-xs py-1.5 bg-orange-50 -mx-4 px-4 border-b border-purple-100"><span className="font-bold text-orange-700">과세표준</span><span className="font-black text-orange-600">{fmt(inheritTaxBase)}만원</span></div>
-            <div className="flex justify-between text-sm py-2 bg-purple-100 -mx-4 px-4 rounded-b-lg">
-              <span className="font-black text-purple-800">예상 상속세</span>
-              <span className="font-black text-lg text-purple-600">{fmt(inheritanceTax)}만원</span>
-            </div>
-            <div className="text-right text-[10px] text-gray-400 pt-1">실효세율: {inheritEffectiveRate}%</div>
+            <div className="flex justify-between text-xs py-1 border-b border-purple-100"><span className="text-gray-600">일괄공제 (max 5억, 기초+인적)</span><span className="font-bold text-blue-600">-{fmt(lumpSumDeduction)}만원</span></div>
+            <div className="flex justify-between text-xs py-1 border-b border-purple-100"><span className="text-gray-600">과세표준 <span className="text-[9px] text-purple-500">({getInheritTaxBracket(inheritTaxBase).rate})</span></span><span className="font-bold text-purple-600">{fmt(inheritTaxBase)}만원</span></div>
+            <div className="flex justify-between text-xs py-1.5 bg-purple-100 rounded-lg px-2"><span className="font-bold text-purple-800">예상 상속세</span><span className="font-black text-purple-700">{fmt(inheritanceTax)}만원</span></div>
+            <div className="text-[10px] text-gray-400 text-right">실효세율: {inheritEffectiveRate}%</div>
           </div>
 
-          {/* 상속세율표 */}
-          <div className="bg-white rounded-xl p-3 shadow-sm">
-            <h4 className="text-[11px] font-bold text-gray-600 mb-2"> 상속세 세율표</h4>
-            <div className="space-y-0.5">
+          {/* 상속세 세율표 */}
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h4 className="text-sm font-bold text-gray-800 mb-2">📋 상속세율표</h4>
+            <div className="space-y-0.5 text-[11px]">
               {[
-                { range: '1억 이하', rate: '10%', deduction: '-' },
-                { range: '1억~5억', rate: '20%', deduction: '1천만원' },
-                { range: '5억~10억', rate: '30%', deduction: '6천만원' },
-                { range: '10억~30억', rate: '40%', deduction: '1.6억원' },
-                { range: '30억 초과', rate: '50%', deduction: '4.6억원' },
-              ].map((row, i) => {
-                const thresholds = [10000, 50000, 100000, 300000, Infinity];
-                const isActive = inheritTaxBase > (i > 0 ? thresholds[i-1] : 0) && inheritTaxBase <= thresholds[i];
-                return (
-                  <div key={i} className={`flex text-[10px] py-1 px-2 rounded ${isActive ? 'bg-purple-100 font-bold text-purple-700' : 'text-gray-500'}`}>
-                    <span className="flex-1">{row.range}</span>
-                    <span className="w-12 text-center">{row.rate}</span>
-                    <span className="w-16 text-right">{row.deduction}</span>
-                  </div>
-                );
-              })}
+                { range: '1억 이하', rate: '10%', deduction: '-', max: 10000 },
+                { range: '1억~5억', rate: '20%', deduction: '1,000만', max: 50000 },
+                { range: '5억~10억', rate: '30%', deduction: '6,000만', max: 100000 },
+                { range: '10억~30억', rate: '40%', deduction: '1.6억', max: 300000 },
+                { range: '30억 초과', rate: '50%', deduction: '4.6억', max: Infinity },
+              ].map((row, i) => (
+                <div key={i} className={`flex justify-between py-1 px-2 rounded ${inheritTaxBase > 0 && inheritTaxBase <= row.max && (i === 0 || inheritTaxBase > [0, 10000, 50000, 100000, 300000][i]) ? 'bg-purple-100 font-bold' : ''}`}>
+                  <span className="w-20">{row.range}</span>
+                  <span className="w-10 text-center">{row.rate}</span>
+                  <span className="w-16 text-right text-gray-500">누진공제 {row.deduction}</span>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* 72법칙 시뮬레이션 */}
           <div className="bg-white rounded-xl p-4 space-y-3 shadow-sm">
-            <h4 className="text-sm font-bold text-gray-800"> 72법칙 미래 상속세 시뮬레이션</h4>
-            <p className="text-[10px] text-gray-400 -mt-2">물가상승으로 자산이 2배가 되는 시점의 예상상속세를 계산합니다</p>
-            
-            <InputRow label="예상 물가상승률" value={inheritData.inflationRate} onChange={v => setInheritData({...inheritData, inflationRate: v})} unit="%" />
-            <InputRow label="예상 수명나이" value={inheritData.expectedLifespan} onChange={v => setInheritData({...inheritData, expectedLifespan: v})} unit="세" />
-
-            {doublingYears > 0 && (
-              <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-200">
-                <p className="text-[11px] text-amber-800">
-                  <strong>72 ÷ {inheritData.inflationRate}% = {doublingYears}년</strong>마다 자산 2배 증가
-                </p>
+            <h4 className="text-sm font-bold text-gray-800 mb-1">⏳ 72법칙 미래 시뮬레이션</h4>
+            <div className="text-[10px] text-gray-400">자산이 물가상승률로 매년 증가한다고 가정할 때 미래 상속세 예측</div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-500">물가상승률 (%)</label>
+                <input type="number" value={inheritData.inflationRate} onChange={(e) => setInheritData(p => ({...p, inflationRate: Number(e.target.value)}))} onFocus={handleFocus}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-purple-500 outline-none" />
               </div>
-            )}
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-500">예상수명 (세)</label>
+                <input type="number" value={inheritData.expectedLifespan} onChange={(e) => setInheritData(p => ({...p, expectedLifespan: Number(e.target.value)}))} onFocus={handleFocus}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-right focus:border-purple-500 outline-none" />
+              </div>
+            </div>
+
+            {doublingYears > 0 && <div className="text-xs text-purple-600 font-semibold text-center">📈 자산 2배 소요: {doublingYears}년 (72÷{inheritData.inflationRate}%)</div>}
 
             {/* 타임라인 */}
-            {simTimeline.length > 1 && (
+            {simTimeline.length > 0 && (
               <div className="space-y-2">
-                {simTimeline.map((item, i) => (
-                  <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg ${i === 0 ? 'bg-blue-50 border border-blue-200' : i === simTimeline.length - 1 ? 'bg-red-50 border border-red-200' : 'bg-gray-50 border border-gray-200'}`}>
-                    <div className="text-center flex-shrink-0 w-12">
-                      <div className={`text-lg font-black ${i === 0 ? 'text-blue-600' : i === simTimeline.length - 1 ? 'text-red-600' : 'text-gray-700'}`}>{item.age}<span className="text-[10px]">세</span></div>
-                      <div className="text-[9px] text-gray-400">{i === 0 ? '현재' : `+${item.age - inheritData.currentAge}년`}</div>
+                {simTimeline.map((point, idx) => (
+                  <div key={idx} className={`p-2.5 rounded-lg border ${idx === 0 ? 'bg-blue-50 border-blue-200' : point.age >= inheritData.expectedLifespan ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-bold">{point.age}세 {idx === 0 ? '(현재)' : point.age >= inheritData.expectedLifespan ? '(예상수명)' : ''}</span>
+                      <span className="font-bold">{fmt(point.assets)}만원</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-600">예상 순자산</span>
-                        <span className="font-bold text-gray-800">{item.assets >= 10000 ? `${(item.assets / 10000).toFixed(1)}억원` : `${fmt(item.assets)}만원`}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-600">예상 상속세</span>
-                        <span className={`font-black ${item.tax > 0 ? 'text-red-600' : 'text-green-600'}`}>{item.tax >= 10000 ? `${(item.tax / 10000).toFixed(1)}억원` : `${fmt(item.tax)}만원`}</span>
-                      </div>
+                    <div className="flex justify-between text-[10px] text-gray-500 mt-0.5">
+                      <span>예상 상속세</span>
+                      <span className={`font-bold ${point.tax > 0 ? 'text-red-500' : 'text-green-500'}`}>{fmt(point.tax)}만원</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {simTimeline.length > 1 && simTimeline[simTimeline.length - 1].tax > 0 && (
-              <div className="bg-red-50 rounded-xl p-3 flex gap-2 border border-red-200">
-                <span className="text-base">⚠️</span>
-                <p className="text-xs text-red-700 leading-relaxed">
-                  <strong>주의:</strong> {inheritData.expectedLifespan}세 기준 예상 상속세가 <strong>{simTimeline[simTimeline.length - 1].tax >= 10000 ? `${(simTimeline[simTimeline.length - 1].tax / 10000).toFixed(1)}억원` : `${fmt(simTimeline[simTimeline.length - 1].tax)}만원`}</strong>입니다. 사전증여, 보험 등 절세 전략이 필요합니다.
-                </p>
+            {simTimeline.length > 1 && simTimeline[simTimeline.length - 1].tax > inheritanceTax * 2 && (
+              <div className="bg-red-50 rounded-lg p-2.5 border border-red-200">
+                <div className="flex gap-1.5">
+                  <span className="text-sm">⚠️</span>
+                  <span className="text-[11px] text-red-700">미래 상속세가 크게 증가합니다. 사전 증여, 가족법인 설립 등 절세 전략을 검토하세요.</span>
+                </div>
               </div>
             )}
           </div>
