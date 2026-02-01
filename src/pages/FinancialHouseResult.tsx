@@ -672,24 +672,38 @@ const FinancialHouseResult = ({
                     <p className="text-[10px] font-extrabold text-amber-300">🛡️ 보장성 보험 (8대 보장)</p>
                   </div>
                   
-                  {/* 막대 차트 */}
+                  {/* ★★★ v5.5.2: 막대 차트 - 빨간 기준선 중간 고정, 초과/부족 표현 ★★★ */}
+                  {/* 기준선 = 50% 위치 (필요자금 100%) */}
+                  {/* 준비율 100% → 하단 절반 꽉 참 / 200% → 전체 꽉 참 / 50% → 하단 1/4만 */}
                   <div className="flex gap-1">
                     {insuranceItems.map((item, idx) => {
                       const ins = getInsuranceData(item.key);
-                      const ratio = ins.needed > 0 ? Math.min((ins.prepared / ins.needed) * 100, 100) : 0;
+                      // 준비비율 계산 (캡 없음 - 초과 허용)
+                      const ratio = ins.needed > 0 ? (ins.prepared / ins.needed) * 100 : 0;
                       const hasData = ins.needed > 0 || ins.prepared > 0;
+                      
+                      // 막대 높이 계산: 기준선(50%)을 100%로 매핑
+                      // ratio 100% → 바닥~기준선(50%) 꽉 참
+                      // ratio 200% → 바닥~천장(100%) 꽉 참
+                      // ratio 50% → 바닥~25% 높이
+                      const barPercent = Math.min((ratio / 200) * 100, 100);
+                      
+                      // 기준선 초과 여부
+                      const isOver = ratio > 100;
                       
                       return (
                         <div key={idx} className="flex-1 flex flex-col items-center">
-                          <div className="w-full h-10 rounded-sm overflow-hidden flex flex-col justify-end relative" style={{ backgroundColor: '#5D4037' }}>
-                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-red-400" style={{ top: '0px' }}></div>
+                          <div className="w-full h-12 rounded-sm overflow-hidden flex flex-col justify-end relative" style={{ backgroundColor: '#5D4037' }}>
+                            {/* 빨간 기준선 - 정확히 50% 위치 (필요자금 기준) */}
+                            <div className="absolute left-0 right-0 h-[2px] bg-red-500 z-10" style={{ bottom: '50%' }}></div>
+                            {/* 노란 막대 - 바닥에서 위로 */}
                             {hasData && (
                               <div 
                                 className="w-full rounded-t-sm" 
                                 style={{ 
-                                  height: `${ratio}%`, 
-                                  backgroundColor: '#F1C40F',
-                                  minHeight: ratio > 0 ? '2px' : '0'
+                                  height: `${barPercent}%`, 
+                                  backgroundColor: isOver ? '#F39C12' : '#F1C40F',
+                                  minHeight: barPercent > 0 ? '2px' : '0'
                                 }}
                               ></div>
                             )}
@@ -699,7 +713,7 @@ const FinancialHouseResult = ({
                               </div>
                             )}
                           </div>
-                          <p className={`text-[7px] font-semibold mt-0.5 ${ratio >= 80 ? 'text-green-400' : ratio > 0 ? 'text-amber-300' : 'text-gray-500'}`}>
+                          <p className={`text-[7px] font-semibold mt-0.5 ${ratio >= 100 ? 'text-green-400' : ratio > 0 ? 'text-amber-300' : 'text-gray-500'}`}>
                             {hasData ? `${Math.round(ratio)}%` : '-'}
                           </p>
                           <p className="text-[6px] text-amber-200/80 leading-tight text-center whitespace-pre-line">{item.label}</p>
@@ -714,7 +728,7 @@ const FinancialHouseResult = ({
                       <span className="text-[6px] text-amber-200/70">준비자금</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-[1px] bg-red-400"></div>
+                      <div className="w-3 h-[2px] bg-red-500"></div>
                       <span className="text-[6px] text-amber-200/70">필요자금(기준)</span>
                     </div>
                   </div>
