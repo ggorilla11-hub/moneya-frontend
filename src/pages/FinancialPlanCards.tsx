@@ -18,6 +18,7 @@ interface CardProps {
   onNext: () => void;
   onPrev: () => void;
   isLast?: boolean;
+  onOpenOCR?: () => void;
 }
 
 const DisclaimerBox = () => (
@@ -681,11 +682,9 @@ export function EstatePlanCard({ onNext, onPrev }: CardProps) {
 // ============================================
 // 7. 보험설계 카드 (v4.1) - 시뮬레이터 방식 가로스크롤 + 보험증권 업로드 + 준비자금 직접입력
 // ============================================
-export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
+export function InsurancePlanCard({ onNext, onPrev, isLast, onOpenOCR }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [showOCRModal, setShowOCRModal] = useState(false);
-  const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [formData, setFormData] = useState({ 
     annualIncome: 6000,
     totalDebt: 40000,
@@ -800,28 +799,11 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
     setTimeout(() => setShowSaveSuccess(false), 2500);
   };
 
-  // 보험증권 업로드 → +버튼과 동일한 OCR 모달 열기
+  // 보험증권 업로드 → 부모(FinancialHouseDesign)의 +버튼 OCR 모달 열기
   const handleUpload = () => {
-    setShowOCRModal(true);
-    setPrivacyAgreed(false);
-  };
-
-  // 파일 선택 핸들러 (사진촬영/갤러리/파일첨부 공통)
-  const handleFileInput = (accept: string, capture?: string) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    if (capture) input.setAttribute('capture', capture);
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        // TODO: OCR 분석 연동 (추후 구현)
-        setShowOCRModal(false);
-        setPrivacyAgreed(false);
-        alert(`📄 "${file.name}" 업로드 완료!\n\nOCR 분석 기능은 추후 업데이트 예정입니다.`);
-      }
-    };
-    input.click();
+    if (onOpenOCR) {
+      onOpenOCR();
+    }
   };
 
   const hospitalLack = getSpecialLack(prepared.hospital);
@@ -862,16 +844,16 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-700">연봉</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500">만원</span>
+            <div className="relative">
+              <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-2 py-1.5 pr-10 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium pointer-events-none">만원</span>
             </div>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-700">총부채</label>
-            <div className="flex items-center gap-1">
-              <input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
-              <span className="text-xs text-gray-500">만원</span>
+            <div className="relative">
+              <input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-2 py-1.5 pr-10 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium pointer-events-none">만원</span>
             </div>
           </div>
         </div>
@@ -1049,117 +1031,6 @@ export function InsurancePlanCard({ onNext, onPrev, isLast }: CardProps) {
         <button onClick={onNext} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg font-semibold text-sm">{isLast ? '금융집 완성 🎉' : '다음 →'}</button>
       </div>
 
-      {/* OCR 모달 (+버튼과 동일한 면책사항 + 개인정보 동의 + 파일첨부) */}
-      {showOCRModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
-          onClick={() => { setShowOCRModal(false); setPrivacyAgreed(false); }}
-        >
-          <div 
-            className="bg-white w-[90%] max-w-md rounded-3xl p-6 mx-4"
-            onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'fadeIn 0.2s ease-out' }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">📎 보험증권 업로드</h3>
-              <button 
-                onClick={() => { setShowOCRModal(false); setPrivacyAgreed(false); }}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* 개인정보 수집이용 동의 */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-xl">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={privacyAgreed}
-                  onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-600 leading-relaxed">
-                  <span className="font-semibold text-gray-800">[필수] 개인정보 수집·이용 동의</span><br/>
-                  첨부하신 서류(보험증권, 연금자료 등)는 AI 분석 목적으로만 사용되며, 분석 완료 후 즉시 삭제됩니다.
-                </span>
-              </label>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-3">
-              {/* 사진촬영 */}
-              <button 
-                onClick={() => handleFileInput('image/*', 'environment')}
-                disabled={!privacyAgreed}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                  privacyAgreed 
-                    ? 'bg-purple-50 border-purple-100 hover:border-purple-300' 
-                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  privacyAgreed ? 'bg-purple-100' : 'bg-gray-200'
-                }`}>
-                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-purple-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                </div>
-                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진촬영</span>
-              </button>
-              
-              {/* 사진/이미지 */}
-              <button 
-                onClick={() => handleFileInput('image/*')}
-                disabled={!privacyAgreed}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                  privacyAgreed 
-                    ? 'bg-amber-50 border-amber-100 hover:border-amber-300' 
-                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  privacyAgreed ? 'bg-amber-100' : 'bg-gray-200'
-                }`}>
-                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-amber-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
-                </div>
-                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>사진/이미지</span>
-              </button>
-              
-              {/* 파일첨부 */}
-              <button 
-                onClick={() => handleFileInput('.pdf,.doc,.docx,.xls,.xlsx,.hwp,.jpg,.jpeg,.png,.gif,.webp,.bmp')}
-                disabled={!privacyAgreed}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                  privacyAgreed 
-                    ? 'bg-blue-50 border-blue-100 hover:border-blue-300' 
-                    : 'bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  privacyAgreed ? 'bg-blue-100' : 'bg-gray-200'
-                }`}>
-                  <svg className={`w-6 h-6 ${privacyAgreed ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-                  </svg>
-                </div>
-                <span className={`text-xs font-semibold ${privacyAgreed ? 'text-gray-700' : 'text-gray-400'}`}>파일첨부</span>
-              </button>
-            </div>
-
-            {/* 면책 안내 */}
-            <div className="mt-4 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
-              <p className="text-[11px] text-amber-700 text-center leading-relaxed">
-                ⚠️ AI 분석은 참고용이며, 정확한 보험 분석은 전문 설계사 상담을 권장합니다.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
