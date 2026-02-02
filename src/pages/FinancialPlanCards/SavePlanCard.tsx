@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
-import { CardProps, DisclaimerBox } from './shared';
+import type { CardProps } from './shared';
+import { DisclaimerBox } from './shared';
 
 const savingPurposeOptions = [
   { id: 'house', label: ' 내집마련', icon: '' }, { id: 'education', label: ' 자녀교육', icon: '' },
