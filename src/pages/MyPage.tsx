@@ -114,7 +114,7 @@ interface MyPageProps {
   userEmail: string;
   userPhoto: string | null;
   financialResult: FinancialResult | null;
-  onNavigate: (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course') => void;
+  onNavigate: (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast') => void;
   onLogout: () => void;
   onReset: () => void;
 }
@@ -565,6 +565,12 @@ export default function MyPage({
         <button onClick={() => setShowOnlineCourse(true)} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 text-left">
           <span className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center text-white text-sm">🎓</span>
           <span className="flex-1 text-sm font-semibold text-gray-700">온라인강좌 107강 신청</span>
+          <span className="text-gray-400 text-sm">›</span>
+        </button>
+        <button onClick={() => onNavigate('podcast')} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 text-left">
+          <span className="w-8 h-8 bg-gradient-to-br from-slate-600 to-slate-800 rounded-lg flex items-center justify-center text-white text-sm">🎙️</span>
+          <span className="flex-1 text-sm font-semibold text-gray-700">팟캐스트 코너</span>
+          <span className="text-xs text-emerald-500 font-bold">NEW</span>
           <span className="text-gray-400 text-sm">›</span>
         </button>
         <button onClick={() => setShowEbook(true)} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 text-left">
