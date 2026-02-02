@@ -162,7 +162,30 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   const [data, setData] = useState(() => loadData());
   const [printMode, setPrintMode] = useState<'mobile'|'a4'>('mobile');
   const ref = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback(() => setData(loadData()), []);
+
+  // ★ 출력 함수: 리포트를 body 직속으로 이동 → 출력 → 원위치 복원
+  const handlePrint = useCallback(() => {
+    setPrintMode('a4');
+    setTimeout(() => {
+      const el = printRef.current;
+      if (!el) return;
+      const parent = el.parentElement;
+      const sibling = el.nextSibling;
+      // 1) body 직속으로 이동
+      document.body.appendChild(el);
+      document.body.classList.add('printing-report');
+      // 2) 출력
+      window.print();
+      // 3) 원위치 복원
+      document.body.classList.remove('printing-report');
+      if (parent) {
+        if (sibling) parent.insertBefore(el, sibling);
+        else parent.appendChild(el);
+      }
+    }, 400);
+  }, []);
   useEffect(() => { window.addEventListener('storage',refresh); const id=setInterval(refresh,2000); return()=>{window.removeEventListener('storage',refresh);clearInterval(id);}; }, [refresh]);
 
   const nm = data.pi.name||userName||'고객';
@@ -199,8 +222,8 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   if (actionPlan.length === 0) actionPlan.push({priority:1,area:'종합',emoji:'🎉',action:'현재 재무상태 양호',detail:'현재 전략을 유지하며 정기적으로 리밸런싱하세요.'});
 
   return (
-    <div className={`fixed inset-0 z-50 overflow-hidden print-report-root ${printMode==='a4'?'print-a4-mode':''}`}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div ref={printRef} className={`fixed inset-0 z-50 overflow-hidden print-report-root ${printMode==='a4'?'print-a4-mode':''}`}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print-overlay" onClick={onClose} />
       <div className="relative h-full flex flex-col">
         {/* 컨트롤 바 */}
         <div className="flex-shrink-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between print:hidden z-10">
@@ -213,7 +236,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <button onClick={()=>setPrintMode('mobile')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='mobile'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📱 모바일</button>
               <button onClick={()=>setPrintMode('a4')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='a4'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📄 A4</button>
             </div>
-            <button onClick={()=>{setPrintMode('a4');setTimeout(()=>{document.body.classList.add('printing-report');window.print();document.body.classList.remove('printing-report')},300)}} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700">🖨️ 출력</button>
+            <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700">🖨️ 출력</button>
           </div>
         </div>
 
@@ -580,22 +603,24 @@ const FinancialReport = ({ userName, onClose }: Props) => {
       </div>
       <style>{`
 @media print{
-  /* ★ 핵심: 리포트 외 모든 콘텐츠 숨김 */
-  body.printing-report>*:not(#root){display:none!important}
-  body.printing-report #root>*{visibility:hidden!important;position:absolute!important;overflow:hidden!important;height:0!important;width:0!important}
-  body.printing-report .print-report-root{visibility:visible!important;position:static!important;overflow:visible!important;height:auto!important;width:100%!important;z-index:auto!important;display:block!important}
-  body.printing-report .print-report-root *{visibility:visible!important}
+  /* ★ 출력 시: body 직속의 리포트만 표시, 나머지 숨김 */
+  body.printing-report>*:not(.print-report-root){display:none!important}
+  /* fixed/overflow 해제 → 전체 콘텐츠 출력 */
+  .print-report-root{position:static!important;overflow:visible!important;height:auto!important;width:100%!important;z-index:auto!important}
   /* 배경 오버레이 숨김 */
-  .print-report-root>div:first-child{display:none!important}
+  .print-report-root>.print-overlay{display:none!important}
+  /* 컨트롤바 숨김 */
+  .print\\:hidden{display:none!important}
   /* 스크롤 영역 해제 */
   .print-report-root .print-scroll-area{overflow:visible!important;height:auto!important;max-width:none!important;flex:none!important}
   .print-report-root .print-content-area{padding:8mm!important}
-  .print\\:hidden{display:none!important}
+  /* 페이지 제어 */
   .print\\:break-after-page{break-after:page}
   .print\\:break-before-page{break-before:page}
-  body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;margin:0!important;padding:0!important}
   section,.sec-wrap{break-inside:avoid;page-break-inside:avoid}
   @page{size:A4 portrait;margin:10mm}
+  /* 배경색 강제 출력 */
+  body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;margin:0!important;padding:0!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
   .shadow-sm,.shadow-md,.shadow-lg{box-shadow:none!important}
   .backdrop-blur,.backdrop-blur-sm{backdrop-filter:none!important}
