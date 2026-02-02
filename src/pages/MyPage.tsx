@@ -189,6 +189,15 @@ export default function MyPage({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [activePhotoStage, setActivePhotoStage] = useState<number | null>(null);
 
+  // ─── 디자이어 사례 신청(사연 보내기) 상태 ───
+  const [showStoryForm, setShowStoryForm] = useState(false);
+  const [storyNickname, setStoryNickname] = useState('');
+  const [storyDesireStage, setStoryDesireStage] = useState('D');
+  const [storyContent, setStoryContent] = useState('');
+  const [storyContact, setStoryContact] = useState('');
+  const [storyAgree, setStoryAgree] = useState(true);
+  const [storySubmitted, setStorySubmitted] = useState(false);
+
   // ─── 실제 financialHouseData에서 DESIRE 상세 데이터 로드 ───
   useEffect(() => {
     const details: Record<number, DesireStageDetail> = {};
@@ -269,6 +278,26 @@ export default function MyPage({
   };
   const handleOpenGift = () => { setGiftOpened(true); setShowCelebration(true); localStorage.setItem('desireGiftOpened', 'true'); };
   const isStageComplete = (stage: number): boolean => { if (stage === 6) return [1, 2, 3, 4, 5].every(s => isStageComplete(s)); return !!desireCompleted[stage]; };
+
+  // ─── 디자이어 사례 신청(사연 보내기) 핸들러 ───
+  const DESIRE_CHIP_OPTIONS = [
+    { key: 'D', label: '💳 D-빚갚기' },
+    { key: 'E1', label: '🛡️ E-비상금' },
+    { key: 'S', label: '💰 S-저축' },
+    { key: 'I', label: '📈 I-투자' },
+    { key: 'R', label: '🏠 R-부동산' },
+    { key: 'E2', label: '🏖️ E-은퇴' },
+  ];
+  const handleStorySubmit = () => {
+    if (!storyNickname.trim() || storyContent.trim().length < 50 || !storyAgree) {
+      alert(!storyNickname.trim() ? '닉네임을 입력해주세요.' : storyContent.trim().length < 50 ? '사연을 50자 이상 작성해주세요.' : '개인정보 동의가 필요합니다.');
+      return;
+    }
+    const mailto = `mailto:ggorilla11@gmail.com?subject=${encodeURIComponent(`[AI머니야] DESIRE 사례 신청 - ${storyNickname}`)}&body=${encodeURIComponent(`닉네임: ${storyNickname}\nDESIRE 단계: ${storyDesireStage}\n\n사연:\n${storyContent}\n\n연락처: ${storyContact || '미입력'}`)}`;
+    window.location.href = mailto;
+    setStorySubmitted(true);
+  };
+  const resetStoryForm = () => { setStoryNickname(''); setStoryDesireStage('D'); setStoryContent(''); setStoryContact(''); setStoryAgree(true); setStorySubmitted(false); setShowStoryForm(false); };
 
   // ─── mailto 수정 (v2.5) ───
   const handleInquiry = () => {
@@ -739,6 +768,107 @@ export default function MyPage({
               })}
             </div>
             <div className="px-4 pb-6"><div className="bg-gray-50 rounded-xl p-4 text-center"><p className="text-xs text-gray-500 mb-2">나의 금융집 진화</p><div className="flex items-center justify-center gap-1 text-2xl flex-wrap">{DESIRE_STAGES.map((s, i) => (<span key={i} className={`transition-opacity ${isStageComplete(s.stage) ? '' : 'opacity-30'}`}>{i > 0 && <span className="text-sm text-gray-400 mx-0.5">→</span>}{s.house}</span>))}</div></div></div>
+
+            {/* ─── 디자이어 사례 신청(사연 보내기) CTA ─── */}
+            <div className="px-4 pb-6">
+              {!showStoryForm ? (
+                <button
+                  onClick={() => setShowStoryForm(true)}
+                  className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-teal-50 to-emerald-50 border-2 border-teal-200 rounded-xl hover:border-teal-400 transition-all"
+                >
+                  <span className="text-2xl">✉️</span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-bold text-teal-800">나의 DESIRE 사연 보내기</p>
+                    <p className="text-xs text-teal-600">선정 시 오상열 CFP 1:1 미니상담 + 전자책 선물!</p>
+                  </div>
+                  <span className="text-teal-400 text-lg">›</span>
+                </button>
+              ) : storySubmitted ? (
+                <div className="bg-emerald-50 rounded-xl p-6 text-center border-2 border-emerald-200">
+                  <p className="text-4xl mb-3">🎉</p>
+                  <h4 className="text-lg font-bold text-emerald-700 mb-2">사연이 접수되었습니다!</h4>
+                  <p className="text-sm text-emerald-600 mb-1">검토 후 선정 결과를 안내드립니다.</p>
+                  <p className="text-xs text-gray-500 mb-4">선정 시 1:1 미니상담 + 전자책 선물 증정</p>
+                  <button onClick={resetStoryForm} className="px-6 py-2 bg-emerald-500 text-white text-sm font-semibold rounded-lg">확인</button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border-2 border-teal-200 overflow-hidden">
+                  {/* 사연 폼 헤더 */}
+                  <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-4 flex items-center">
+                    <button onClick={() => setShowStoryForm(false)} className="text-white text-lg mr-3">←</button>
+                    <div>
+                      <h4 className="text-white text-sm font-bold">✉️ 나의 DESIRE 사연 보내기</h4>
+                      <p className="text-teal-100 text-xs">선정 시 1:1 미니상담 + 전자책 선물!</p>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* 닉네임 */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">닉네임 <span className="text-red-500">*</span></label>
+                      <input
+                        type="text" value={storyNickname} onChange={e => setStoryNickname(e.target.value)}
+                        placeholder="방송에서 사용될 닉네임"
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-teal-400 focus:outline-none transition"
+                      />
+                    </div>
+                    {/* DESIRE 단계 선택 */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">DESIRE 단계 <span className="text-red-500">*</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {DESIRE_CHIP_OPTIONS.map(chip => (
+                          <button
+                            key={chip.key}
+                            onClick={() => setStoryDesireStage(chip.key)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                              storyDesireStage === chip.key
+                                ? 'bg-teal-500 text-white border-teal-500'
+                                : 'bg-white text-gray-500 border-gray-200 hover:border-teal-300'
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* 나의 사연 */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">나의 사연 <span className="text-red-500">*</span></label>
+                      <textarea
+                        value={storyContent} onChange={e => setStoryContent(e.target.value)}
+                        placeholder={"현재 재정 상황과 고민을 자유롭게 적어주세요.\n\n예) 카드빚 3000만원, 대출 5000만원으로 매달 이자만 50만원입니다..."}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm h-32 resize-none focus:border-teal-400 focus:outline-none transition"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">최소 50자 이상 작성해 주세요 ({storyContent.length}자)</p>
+                    </div>
+                    {/* 연락처 */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">연락처 (선택)</label>
+                      <input
+                        type="text" value={storyContact} onChange={e => setStoryContact(e.target.value)}
+                        placeholder="전화번호 또는 이메일"
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-teal-400 focus:outline-none transition"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">선정 시 연락 및 선물 발송에 사용됩니다</p>
+                    </div>
+                    {/* 동의 */}
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input type="checkbox" checked={storyAgree} onChange={e => setStoryAgree(e.target.checked)} className="mt-0.5 accent-teal-500" />
+                      <span className="text-xs text-gray-500 leading-relaxed">사연이 방송에 사용될 수 있으며, 개인정보는 방송 제작 목적으로만 사용됩니다.</span>
+                    </label>
+                    {/* 제출 버튼 */}
+                    <button
+                      onClick={handleStorySubmit}
+                      className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold rounded-xl hover:shadow-lg transition"
+                    >
+                      ✉️ 사연 보내기
+                    </button>
+                    <p className="text-xs text-gray-400 text-center leading-relaxed">
+                      제출된 사연은 검토 후 선정되며,<br />선정 결과는 앱 알림으로 안내드립니다.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
