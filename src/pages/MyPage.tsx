@@ -152,6 +152,20 @@ export default function MyPage({
   const [showEbook, setShowEbook] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
+  // ─── 전문가 강의상담 모달 상태 ───
+  const [showExpertConsult, setShowExpertConsult] = useState(false);
+  const [consultView, setConsultView] = useState<'list' | 'schedule' | 'confirm' | 'payment'>('list');
+  const [consultSelectedType, setConsultSelectedType] = useState<any>(null);
+  const [consultSelectedMonth, setConsultSelectedMonth] = useState<number | null>(null);
+  const [consultBookings, setConsultBookings] = useState<any[]>([]);
+  const [consultToast, setConsultToast] = useState<string | null>(null);
+  // 카드결제 상태 (전문가 강의상담용)
+  const [consultCardNumber, setConsultCardNumber] = useState('');
+  const [consultCardExpiry, setConsultCardExpiry] = useState('');
+  const [consultCardCvc, setConsultCardCvc] = useState('');
+  const [consultCardHolder, setConsultCardHolder] = useState('');
+  const [consultPayProcessing, setConsultPayProcessing] = useState(false);
+
   // ─── 멤버십 플랜 상태 ───
   const [showMembership, setShowMembership] = useState(false);
   const [membershipTab, setMembershipTab] = useState<'general' | 'fp'>('general');
@@ -288,6 +302,70 @@ export default function MyPage({
 
   const handleResetClick = () => setShowResetConfirm(true);
   const handleResetConfirm = () => { setShowResetConfirm(false); onReset(); };
+
+  // ─── 전문가 강의상담 데이터 ───
+  const CONSULT_YEAR = 2026;
+  const CONSULT_SCHEDULE: Record<string, { label: string; months: Record<number, number[]> }> = {
+    expert: {
+      label: '전문가 강의',
+      months: { 3: [7,14,21,28], 4: [4,11,18,25], 5: [2,9,16,23], 6: [6,13,20,27], 7: [4,11,18,25], 8: [1,8,22,29], 9: [5,12,19,26], 10: [10,17,24,31], 11: [7,14,21,28], 12: [5,12,19,26] },
+    },
+    general: {
+      label: '일반인 강의',
+      months: { 3: [9,16,23,30], 4: [6,13,20,27], 5: [4,11,18,25], 6: [8,15,22,29], 7: [6,13,20,27], 8: [3,10,24,31], 9: [7,14,21,28], 10: [12,19,26], 11: [9,16,23,30], 12: [7,14,21,28] },
+    },
+  };
+  const CONSULT_TYPES = [
+    { id: 'non-face', icon: '🎥', title: '비대면 상담', desc: '화상으로 진행되는 1:1 맞춤 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 330000, priceLabel: '33만원', sessions: 2, category: 'consultation' as const },
+    { id: 'face', icon: '🤝', title: '대면 상담', desc: '직접 만나서 진행하는 심층 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 550000, priceLabel: '55만원', sessions: 2, category: 'consultation' as const },
+    { id: 'vip', icon: '👑', title: '자산가 상담', desc: '금융자산 10억원 초과 고객 전용 VIP 상담', detail: '3회 진행 · 일정 별도 협의', price: 1100000, priceLabel: '110만원', sessions: 3, premium: true, category: 'consultation' as const },
+    { id: 'expert-lecture', icon: '🎓', title: '전문가 강의', desc: '보험설계사·FP 대상 실전 재무설계 강의', detail: '대면+비대면 · 월 4회 · 1년 과정', price: 1100000, priceLabel: '110만원', priceSub: '1년 과정', sessions: 4, category: 'lecture' as const, scheduleType: 'expert' },
+    { id: 'general-lecture', icon: '📚', title: '일반인 강의', desc: '누구나 들을 수 있는 재무설계 기초 강의', detail: '비대면 · 월 4회 · 연간 일정표 제공', price: 550000, priceLabel: '55만원', sessions: 4, category: 'lecture' as const, scheduleType: 'general' },
+  ];
+  const getConsultDow = (y: number, m: number, d: number) => ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
+  const isConsultMonthPast = (m: number) => { const now = new Date(); return new Date(CONSULT_YEAR, m-1, 28) < now; };
+
+  const handleConsultSelectType = (type: any) => {
+    setConsultSelectedType(type);
+    setConsultSelectedMonth(null);
+    setConsultView(type.category === 'lecture' ? 'schedule' : 'confirm');
+  };
+  const handleConsultSelectMonth = (m: number) => {
+    if (isConsultMonthPast(m)) return;
+    setConsultSelectedMonth(consultSelectedMonth === m ? null : m);
+  };
+  const handleConsultGoBack = () => {
+    if (consultView === 'payment') { setConsultView('confirm'); return; }
+    if (consultView === 'confirm' && consultSelectedType?.category === 'lecture') { setConsultView('schedule'); return; }
+    setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
+  };
+  const handleConsultProceedToPayment = () => {
+    setConsultView('payment');
+    setConsultCardNumber(''); setConsultCardExpiry(''); setConsultCardCvc(''); setConsultCardHolder('');
+  };
+  const handleConsultPayment = async () => {
+    if (!consultCardNumber || !consultCardExpiry || !consultCardCvc || !consultCardHolder) {
+      setConsultToast('카드 정보를 모두 입력해주세요'); setTimeout(() => setConsultToast(null), 2800); return;
+    }
+    setConsultPayProcessing(true);
+    await new Promise(r => setTimeout(r, 2000));
+    setConsultPayProcessing(false);
+    const sd = consultSelectedType?.scheduleType ? CONSULT_SCHEDULE[consultSelectedType.scheduleType] : null;
+    const dates = sd && consultSelectedMonth ? sd.months[consultSelectedMonth] : [];
+    setConsultBookings(prev => [...prev, { id: Date.now(), type: consultSelectedType, month: consultSelectedMonth, dates }]);
+    setConsultToast(consultSelectedMonth ? `${CONSULT_YEAR}년 ${consultSelectedMonth}월 (${dates.length}회) 결제 완료!` : `${consultSelectedType.title} 결제 완료!`);
+    setTimeout(() => setConsultToast(null), 2800);
+    setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
+  };
+  const openExpertConsultModal = () => {
+    setShowExpertConsult(true); setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
+  };
+  const closeExpertConsultModal = () => {
+    setShowExpertConsult(false); setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
+  };
+  const consultScheduleData = consultSelectedType?.scheduleType ? CONSULT_SCHEDULE[consultSelectedType.scheduleType] : null;
+  const consultAvailableMonths = consultScheduleData ? Object.keys(consultScheduleData.months).map(Number) : [];
+
   const displayName = userName.split('(')[0].trim();
 
   // ─── financialHouseData에서 실데이터 로드 ───
@@ -439,7 +517,7 @@ export default function MyPage({
             <p className="text-xs text-amber-600">20년 경력 재무설계 전문가</p>
             <p className="text-xs text-amber-500 mt-0.5">오원트금융연구소 대표</p>
           </div>
-          <button onClick={() => onNavigate('consulting')} className="px-3 py-2 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600">상담 신청</button>
+          <button onClick={openExpertConsultModal} className="px-3 py-2 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600">강의상담신청</button>
         </div>
       </div>
 
@@ -466,7 +544,7 @@ export default function MyPage({
           <span className="flex-1 text-sm font-semibold text-gray-700">금융집짓기® 전자책</span>
           <span className="text-gray-400 text-sm">›</span>
         </button>
-        <button onClick={() => onNavigate('consulting')} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 text-left">
+        <button onClick={openExpertConsultModal} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 text-left">
           <span className="w-8 h-8 bg-gradient-to-br from-pink-400 to-rose-500 rounded-lg flex items-center justify-center text-white text-sm">👨‍🏫</span>
           <span className="flex-1 text-sm font-semibold text-gray-700">오상열 대표 강의·상담 신청</span>
           <span className="text-gray-400 text-sm">›</span>
@@ -1020,6 +1098,306 @@ export default function MyPage({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══ 전문가 강의상담 모달 (풀스크린) ═══ */}
+      {showExpertConsult && (
+        <div className="fixed inset-0 bg-gray-50 z-50 flex flex-col overflow-hidden">
+          {/* 토스트 */}
+          {consultToast && (
+            <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-xl text-sm font-semibold z-[200] shadow-lg">
+              ✅ {consultToast}
+            </div>
+          )}
+
+          {/* 헤더 */}
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-4 py-4 flex items-center justify-between shrink-0">
+            {consultView !== 'list' ? (
+              <button onClick={handleConsultGoBack} className="w-10 h-10 flex items-center justify-center text-white text-xl">←</button>
+            ) : (
+              <div className="w-10" />
+            )}
+            <span className="text-white text-base font-bold">
+              {consultView === 'list' ? '전문가 강의상담' : consultView === 'schedule' ? '수강 월 선택' : consultView === 'confirm' ? '예약 확인' : '카드 결제'}
+            </span>
+            <button onClick={closeExpertConsultModal} className="w-10 h-10 flex items-center justify-center text-white text-xl">✕</button>
+          </div>
+
+          {/* 본문 */}
+          <div className="flex-1 overflow-y-auto pb-28">
+            {/* ===== LIST VIEW ===== */}
+            {consultView === 'list' && (
+              <>
+                {/* 프로필 배너 */}
+                <div className="mx-4 mt-4 bg-gradient-to-r from-yellow-50 to-amber-100 rounded-2xl p-5 flex items-center gap-4">
+                  <img src={PROFILE_IMAGE_URL} alt="오상열 CFP" className="w-16 h-16 rounded-full object-cover border-2 border-amber-300 shadow" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg font-extrabold text-gray-800">오상열 대표</span>
+                      <span className="bg-purple-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">CFP</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-1">금융집짓기® 창시자 · 20년 경력</p>
+                    <p className="text-xs text-gray-600 italic leading-relaxed">"당신의 재무 상황을 정확히 진단하고,{'\n'}맞춤형 솔루션을 제안해 드립니다"</p>
+                  </div>
+                </div>
+
+                {/* 예약 현황 */}
+                {consultBookings.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-bold text-gray-700 px-4 mb-2">📋 내 예약 현황</p>
+                    {consultBookings.map((b: any) => (
+                      <div key={b.id} className="mx-4 mb-2 bg-white rounded-xl p-3 border border-gray-200 flex items-center gap-3">
+                        <span className="text-2xl">{b.type.icon}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-800">{b.type.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {b.month ? `${CONSULT_YEAR}년 ${b.month}월 (${b.dates.length}회: ${b.dates.map((d: number) => `${d}일`).join(', ')})` : '일정 별도 협의'}
+                          </p>
+                        </div>
+                        <button onClick={() => setConsultBookings(prev => prev.filter((x: any) => x.id !== b.id))} className="px-3 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-lg">취소</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 1:1 재무상담 */}
+                <p className="text-sm font-bold text-gray-700 px-4 mt-5 mb-3">🔒 1:1 재무상담</p>
+                {CONSULT_TYPES.filter(t => t.category === 'consultation').map(t => (
+                  <div key={t.id} className={`mx-4 mb-3 bg-white rounded-2xl p-5 shadow-sm border ${(t as any).premium ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-amber-300' : 'border-gray-100'} relative`}>
+                    {(t as any).premium && <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">💎 PREMIUM</div>}
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl">{t.icon}</div>
+                      <span className="text-base font-bold text-gray-800">{t.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">{t.desc}</p>
+                    <p className="text-xs text-gray-400 mb-4">{t.detail}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl font-extrabold text-gray-800">{t.priceLabel}</span>
+                      <button onClick={() => handleConsultSelectType(t)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-xl">신청하기</button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* 정기 강의 */}
+                <p className="text-sm font-bold text-gray-700 px-4 mt-6 mb-3">📅 정기 강의</p>
+                {CONSULT_TYPES.filter(t => t.category === 'lecture').map(t => (
+                  <div key={t.id} className="mx-4 mb-3 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl">{t.icon}</div>
+                      <span className="text-base font-bold text-gray-800">{t.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">{t.desc}</p>
+                    <p className="text-xs text-gray-400 mb-4">{t.detail}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xl font-extrabold text-gray-800">{t.priceLabel}</span>
+                        {(t as any).priceSub && <p className="text-[11px] text-gray-400 mt-0.5">{(t as any).priceSub}</p>}
+                      </div>
+                      <button onClick={() => handleConsultSelectType(t)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-xl">월 선택</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* ===== SCHEDULE VIEW (월 선택) ===== */}
+            {consultView === 'schedule' && consultScheduleData && consultSelectedType && (
+              <>
+                <div className="px-5 pt-5 pb-2 flex items-center gap-3">
+                  <span className="text-3xl">{consultSelectedType.icon}</span>
+                  <div>
+                    <p className="text-xl font-extrabold text-gray-800">{consultSelectedType.title}</p>
+                    <p className="text-sm text-gray-400 mt-0.5">수강할 월을 선택하세요 · 월 4회 고정 일정</p>
+                  </div>
+                </div>
+
+                {/* 강의 방식 안내 */}
+                {consultSelectedType.id === 'expert-lecture' && (
+                  <div className="mx-4 mt-2 bg-white rounded-xl p-3.5 border border-gray-100">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <span className="text-lg">🎥</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
+                      <span className="text-base font-bold text-purple-600 mx-1">+</span>
+                      <span className="text-lg">🤝</span><span className="text-sm font-semibold text-gray-800">대면</span>
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">대면+비대면 병행 · 1년 과정 · 110만원</p>
+                  </div>
+                )}
+                {consultSelectedType.id === 'general-lecture' && (
+                  <div className="mx-4 mt-2 bg-white rounded-xl p-3.5 border border-gray-100">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <span className="text-lg">🎥</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">비대면 진행 · 55만원</p>
+                  </div>
+                )}
+
+                {/* 월 그리드 */}
+                <div className="grid grid-cols-2 gap-3 px-4 pt-3">
+                  {consultAvailableMonths.map(m => {
+                    const past = isConsultMonthPast(m);
+                    const active = consultSelectedMonth === m;
+                    const days = consultScheduleData.months[m];
+                    return (
+                      <div
+                        key={m}
+                        onClick={() => handleConsultSelectMonth(m)}
+                        className={`rounded-2xl p-4 border-2 relative transition-all ${
+                          active ? 'bg-gradient-to-br from-purple-600 to-indigo-700 border-purple-600 shadow-lg shadow-purple-200' :
+                          past ? 'bg-gray-50 border-gray-100 opacity-45' :
+                          'bg-white border-gray-100 hover:border-purple-200'
+                        } ${past ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <p className={`text-xl font-extrabold mb-1 ${active ? 'text-white' : past ? 'text-gray-300' : 'text-purple-600'}`}>{m}월</p>
+                        <p className={`text-xs leading-relaxed mb-2 ${active ? 'text-white/80' : past ? 'text-gray-300' : 'text-gray-400'}`}>
+                          {days.map((d: number) => `${d}일`).join(', ')}
+                        </p>
+                        <span className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${
+                          active ? 'bg-white/20 text-white' : past ? 'bg-gray-100 text-gray-300' : 'bg-purple-50 text-purple-600'
+                        }`}>{days.length}회</span>
+                        {active && <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/25 flex items-center justify-center text-white text-sm font-bold">✓</div>}
+                        {past && <span className="absolute top-3 right-3 text-[11px] font-bold text-gray-300">마감</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 선택된 월 상세 */}
+                {consultSelectedMonth && consultScheduleData.months[consultSelectedMonth] && (
+                  <div className="mx-4 mt-3 bg-white rounded-2xl p-5 shadow-sm">
+                    <p className="text-sm font-bold text-gray-800 mb-3">📌 {consultSelectedMonth}월 강의 일정</p>
+                    <div className="flex gap-2">
+                      {consultScheduleData.months[consultSelectedMonth].map((d: number, i: number) => (
+                        <div key={d} className="flex-1 bg-purple-50 rounded-xl py-3 text-center">
+                          <p className="text-xl font-extrabold text-purple-600">{d}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{getConsultDow(CONSULT_YEAR, consultSelectedMonth, d)}</p>
+                          <p className="text-[11px] font-semibold text-purple-400 mt-0.5">{i+1}회차</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ===== CONFIRM VIEW (예약 확인) ===== */}
+            {consultView === 'confirm' && consultSelectedType && (
+              <>
+                <div className="mx-4 mt-4 bg-white rounded-2xl p-7 shadow-sm text-center">
+                  <span className="text-5xl block mb-2">{consultSelectedType.icon}</span>
+                  <p className="text-xl font-extrabold text-gray-800 mb-2">{consultSelectedType.title}</p>
+                  {consultSelectedMonth && consultScheduleData ? (
+                    <p className="text-sm text-purple-600 font-semibold mb-5">📅 {CONSULT_YEAR}년 {consultSelectedMonth}월 · {consultScheduleData.months[consultSelectedMonth].length}회</p>
+                  ) : (
+                    <p className="text-sm text-purple-600 font-semibold mb-5">📅 일정 별도 협의</p>
+                  )}
+                  <div className="h-px bg-gray-100 mb-4" />
+                  <div className="text-left space-y-2">
+                    <div className="flex justify-between py-2"><span className="text-sm text-gray-400">상품</span><span className="text-sm font-semibold text-gray-800">{consultSelectedType.title}</span></div>
+                    {consultSelectedType.id === 'expert-lecture' && <div className="flex justify-between py-2"><span className="text-sm text-gray-400">진행 방식</span><span className="text-sm font-semibold text-gray-800">대면 + 비대면 병행</span></div>}
+                    {consultSelectedType.id === 'general-lecture' && <div className="flex justify-between py-2"><span className="text-sm text-gray-400">진행 방식</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span></div>}
+                    <div className="flex justify-between py-2"><span className="text-sm text-gray-400">월 진행 횟수</span><span className="text-sm font-semibold text-gray-800">{consultSelectedType.sessions}회</span></div>
+                    {consultSelectedMonth && consultScheduleData && (
+                      <div className="flex justify-between py-2"><span className="text-sm text-gray-400">강의 일정</span><span className="text-sm font-semibold text-gray-800 text-right">{consultScheduleData.months[consultSelectedMonth].map((d: number) => `${d}일(${getConsultDow(CONSULT_YEAR, consultSelectedMonth, d)})`).join(', ')}</span></div>
+                    )}
+                    <div className="flex justify-between py-3 border-t border-gray-100 mt-2">
+                      <span className="text-sm text-gray-400">결제 금액</span>
+                      <span className="text-lg font-extrabold text-purple-600">{consultSelectedType.priceLabel}</span>
+                    </div>
+                    {consultSelectedType.priceSub && <p className="text-right text-xs text-purple-400">{consultSelectedType.priceSub}</p>}
+                  </div>
+                </div>
+
+                <div className="mx-4 mt-3 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-sm font-bold text-gray-600 mb-1.5">📌 안내사항</p>
+                  <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">
+                    {consultSelectedType.id === 'expert-lecture'
+                      ? '• 대면+비대면 병행 1년 과정입니다\n• 선택하신 월부터 수강이 시작됩니다\n• 일정 변경은 강의일 3일 전까지 가능합니다\n• 문의: AI머니야 앱 내 1:1 채팅'
+                      : consultSelectedType.category === 'lecture'
+                      ? '• 선택하신 월의 4회 일정이 모두 확정됩니다\n• 일정 변경은 강의일 3일 전까지 가능합니다\n• 문의: AI머니야 앱 내 1:1 채팅'
+                      : '• 상담 일정은 신청 후 개별 연락드립니다\n• 문의: AI머니야 앱 내 1:1 채팅'}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* ===== PAYMENT VIEW (카드결제) ===== */}
+            {consultView === 'payment' && consultSelectedType && (
+              <>
+                <div className="mx-4 mt-4 bg-white rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-3xl">{consultSelectedType.icon}</span>
+                    <div>
+                      <p className="text-base font-bold text-gray-800">{consultSelectedType.title}</p>
+                      <p className="text-sm text-purple-600 font-semibold">{consultSelectedType.priceLabel}</p>
+                    </div>
+                  </div>
+                  <div className="h-px bg-gray-100 mb-5" />
+
+                  <p className="text-sm font-bold text-gray-700 mb-3">💳 카드 정보 입력</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">카드 번호</label>
+                      <input type="text" placeholder="0000-0000-0000-0000" value={consultCardNumber} onChange={e => setConsultCardNumber(formatCardNumber(e.target.value))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">유효기간</label>
+                        <input type="text" placeholder="MM/YY" value={consultCardExpiry} onChange={e => setConsultCardExpiry(formatExpiry(e.target.value))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">CVC</label>
+                        <input type="text" placeholder="000" value={consultCardCvc} onChange={e => setConsultCardCvc(e.target.value.replace(/\D/g,'').slice(0,3))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">카드 소유자명</label>
+                      <input type="text" placeholder="홍길동" value={consultCardHolder} onChange={e => setConsultCardHolder(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mx-4 mt-3 bg-purple-50 rounded-xl p-4 border border-purple-100">
+                  <p className="text-xs text-purple-500 font-semibold mb-1">🔒 안전한 결제</p>
+                  <p className="text-xs text-purple-400 leading-relaxed">카드 정보는 암호화되어 안전하게 처리됩니다. 결제 후 확인 메일이 발송됩니다.</p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 하단 고정 버튼 */}
+          {consultView === 'schedule' && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
+              <button
+                onClick={() => consultSelectedMonth && setConsultView('confirm')}
+                disabled={!consultSelectedMonth}
+                className={`w-full py-4 rounded-xl text-sm font-bold ${consultSelectedMonth ? 'bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
+                {consultSelectedMonth ? `${consultSelectedMonth}월 (${consultScheduleData?.months[consultSelectedMonth]?.length || 0}회) 선택 완료` : '수강할 월을 선택해주세요'}
+              </button>
+            </div>
+          )}
+          {consultView === 'confirm' && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
+              <button
+                onClick={handleConsultProceedToPayment}
+                className="w-full py-4 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200"
+              >
+                💳 {consultSelectedType?.priceLabel} 결제하기
+              </button>
+            </div>
+          )}
+          {consultView === 'payment' && (
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
+              <button
+                onClick={handleConsultPayment}
+                disabled={consultPayProcessing}
+                className={`w-full py-4 rounded-xl text-base font-bold ${consultPayProcessing ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200'}`}
+              >
+                {consultPayProcessing ? '결제 처리 중...' : `${consultSelectedType?.priceLabel} 결제 완료`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
