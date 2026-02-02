@@ -24,6 +24,7 @@ import FinancialHouseDesign from './pages/FinancialHouseDesign';
 import FinancialHouseResult from './pages/FinancialHouseResult';
 import OnlineCoursePage from './pages/OnlineCoursePage';
 import VideoPlayerPage from './pages/VideoPlayerPage';
+import PodcastPage from './pages/PodcastPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 // ★★★ v7 추가: 상단 티커 import ★★★
@@ -79,7 +80,8 @@ type AppStep =
   | 'consulting-apply'
   | 'monthly-report'
   | 'online-course'
-  | 'video-player';
+  | 'video-player'
+  | 'podcast';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -244,11 +246,12 @@ function App() {
   const handleReAnalysis = () => setCurrentStep('re-analysis');
   const handleBackToHome = () => { setCurrentStep('main'); setCurrentTab('home'); };
 
-  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course') => {
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast') => {
     if (page === 'subscription') setCurrentStep('subscription');
     else if (page === 'consulting') setCurrentStep('consulting');
     else if (page === 'monthly-report') setCurrentStep('monthly-report');
     else if (page === 'online-course') setCurrentStep('online-course');
+    else if (page === 'podcast') setCurrentStep('podcast');
   };
 
   const handleHomeNavigate = (page: string) => {
@@ -416,6 +419,10 @@ function App() {
 
   if (currentStep === 'online-course') {
     return <OnlineCoursePage onBack={handleOnlineCourseBack} onLessonSelect={(lesson) => handleLessonSelect(lesson, [])} isSubscribed={isSubscribed} />;
+  }
+
+  if (currentStep === 'podcast') {
+    return <PodcastPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} />;
   }
 
   if (currentStep === 'video-player' && selectedLesson) {
