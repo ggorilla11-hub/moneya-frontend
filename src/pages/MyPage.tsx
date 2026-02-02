@@ -268,12 +268,13 @@ export default function MyPage({
   const closeMembership = () => { setShowMembership(false); setMembershipStep('list'); setSelectedMembershipPlan(null); setBillingCycle(null); };
 
   // ─── 공유하기 ───
+  const shareText = `💰 AI머니야 - AI 기반 재무관리 앱\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 ${SHARE_URL}`;
   const handleShare = async (method: string) => {
-    const text = `AI머니야 - 나만의 AI 금융집사 🏠\n금융집짓기®로 체계적인 재무설계를 시작하세요!\n${SHARE_URL}`;
     if (method === 'copy') { try { await navigator.clipboard.writeText(SHARE_URL); alert('링크가 복사되었습니다!'); } catch { alert(SHARE_URL); } }
-    else if (method === 'kakao') { window.open(`https://sharer.kakao.com/talk/friends/picker/link?url=${encodeURIComponent(SHARE_URL)}&text=${encodeURIComponent(text)}`); }
-    else if (method === 'native') { if (navigator.share) { try { await navigator.share({ title: 'AI머니야', text, url: SHARE_URL }); } catch { /* cancel */ } } else { try { await navigator.clipboard.writeText(text); alert('링크가 복사되었습니다!'); } catch { alert(SHARE_URL); } } }
-    setShowShare(false);
+    else if (method === 'kakao') { window.open(`https://sharer.kakao.com/talk/friends/picker/link?url=${encodeURIComponent(SHARE_URL)}&text=${encodeURIComponent(shareText)}`, '_blank', 'width=500,height=600'); }
+    else if (method === 'sms') { window.location.href = `sms:?body=${encodeURIComponent(shareText)}`; }
+    else if (method === 'email') { const subject = '[추천] AI머니야 - AI 기반 재무관리 앱'; const body = `안녕하세요!\n\nAI머니야를 추천드립니다.\n금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!\n\n👉 ${SHARE_URL}\n\nQR코드로도 접속 가능합니다.`; window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
+    else if (method === 'native') { if (navigator.share) { try { await navigator.share({ title: 'AI머니야 - AI 기반 재무관리 앱', text: '금융집짓기® 방법론으로 체계적인 재무설계를 시작하세요!', url: SHARE_URL }); } catch { /* cancel */ } } else { try { await navigator.clipboard.writeText(shareText); alert('링크가 복사되었습니다!'); } catch { alert(SHARE_URL); } } }
   };
 
   const handleResetClick = () => setShowResetConfirm(true);
@@ -864,17 +865,33 @@ export default function MyPage({
         </div>
       )}
 
-      {/* 공유 모달 */}
+      {/* 공유 모달 (v2.3 원본 복원) */}
       {showShare && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">🔗 친구에게 공유하기</h3>
-            <div className="space-y-3">
-              <button onClick={() => handleShare('kakao')} className="w-full py-3 bg-yellow-400 text-gray-900 font-bold rounded-xl text-sm">💬 카카오톡으로 공유</button>
-              <button onClick={() => handleShare('copy')} className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm">📋 링크 복사</button>
-              <button onClick={() => handleShare('native')} className="w-full py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">📤 다른 앱으로 공유</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">🔗 친구에게 공유하기</h3>
+              <button onClick={() => setShowShare(false)} className="text-gray-400 text-xl">✕</button>
             </div>
-            <button onClick={() => setShowShare(false)} className="w-full mt-3 py-2 text-sm text-gray-500">닫기</button>
+            <div className="p-4">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <img src={LOGO_URL} alt="AI머니야 로고" className="w-20 h-20" />
+                <img src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/QR%EC%BD%94%EB%93%9C.png?alt=media&token=032255d4-cce8-4672-9a83-580c70e920f7" alt="QR코드" className="w-24 h-24 border border-gray-200 rounded-xl" />
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-gray-500 mb-1">공유 링크</p>
+                <div className="flex items-center gap-2">
+                  <input type="text" value={SHARE_URL} readOnly className="flex-1 text-sm text-gray-700 bg-transparent outline-none" />
+                  <button onClick={() => handleShare('copy')} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg">복사</button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <button onClick={() => handleShare('kakao')} className="w-full py-3.5 bg-[#FEE500] text-[#3C1E1E] font-bold rounded-xl flex items-center justify-center gap-2"><span className="text-xl">💬</span> 카카오톡으로 공유</button>
+                <button onClick={() => handleShare('sms')} className="w-full py-3.5 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"><span className="text-xl">💬</span> 문자로 공유</button>
+                <button onClick={() => handleShare('email')} className="w-full py-3.5 bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"><span className="text-xl">📧</span> 이메일로 공유</button>
+                <button onClick={() => handleShare('native')} className="w-full py-3.5 bg-gray-700 text-white font-bold rounded-xl flex items-center justify-center gap-2"><span className="text-xl">📤</span> 다른 앱으로 공유</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
