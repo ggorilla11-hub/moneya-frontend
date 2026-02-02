@@ -653,15 +653,32 @@ export default function MyPage({
         </div>
       )}
 
-      {/* 전자책 모달 */}
+      {/* ★★★ 전자책 신청 모달 (v2.0 복원) ★★★ */}
       {showEbook && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">📖 금융집짓기® 전자책</h3>
-            <div className="flex justify-center mb-4"><img src={EBOOK_COVER_URL} alt="전자책 표지" className="w-32 h-40 object-cover rounded-lg shadow-md" /></div>
-            <p className="text-sm text-gray-600 mb-4 text-center">금융집짓기® V2.0 전자책<br />정가 12,900원</p>
-            <div className="bg-orange-50 rounded-lg p-3 mb-4"><p className="text-xs text-orange-700">✅ BASIC 이상 구독 시 무료 제공<br />✅ PDF 다운로드 가능<br />✅ 워크북 포함</p></div>
-            <button onClick={() => setShowEbook(false)} className="w-full py-2.5 border border-gray-300 text-gray-600 text-sm font-bold rounded-xl">닫기</button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-900">📚 금융집짓기 V2.0 전자책</h3>
+              <button onClick={() => setShowEbook(false)} className="text-gray-400 text-xl">✕</button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-4">
+                <img src={EBOOK_COVER_URL} alt="전자책 표지" className="w-full h-48 object-cover rounded-xl opacity-60" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-red-500 text-white px-4 py-2 rounded-lg transform -rotate-12 shadow-lg">
+                    <span className="font-bold">발매예정</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center mb-4">
+                <p className="text-gray-400 line-through">정가 12,900원</p>
+                <p className="text-2xl font-bold text-orange-500">사전신청 9,900원</p>
+                <p className="text-xs text-gray-500 mt-1">출간 즉시 이메일로 발송됩니다</p>
+              </div>
+              <button className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl">
+                사전신청 9,900원
+              </button>
+            </div>
           </div>
         </div>
       )}
