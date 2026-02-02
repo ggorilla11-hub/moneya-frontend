@@ -113,8 +113,20 @@ export function InsurancePlanCard({ onNext, onPrev, isLast, onOpenOCR }: CardPro
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="space-y-1"><label className="text-xs font-semibold text-gray-700">연봉</label><div className="flex items-center gap-1"><input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" /><span className="text-xs text-gray-500">만원</span></div></div>
-          <div className="space-y-1"><label className="text-xs font-semibold text-gray-700">총부채</label><div className="flex items-center gap-1"><input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" /><span className="text-xs text-gray-500">만원</span></div></div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">연봉</label>
+            <div className="relative">
+              <input type="number" value={formData.annualIncome} onChange={(e) => setFormData({...formData, annualIncome: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-2 py-1.5 pr-10 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">만원</span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-700">총부채</label>
+            <div className="relative">
+              <input type="number" value={formData.totalDebt} onChange={(e) => setFormData({...formData, totalDebt: Number(e.target.value)})} onFocus={handleFocus} className="w-full px-2 py-1.5 pr-10 border border-gray-300 rounded-lg text-sm focus:border-teal-500 outline-none" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">만원</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-center gap-1.5 py-1.5 text-[11px] text-gray-400"><span></span> 좌우로 스크롤하여 8대 보장을 확인하세요 <span></span></div>
