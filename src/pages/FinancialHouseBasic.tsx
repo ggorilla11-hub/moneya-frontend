@@ -264,7 +264,7 @@ const goalOptions = [
 
 const jobOptions = [
   { id: 'employee', label: '직장인', icon: '👔' }, { id: 'business', label: '자영업', icon: '🏪' },
-  { id: 'freelancer', label: '프리랜서', icon: '💻' }, { id: 'public', label: '공무원', icon: '🏛️' },
+  { id: 'freelancer', label: '개인사업자', icon: '💻' }, { id: 'public', label: '공무원', icon: '🏛️' },
   { id: 'homemaker', label: '전업주부', icon: '🏠' }, { id: 'student', label: '학생', icon: '📚' },
   { id: 'other', label: '기타', icon: '👤' },
 ];
