@@ -1120,7 +1120,7 @@ export default function MyPage({
           </div>
 
           {/* 본문 */}
-          <div className="flex-1 overflow-y-auto pb-28">
+          <div className="flex-1 overflow-y-auto pb-4">
             {/* ===== LIST VIEW ===== */}
             {consultView === 'list' && (
               <>
@@ -1319,9 +1319,9 @@ export default function MyPage({
             {/* ===== CONFIRM VIEW 끝 ===== */}
           </div>
 
-          {/* 하단 고정 버튼 */}
+          {/* 하단 고정 버튼 - 모달 내부 flex shrink-0 */}
           {consultView === 'schedule' && (
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
+            <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
               <button
                 onClick={() => consultSelectedMonth && setConsultView('confirm')}
                 disabled={!consultSelectedMonth}
@@ -1332,7 +1332,7 @@ export default function MyPage({
             </div>
           )}
           {consultView === 'confirm' && consultSelectedType && (
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
+            <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
               <button
                 onClick={handleConsultPayment}
                 className="w-full py-4 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200"
