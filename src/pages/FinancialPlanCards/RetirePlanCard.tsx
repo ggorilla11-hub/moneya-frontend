@@ -1,6 +1,6 @@
 // src/pages/FinancialPlanCards/RetirePlanCard.tsx
 // 은퇴설계 카드 - FinancialPlanCards.tsx v4.4에서 분리
-// 기능 변경 없음 (1:1 동일)
+// v4.5: 1단계 인적사항 나이/은퇴예정나이 자동 연동
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
@@ -15,16 +15,30 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [showFormula, setShowFormula] = useState(false);
 
   useEffect(() => { 
-    const saved = loadDesignData('retire'); 
-    if (saved) {
-      setFormData({
-        currentAge: saved.currentAge ?? 37, retireAge: saved.retireAge ?? 65,
-        monthlyLivingExpense: saved.monthlyLivingExpense ?? saved.monthlyExpense ?? 300,
-        expectedNationalPension: saved.expectedNationalPension ?? saved.nationalPension ?? 80,
-        currentPersonalPension: saved.currentPersonalPension ?? saved.personalPension ?? 50,
-        expectedRetirementLumpSum: saved.expectedRetirementLumpSum ?? 10000,
-      });
+    // ★ 1단계 인적사항에서 나이, 은퇴예정나이 연동
+    let basicAge = 37;
+    let basicRetireAge = 65;
+    try {
+      const savedHouseData = localStorage.getItem('financialHouseData');
+      if (savedHouseData) {
+        const parsed = JSON.parse(savedHouseData);
+        if (parsed?.personalInfo?.age) basicAge = Number(parsed.personalInfo.age);
+        if (parsed?.personalInfo?.retireAge) basicRetireAge = Number(parsed.personalInfo.retireAge);
+      }
+    } catch (e) {
+      console.error('financialHouseData parse error:', e);
     }
+
+    // 2단계 설계 데이터 로드 (나이는 1단계 값 우선 적용)
+    const saved = loadDesignData('retire'); 
+    setFormData({
+      currentAge: basicAge,
+      retireAge: basicRetireAge,
+      monthlyLivingExpense: saved?.monthlyLivingExpense ?? saved?.monthlyExpense ?? 300,
+      expectedNationalPension: saved?.expectedNationalPension ?? saved?.nationalPension ?? 80,
+      currentPersonalPension: saved?.currentPersonalPension ?? saved?.personalPension ?? 50,
+      expectedRetirementLumpSum: saved?.expectedRetirementLumpSum ?? 10000,
+    });
   }, []);
   
   useEffect(() => { saveDesignData('retire', formData); }, [formData]);
