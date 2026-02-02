@@ -318,11 +318,11 @@ export default function MyPage({
     'general-lecture': 'https://link.payple.kr/NzcxOjc2ODQ3NzcyMjc4MzY3',
   };
   const CONSULT_TYPES = [
+    { id: 'general-lecture', icon: '📚', title: '일반인 강의', desc: '누구나 들을 수 있는 재무설계 기초 강의', detail: '비대면 · 월 4회 · 연간 일정표 제공', price: 550000, priceLabel: '55만원', sessions: 4, category: 'lecture' as const, scheduleType: 'general' },
+    { id: 'expert-lecture', icon: '🎓', title: '전문가 강의', desc: '보험설계사·FP 대상 실전 재무설계 강의', detail: '대면+비대면 · 월 4회 · 1년 과정', price: 1100000, priceLabel: '110만원', priceSub: '1년 과정', sessions: 4, category: 'lecture' as const, scheduleType: 'expert' },
     { id: 'non-face', icon: '💰', title: '비대면 상담', desc: '화상으로 진행되는 1:1 맞춤 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 330000, priceLabel: '33만원', sessions: 2, category: 'consultation' as const },
     { id: 'face', icon: '💵', title: '대면 상담', desc: '직접 만나서 진행하는 심층 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 550000, priceLabel: '55만원', sessions: 2, category: 'consultation' as const },
     { id: 'vip', icon: '📈', title: '자산가 상담', desc: '금융자산 10억원 초과 고객 전용 VIP 상담', detail: '3회 진행 · 일정 별도 협의', price: 1100000, priceLabel: '110만원', sessions: 3, premium: true, category: 'consultation' as const },
-    { id: 'expert-lecture', icon: '🎓', title: '전문가 강의', desc: '보험설계사·FP 대상 실전 재무설계 강의', detail: '대면+비대면 · 월 4회 · 1년 과정', price: 1100000, priceLabel: '110만원', priceSub: '1년 과정', sessions: 4, category: 'lecture' as const, scheduleType: 'expert' },
-    { id: 'general-lecture', icon: '📚', title: '일반인 강의', desc: '누구나 들을 수 있는 재무설계 기초 강의', detail: '비대면 · 월 4회 · 연간 일정표 제공', price: 550000, priceLabel: '55만원', sessions: 4, category: 'lecture' as const, scheduleType: 'general' },
   ];
   const getConsultDow = (y: number, m: number, d: number) => ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
   const isConsultMonthPast = (m: number) => { const now = new Date(); return new Date(CONSULT_YEAR, m-1, 28) < now; };
@@ -1102,7 +1102,7 @@ export default function MyPage({
 
       {/* ═══ 전문가 강의상담 모달 (풀스크린) ═══ */}
       {showExpertConsult && (
-        <div className="fixed inset-0 bg-gray-50 z-50 flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-gray-50 z-50 flex flex-col overflow-hidden pb-[72px]">
           {/* 토스트 */}
           {consultToast && (
             <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-xl text-sm font-semibold z-[200] shadow-lg">
@@ -1156,26 +1156,8 @@ export default function MyPage({
                   </div>
                 )}
 
-                {/* 1:1 재무상담 */}
-                <p className="text-sm font-bold text-gray-700 px-4 mt-5 mb-3">🔒 1:1 재무상담</p>
-                {CONSULT_TYPES.filter(t => t.category === 'consultation').map(t => (
-                  <div key={t.id} className={`mx-4 mb-3 bg-white rounded-2xl p-5 shadow-sm border ${(t as any).premium ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-amber-300' : 'border-gray-100'} relative`}>
-                    {(t as any).premium && <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">💎 PREMIUM</div>}
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl">{t.icon}</div>
-                      <span className="text-base font-bold text-gray-800">{t.title}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-1">{t.desc}</p>
-                    <p className="text-xs text-gray-400 mb-4">{t.detail}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xl font-extrabold text-gray-800">{t.priceLabel}</span>
-                      <button onClick={() => handleConsultSelectType(t)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-xl">신청하기</button>
-                    </div>
-                  </div>
-                ))}
-
-                {/* 정기 강의 */}
-                <p className="text-sm font-bold text-gray-700 px-4 mt-6 mb-3">📅 정기 강의</p>
+                {/* 정기 강의 (일반인 → 전문가 순) */}
+                <p className="text-sm font-bold text-gray-700 px-4 mt-5 mb-3">📅 정기 강의</p>
                 {CONSULT_TYPES.filter(t => t.category === 'lecture').map(t => (
                   <div key={t.id} className="mx-4 mb-3 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <div className="flex items-center gap-3 mb-2">
@@ -1190,6 +1172,24 @@ export default function MyPage({
                         {(t as any).priceSub && <p className="text-[11px] text-gray-400 mt-0.5">{(t as any).priceSub}</p>}
                       </div>
                       <button onClick={() => handleConsultSelectType(t)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-xl">월 선택</button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* 1:1 재무상담 (비대면 → 대면 → 자산가 순) */}
+                <p className="text-sm font-bold text-gray-700 px-4 mt-6 mb-3">🔒 1:1 재무상담</p>
+                {CONSULT_TYPES.filter(t => t.category === 'consultation').map(t => (
+                  <div key={t.id} className={`mx-4 mb-3 bg-white rounded-2xl p-5 shadow-sm border ${(t as any).premium ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-amber-300' : 'border-gray-100'} relative`}>
+                    {(t as any).premium && <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">💎 PREMIUM</div>}
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-xl">{t.icon}</div>
+                      <span className="text-base font-bold text-gray-800">{t.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">{t.desc}</p>
+                    <p className="text-xs text-gray-400 mb-4">{t.detail}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl font-extrabold text-gray-800">{t.priceLabel}</span>
+                      <button onClick={() => handleConsultSelectType(t)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-xl">신청하기</button>
                     </div>
                   </div>
                 ))}
