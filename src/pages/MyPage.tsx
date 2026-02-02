@@ -154,17 +154,11 @@ export default function MyPage({
 
   // ─── 전문가 강의상담 모달 상태 ───
   const [showExpertConsult, setShowExpertConsult] = useState(false);
-  const [consultView, setConsultView] = useState<'list' | 'schedule' | 'confirm' | 'payment'>('list');
+  const [consultView, setConsultView] = useState<'list' | 'schedule' | 'confirm'>('list');
   const [consultSelectedType, setConsultSelectedType] = useState<any>(null);
   const [consultSelectedMonth, setConsultSelectedMonth] = useState<number | null>(null);
   const [consultBookings, setConsultBookings] = useState<any[]>([]);
   const [consultToast, setConsultToast] = useState<string | null>(null);
-  // 카드결제 상태 (전문가 강의상담용)
-  const [consultCardNumber, setConsultCardNumber] = useState('');
-  const [consultCardExpiry, setConsultCardExpiry] = useState('');
-  const [consultCardCvc, setConsultCardCvc] = useState('');
-  const [consultCardHolder, setConsultCardHolder] = useState('');
-  const [consultPayProcessing, setConsultPayProcessing] = useState(false);
 
   // ─── 멤버십 플랜 상태 ───
   const [showMembership, setShowMembership] = useState(false);
@@ -315,6 +309,14 @@ export default function MyPage({
       months: { 3: [9,16,23,30], 4: [6,13,20,27], 5: [4,11,18,25], 6: [8,15,22,29], 7: [6,13,20,27], 8: [3,10,24,31], 9: [7,14,21,28], 10: [12,19,26], 11: [9,16,23,30], 12: [7,14,21,28] },
     },
   };
+  // Payple 결제 링크 매핑
+  const PAYPLE_LINKS: Record<string, string> = {
+    'non-face': 'https://link.payple.kr/NzcxOjc2ODQ3NzYyNzY3MDU5',
+    'face': 'https://link.payple.kr/NzcxOjc2ODQ3NzU4NjYzMDE4',
+    'vip': 'https://link.payple.kr/NzcxOjc2OD',
+    'expert-lecture': 'https://link.payple.kr/NzcxOjc3MDA2MDc4OTM1OTgz',
+    'general-lecture': 'https://link.payple.kr/NzcxOjc2ODQ3NzcyMjc4MzY3',
+  };
   const CONSULT_TYPES = [
     { id: 'non-face', icon: '🎥', title: '비대면 상담', desc: '화상으로 진행되는 1:1 맞춤 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 330000, priceLabel: '33만원', sessions: 2, category: 'consultation' as const },
     { id: 'face', icon: '🤝', title: '대면 상담', desc: '직접 만나서 진행하는 심층 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 550000, priceLabel: '55만원', sessions: 2, category: 'consultation' as const },
@@ -335,26 +337,23 @@ export default function MyPage({
     setConsultSelectedMonth(consultSelectedMonth === m ? null : m);
   };
   const handleConsultGoBack = () => {
-    if (consultView === 'payment') { setConsultView('confirm'); return; }
     if (consultView === 'confirm' && consultSelectedType?.category === 'lecture') { setConsultView('schedule'); return; }
     setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
   };
-  const handleConsultProceedToPayment = () => {
-    setConsultView('payment');
-    setConsultCardNumber(''); setConsultCardExpiry(''); setConsultCardCvc(''); setConsultCardHolder('');
-  };
-  const handleConsultPayment = async () => {
-    if (!consultCardNumber || !consultCardExpiry || !consultCardCvc || !consultCardHolder) {
-      setConsultToast('카드 정보를 모두 입력해주세요'); setTimeout(() => setConsultToast(null), 2800); return;
-    }
-    setConsultPayProcessing(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setConsultPayProcessing(false);
+  // 결제하기 → Payple 결제 링크로 이동 + 예약 기록
+  const handleConsultPayment = () => {
+    const typeId = consultSelectedType?.id;
+    if (!typeId) return;
+    const payUrl = PAYPLE_LINKS[typeId];
+    // 예약 기록 저장
     const sd = consultSelectedType?.scheduleType ? CONSULT_SCHEDULE[consultSelectedType.scheduleType] : null;
     const dates = sd && consultSelectedMonth ? sd.months[consultSelectedMonth] : [];
     setConsultBookings(prev => [...prev, { id: Date.now(), type: consultSelectedType, month: consultSelectedMonth, dates }]);
-    setConsultToast(consultSelectedMonth ? `${CONSULT_YEAR}년 ${consultSelectedMonth}월 (${dates.length}회) 결제 완료!` : `${consultSelectedType.title} 결제 완료!`);
+    setConsultToast(consultSelectedMonth ? `${CONSULT_YEAR}년 ${consultSelectedMonth}월 (${dates.length}회) 결제 페이지로 이동합니다` : `${consultSelectedType.title} 결제 페이지로 이동합니다`);
     setTimeout(() => setConsultToast(null), 2800);
+    // Payple 결제 링크 열기
+    if (payUrl) window.open(payUrl, '_blank');
+    // 리스트로 복귀
     setConsultView('list'); setConsultSelectedType(null); setConsultSelectedMonth(null);
   };
   const openExpertConsultModal = () => {
@@ -1119,7 +1118,7 @@ export default function MyPage({
               <div className="w-10" />
             )}
             <span className="text-white text-base font-bold">
-              {consultView === 'list' ? '전문가 강의상담' : consultView === 'schedule' ? '수강 월 선택' : consultView === 'confirm' ? '예약 확인' : '카드 결제'}
+              {consultView === 'list' ? '전문가 강의상담' : consultView === 'schedule' ? '수강 월 선택' : '예약 확인'}
             </span>
             <button onClick={closeExpertConsultModal} className="w-10 h-10 flex items-center justify-center text-white text-xl">✕</button>
           </div>
@@ -1321,48 +1320,7 @@ export default function MyPage({
               </>
             )}
 
-            {/* ===== PAYMENT VIEW (카드결제) ===== */}
-            {consultView === 'payment' && consultSelectedType && (
-              <>
-                <div className="mx-4 mt-4 bg-white rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-3xl">{consultSelectedType.icon}</span>
-                    <div>
-                      <p className="text-base font-bold text-gray-800">{consultSelectedType.title}</p>
-                      <p className="text-sm text-purple-600 font-semibold">{consultSelectedType.priceLabel}</p>
-                    </div>
-                  </div>
-                  <div className="h-px bg-gray-100 mb-5" />
-
-                  <p className="text-sm font-bold text-gray-700 mb-3">💳 카드 정보 입력</p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-400 mb-1 block">카드 번호</label>
-                      <input type="text" placeholder="0000-0000-0000-0000" value={consultCardNumber} onChange={e => setConsultCardNumber(formatCardNumber(e.target.value))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="text-xs text-gray-400 mb-1 block">유효기간</label>
-                        <input type="text" placeholder="MM/YY" value={consultCardExpiry} onChange={e => setConsultCardExpiry(formatExpiry(e.target.value))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
-                      </div>
-                      <div className="flex-1">
-                        <label className="text-xs text-gray-400 mb-1 block">CVC</label>
-                        <input type="text" placeholder="000" value={consultCardCvc} onChange={e => setConsultCardCvc(e.target.value.replace(/\D/g,'').slice(0,3))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400 mb-1 block">카드 소유자명</label>
-                      <input type="text" placeholder="홍길동" value={consultCardHolder} onChange={e => setConsultCardHolder(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mx-4 mt-3 bg-purple-50 rounded-xl p-4 border border-purple-100">
-                  <p className="text-xs text-purple-500 font-semibold mb-1">🔒 안전한 결제</p>
-                  <p className="text-xs text-purple-400 leading-relaxed">카드 정보는 암호화되어 안전하게 처리됩니다. 결제 후 확인 메일이 발송됩니다.</p>
-                </div>
-              </>
-            )}
+            {/* ===== CONFIRM VIEW 끝 ===== */}
           </div>
 
           {/* 하단 고정 버튼 */}
@@ -1377,24 +1335,13 @@ export default function MyPage({
               </button>
             </div>
           )}
-          {consultView === 'confirm' && (
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
-              <button
-                onClick={handleConsultProceedToPayment}
-                className="w-full py-4 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200"
-              >
-                💳 {consultSelectedType?.priceLabel} 결제하기
-              </button>
-            </div>
-          )}
-          {consultView === 'payment' && (
+          {consultView === 'confirm' && consultSelectedType && (
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 z-[100]">
               <button
                 onClick={handleConsultPayment}
-                disabled={consultPayProcessing}
-                className={`w-full py-4 rounded-xl text-base font-bold ${consultPayProcessing ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200'}`}
+                className="w-full py-4 rounded-xl text-base font-bold bg-gradient-to-r from-purple-600 to-indigo-700 text-white shadow-lg shadow-purple-200"
               >
-                {consultPayProcessing ? '결제 처리 중...' : `${consultSelectedType?.priceLabel} 결제 완료`}
+                💳 {consultSelectedType.priceLabel} 결제하기
               </button>
             </div>
           )}
