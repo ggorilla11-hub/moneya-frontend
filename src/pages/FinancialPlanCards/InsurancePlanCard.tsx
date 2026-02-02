@@ -1,4 +1,4 @@
-typescript// src/pages/FinancialPlanCards/InsurancePlanCard.tsx
+// src/pages/FinancialPlanCards/InsurancePlanCard.tsx
 // 보험설계 카드 (v4.1) - FinancialPlanCards.tsx v4.4에서 분리
 // 시뮬레이터 방식 가로스크롤 테이블 + 보험증권 업로드 + 준비자금 직접입력
 // 기능 변경 없음 (1:1 동일)
