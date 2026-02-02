@@ -5,7 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
-import { CardProps, EstateInputRow } from './shared';
+import type { CardProps } from './shared';
+import { EstateInputRow } from './shared';
 
 export function EstatePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({ 
