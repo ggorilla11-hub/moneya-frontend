@@ -1,4 +1,5 @@
 // src/pages/MyPage.tsx
+// v2.7.0: 설정 화면 구현 - 알림, 화면, 보안, 데이터관리, 앱정보 (localStorage 연동)
 // v2.6.5: 집 일러스트 부자지수 연동 수정 - financialResult.wealthIndex 우선, localStorage fallback
 // v2.6.4: 프로필 영역 실데이터 연동 - 집 일러스트(부자지수 5단계) + DESIRE 진행바(금융집짓기 1단계 STEP5 결과)
 // v2.6.3: 프로필 영역 일러스트 집 + DESIRE 6단계 진행바 복원
@@ -135,6 +136,13 @@ export default function MyPage({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // ─── 설정 값 (localStorage 연동) ───
+  const [settingNotification, setSettingNotification] = useState(() => localStorage.getItem('moneya_setting_notification') !== 'false');
+  const [settingDailyReminder, setSettingDailyReminder] = useState(() => localStorage.getItem('moneya_setting_dailyReminder') !== 'false');
+  const [settingSound, setSettingSound] = useState(() => localStorage.getItem('moneya_setting_sound') !== 'false');
+  const [settingBioAuth, setSettingBioAuth] = useState(() => localStorage.getItem('moneya_setting_bioAuth') === 'true');
+  const [settingAmountUnit, setSettingAmountUnit] = useState<'만원' | '원'>(() => (localStorage.getItem('moneya_setting_amountUnit') as '만원' | '원') || '만원');
+  const [showCacheClearDone, setShowCacheClearDone] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -484,7 +492,7 @@ export default function MyPage({
       <div className="mx-4 mt-3 mb-4">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <button onClick={() => setShowSettings(true)} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 text-left">
-            <span className="text-gray-400">⚙️</span><span className="flex-1 text-sm text-gray-600">설정</span><span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">개발중</span>
+            <span className="text-gray-400">⚙️</span><span className="flex-1 text-sm text-gray-600">설정</span><span className="text-gray-300">›</span>
           </button>
           <button onClick={() => setShowFAQ(true)} className="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 text-left">
             <span className="text-gray-400">❓</span><span className="flex-1 text-sm text-gray-600">고객센터 / FAQ</span><span className="text-gray-400 text-sm">›</span>
@@ -838,10 +846,111 @@ export default function MyPage({
         </div>
       )}
 
-      {/* 설정 모달 */}
+      {/* 설정 화면 (풀스크린) */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center"><p className="text-4xl mb-3">⚙️</p><h3 className="text-lg font-bold text-gray-800 mb-2">설정</h3><p className="text-sm text-gray-500 mb-4">현재 개발 중입니다.<br />알림, 테마, 언어 설정 등이 추가될 예정입니다.</p><button onClick={() => setShowSettings(false)} className="px-8 py-2.5 border border-gray-300 text-gray-600 text-sm font-bold rounded-xl">확인</button></div>
+        <div className="fixed inset-0 bg-gray-50 z-50 overflow-y-auto">
+          {/* 헤더 */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+            <button onClick={() => setShowSettings(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">
+              <span className="text-lg">←</span>
+            </button>
+            <h2 className="text-lg font-bold text-gray-800">설정</h2>
+          </div>
+
+          <div className="px-4 py-4 space-y-4 pb-20">
+
+            {/* 알림 설정 */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">🔔 알림 설정</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><p className="text-sm text-gray-700">푸시 알림</p><p className="text-xs text-gray-400">예산 초과, 목표 달성 등 알림</p></div>
+                  <button onClick={() => { const v = !settingNotification; setSettingNotification(v); localStorage.setItem('moneya_setting_notification', String(v)); }} className={`w-12 h-7 rounded-full transition-colors relative ${settingNotification ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-transform ${settingNotification ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="text-sm text-gray-700">매일 지출 리마인더</p><p className="text-xs text-gray-400">매일 저녁 9시 지출 기록 알림</p></div>
+                  <button onClick={() => { const v = !settingDailyReminder; setSettingDailyReminder(v); localStorage.setItem('moneya_setting_dailyReminder', String(v)); }} className={`w-12 h-7 rounded-full transition-colors relative ${settingDailyReminder ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-transform ${settingDailyReminder ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div><p className="text-sm text-gray-700">효과음</p><p className="text-xs text-gray-400">지출 기록 시 효과음</p></div>
+                  <button onClick={() => { const v = !settingSound; setSettingSound(v); localStorage.setItem('moneya_setting_sound', String(v)); }} className={`w-12 h-7 rounded-full transition-colors relative ${settingSound ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-transform ${settingSound ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 화면 설정 */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">🎨 화면 설정</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><p className="text-sm text-gray-700">금액 표시 단위</p><p className="text-xs text-gray-400">홈/리포트에서 금액 표시 방식</p></div>
+                  <div className="flex bg-gray-100 rounded-lg overflow-hidden">
+                    <button onClick={() => { setSettingAmountUnit('만원'); localStorage.setItem('moneya_setting_amountUnit', '만원'); }} className={`px-3 py-1.5 text-xs font-bold transition-colors ${settingAmountUnit === '만원' ? 'bg-blue-500 text-white' : 'text-gray-500'}`}>만원</button>
+                    <button onClick={() => { setSettingAmountUnit('원'); localStorage.setItem('moneya_setting_amountUnit', '원'); }} className={`px-3 py-1.5 text-xs font-bold transition-colors ${settingAmountUnit === '원' ? 'bg-blue-500 text-white' : 'text-gray-500'}`}>원</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 보안 설정 */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">🔐 보안</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div><p className="text-sm text-gray-700">생체인증 / 화면 잠금</p><p className="text-xs text-gray-400">앱 실행 시 인증 요구</p></div>
+                  <button onClick={() => { const v = !settingBioAuth; setSettingBioAuth(v); localStorage.setItem('moneya_setting_bioAuth', String(v)); }} className={`w-12 h-7 rounded-full transition-colors relative ${settingBioAuth ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-transform ${settingBioAuth ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 데이터 관리 */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">🗂️ 데이터 관리</h3>
+              <div className="space-y-1">
+                <button onClick={() => { 
+                  if (window.caches) { window.caches.keys().then(names => names.forEach(name => window.caches.delete(name))); }
+                  setShowCacheClearDone(true); 
+                  setTimeout(() => setShowCacheClearDone(false), 2000); 
+                }} className="w-full flex items-center justify-between px-1 py-3 border-b border-gray-100 hover:bg-gray-50 rounded-lg">
+                  <div><p className="text-sm text-gray-700">캐시 삭제</p><p className="text-xs text-gray-400">임시 데이터를 삭제하여 공간 확보</p></div>
+                  {showCacheClearDone ? <span className="text-xs text-green-600 font-bold">✅ 완료</span> : <span className="text-gray-300">›</span>}
+                </button>
+              </div>
+            </div>
+
+            {/* 앱 정보 */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">📱 앱 정보</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-sm text-gray-700">앱 버전</span>
+                  <span className="text-sm text-gray-400">1.0.0 (Beta)</span>
+                </div>
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-sm text-gray-700">빌드</span>
+                  <span className="text-sm text-gray-400">2026.02.03</span>
+                </div>
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-sm text-gray-700">개발</span>
+                  <span className="text-sm text-gray-400">오원트금융연구소</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 하단 안내 */}
+            <p className="text-center text-xs text-gray-400 pt-2">
+              설정은 이 기기에 저장됩니다.<br />다른 기기에서는 별도로 설정해주세요.
+            </p>
+
+          </div>
         </div>
       )}
 
