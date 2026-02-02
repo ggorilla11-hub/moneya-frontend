@@ -221,6 +221,9 @@ function AIConversation({
   // 🆕 v6: GPS 준비중 모달 상태
   const [showGPSModal, setShowGPSModal] = useState(false);
   
+  // 🆕 v7: 금융결제원 오픈API 준비중 모달 상태
+  const [showOpenAPIModal, setShowOpenAPIModal] = useState(false);
+  
   // 🆕 v4: SpendContext에서 addSpendItem, spendItems 가져오기
   const { addSpendItem, spendItems } = useSpend();
   
@@ -927,6 +930,51 @@ function AIConversation({
         </div>
       )}
 
+      {/* 🆕 v7: 금융결제원 오픈API 준비중 모달 */}
+      {showOpenAPIModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 text-center animate-slide-up">
+            {/* 은행 아이콘 애니메이션 */}
+            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-full flex items-center justify-center relative">
+              <span className="text-4xl">🏦</span>
+              {/* 펄스 링 애니메이션 */}
+              <div className="absolute inset-0 rounded-full border-4 border-indigo-400 animate-ping opacity-30"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-blue-300 animate-pulse"></div>
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-800 mb-2">🏦 금융결제원 오픈API 연결</h3>
+            <p className="text-gray-500 text-sm mb-4 leading-relaxed">
+              계좌를 연결하면<br/>
+              <span className="text-indigo-600 font-semibold">지출 내역이 자동으로 기록</span>되어<br/>
+              수동 입력 없이 관리할 수 있어요!
+            </p>
+            
+            {/* 연결 가능 은행 미리보기 */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-4 mb-5 border border-indigo-200">
+              <p className="text-xs text-indigo-600 font-semibold mb-2">연결 가능 은행</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {['🏦 국민', '🏦 신한', '🏦 우리', '🏦 하나', '🏦 농협', '🏦 카카오', '🏦 토스'].map((bank, i) => (
+                  <span key={i} className="bg-white px-2 py-1 rounded-lg text-xs text-gray-700 shadow-sm">{bank}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* 준비중 배지 */}
+            <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              서비스 준비중입니다
+            </div>
+            
+            <button 
+              onClick={() => setShowOpenAPIModal(false)}
+              className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 text-white py-3 rounded-xl font-bold text-base hover:opacity-90 transition-opacity"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 🆕 v2: 입력 방식 선택 모달 */}
       {showInputMethodModal && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
@@ -974,6 +1022,19 @@ function AIConversation({
                   <p className="text-xs text-gray-500">머니야에게 말하기</p>
                 </div>
                 <span className="text-gray-400">›</span>
+              </button>
+              
+              {/* 🆕 v7: 금융결제원 오픈API 연결 배너 */}
+              <button 
+                onClick={() => { setShowInputMethodModal(false); setShowOpenAPIModal(true); }}
+                className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-xl hover:border-indigo-500 hover:from-indigo-100 hover:to-blue-100 transition-all"
+              >
+                <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center text-xl">🏦</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-indigo-800">금융결제원 오픈API 연결</p>
+                  <p className="text-xs text-indigo-600">계좌 연동으로 자동 지출 기록</p>
+                </div>
+                <span className="text-indigo-500">›</span>
               </button>
             </div>
           </div>
