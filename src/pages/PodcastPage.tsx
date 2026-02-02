@@ -29,7 +29,7 @@ export default function PodcastPage({ onBack }: PodcastPageProps) {
   const [enteredPin, setEnteredPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [tapCount, setTapCount] = useState(0);
-  const tapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // ─── 제작자 모드 세션 저장 (localStorage) ───
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function PodcastPage({ onBack }: PodcastPageProps) {
   const [creatorTab, setCreatorTab] = useState<'teleprompter' | 'aiTalk' | 'live' | 'schedule'>('teleprompter');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
-  const recordIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // ─── 텔레프롬프터 원고 ───
   const [scriptText, setScriptText] = useState(`안녕하세요, 오상열의 재무상담쇼에 오신 것을 환영합니다.
