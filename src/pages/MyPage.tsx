@@ -1,4 +1,7 @@
 // src/pages/MyPage.tsx
+// v2.6.4: 프로필 영역 실데이터 연동 - 집 일러스트(부자지수 5단계) + DESIRE 진행바(금융집짓기 1단계 STEP5 결과)
+// v2.6.3: 프로필 영역 일러스트 집 + DESIRE 6단계 진행바 복원
+// v2.6.2: 전자책 모달 복원
 // v2.6.1: 온라인강좌 107강 모달 UI 복원 (v2.2 스타일)
 // - v2.2: 온라인강좌 페이지 연결
 // - v2.3: 공유 URL, DESIRE 로드맵 (실제 financialHouseData 연동)
@@ -277,31 +280,58 @@ export default function MyPage({
   const handleResetConfirm = () => { setShowResetConfirm(false); onReset(); };
   const displayName = userName.split('(')[0].trim();
 
-  // ─── 현재 DESIRE 단계 계산 (프로필 영역 일러스트용) ───
-  const desireStage: number | null = (() => {
+  // ─── financialHouseData에서 실데이터 로드 ───
+  const financialHouseData = (() => {
     try {
       const raw = localStorage.getItem('financialHouseData');
       if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (data?.desireStage?.stage) return data.desireStage.stage;
-      // desireStage가 없으면 완료 상태에서 추론
-      const completed = localStorage.getItem('desireCompleted');
-      if (completed) {
-        const c = JSON.parse(completed);
-        for (let i = 6; i >= 1; i--) { if (c[i]) return i; }
-      }
-      return 1;
+      return JSON.parse(raw);
     } catch { return null; }
   })();
-  const currentStageInfo = desireStage ? {
-    ...DESIRE_STAGES[desireStage - 1],
-    weather: ['⛈️', '☁️', '⛅', '☀️', '🌤️', '🌈'][desireStage - 1],
-    bgColor: [
-      'from-red-100 to-red-50', 'from-orange-100 to-orange-50', 'from-yellow-100 to-yellow-50',
-      'from-blue-100 to-blue-50', 'from-purple-100 to-purple-50', 'from-emerald-100 to-emerald-50'
-    ][desireStage - 1],
-    textColor: ['text-red-600', 'text-orange-600', 'text-yellow-600', 'text-blue-600', 'text-purple-600', 'text-emerald-600'][desireStage - 1],
-  } : null;
+
+  // ─── ① 부자지수 기반 집 일러스트 5단계 ───
+  // 공식: (순자산 × 10) ÷ (나이 × 월수입 × 12) × 100
+  const houseLevel: number | null = (() => {
+    if (!financialHouseData) return null;
+    const p = financialHouseData.personalInfo;
+    const inc = financialHouseData.income;
+    const ageVal = p?.age || 0;
+    const monthlyIncome = (inc?.myIncome || 0) + (inc?.spouseIncome || 0) + (inc?.otherIncome || 0);
+    const totalAsset = financialHouseData.totalAsset || 0;
+    const totalDebt = financialHouseData.debts?.totalDebt || 0;
+    const netAsset = totalAsset - totalDebt;
+
+    if (ageVal <= 0 || monthlyIncome <= 0) return 1; // 데이터 부족 시 1단계
+    const wealthIndex = (netAsset * 10) / (ageVal * monthlyIncome * 12) * 100;
+
+    if (wealthIndex <= 0) return 1;        // 0% 이하 → 1단계
+    if (wealthIndex <= 50) return 2;       // 50% 이하 → 2단계
+    if (wealthIndex <= 100) return 3;      // 100% 이하 → 3단계
+    if (wealthIndex <= 200) return 4;      // 200% 이하 → 4단계
+    return 5;                              // 200% 초과 → 5단계
+  })();
+
+  // 집 일러스트 5단계 정보
+  const HOUSE_LEVELS = [
+    { level: 1, house: '🏚️', houseName: '초가집', weather: '⛈️', bgColor: 'from-red-100 to-red-50', label: '미흡' },
+    { level: 2, house: '🏠', houseName: '나무집', weather: '☁️', bgColor: 'from-orange-100 to-orange-50', label: '보통' },
+    { level: 3, house: '🏡', houseName: '벽돌집', weather: '⛅', bgColor: 'from-yellow-100 to-yellow-50', label: '양호' },
+    { level: 4, house: '🏛️', houseName: '콘크리트', weather: '☀️', bgColor: 'from-blue-100 to-blue-50', label: '우수' },
+    { level: 5, house: '🏰', houseName: '고급주택', weather: '🌈', bgColor: 'from-emerald-100 to-emerald-50', label: '훌륭' },
+  ];
+  const currentHouseInfo = houseLevel ? HOUSE_LEVELS[houseLevel - 1] : null;
+
+  // ─── ② DESIRE 단계 (금융집짓기 1단계 STEP 5/5 결과) ───
+  const desireStage: number | null = (() => {
+    if (!financialHouseData) return null;
+    if (financialHouseData.desireStage?.stage) return financialHouseData.desireStage.stage;
+    return 1;
+  })();
+
+  // DESIRE 진행바 색상
+  const desireTextColor = desireStage
+    ? ['text-red-600', 'text-orange-600', 'text-yellow-600', 'text-blue-600', 'text-purple-600', 'text-emerald-600'][desireStage - 1]
+    : 'text-gray-400';
 
   // ═══════════════════════════════════════
   // ▶ 렌더링
@@ -328,30 +358,39 @@ export default function MyPage({
             </div>
           </div>
           
-          {/* 오른쪽: 금융집짓기 일러스트 + DESIRE 진행바 */}
+          {/* 오른쪽: 금융집짓기 일러스트(부자지수) + DESIRE 진행바 */}
           <div className="flex flex-col items-center justify-center w-32">
-            {currentStageInfo ? (
+            {currentHouseInfo ? (
               <>
-                <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${currentStageInfo.bgColor} flex flex-col items-center justify-center shadow-md border border-gray-100`}>
-                  <span className="text-base mb-0.5">{currentStageInfo.weather}</span>
-                  <span className="text-4xl">{currentStageInfo.house}</span>
-                  <span className="text-[10px] text-gray-600 font-semibold mt-0.5">{currentStageInfo.houseName}</span>
+                <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${currentHouseInfo.bgColor} flex flex-col items-center justify-center shadow-md border border-gray-100`}>
+                  <span className="text-base mb-0.5">{currentHouseInfo.weather}</span>
+                  <span className="text-4xl">{currentHouseInfo.house}</span>
+                  <span className="text-[10px] text-gray-600 font-semibold mt-0.5">{currentHouseInfo.houseName}</span>
                 </div>
                 <div className="w-full mt-2">
-                  <div className="flex items-center justify-center gap-1 mb-1.5">
-                    <span className={`text-xs font-bold ${currentStageInfo.textColor}`}>DESIRE</span>
-                    <span className="text-xs text-gray-600 font-semibold">{desireStage}단계</span>
-                  </div>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5, 6].map((step) => (
-                      <div key={step} className={`h-2 flex-1 rounded-full ${step <= (desireStage || 0) ? step <= 2 ? 'bg-red-400' : step <= 4 ? 'bg-yellow-400' : 'bg-emerald-400' : 'bg-gray-200'}`} />
-                    ))}
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    {[1, 2, 3, 4, 5, 6].map((step) => (
-                      <span key={step} className={`text-[9px] ${step === desireStage ? 'font-bold text-gray-800' : 'text-gray-400'}`}>{step}</span>
-                    ))}
-                  </div>
+                  {/* DESIRE 진행바 */}
+                  {desireStage ? (
+                    <>
+                      <div className="flex items-center justify-center gap-1 mb-1.5">
+                        <span className={`text-xs font-bold ${desireTextColor}`}>DESIRE</span>
+                        <span className="text-xs text-gray-600 font-semibold">{desireStage}단계</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5, 6].map((step) => (
+                          <div key={step} className={`h-2 flex-1 rounded-full ${step <= desireStage ? step <= 2 ? 'bg-red-400' : step <= 4 ? 'bg-yellow-400' : 'bg-emerald-400' : 'bg-gray-200'}`} />
+                        ))}
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        {[1, 2, 3, 4, 5, 6].map((step) => (
+                          <span key={step} className={`text-[9px] ${step === desireStage ? 'font-bold text-gray-800' : 'text-gray-400'}`}>{step}</span>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center mt-1">
+                      <span className="text-[9px] text-gray-400">부자지수 {houseLevel}단계</span>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
