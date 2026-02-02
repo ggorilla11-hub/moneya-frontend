@@ -318,9 +318,9 @@ export default function MyPage({
     'general-lecture': 'https://link.payple.kr/NzcxOjc2ODQ3NzcyMjc4MzY3',
   };
   const CONSULT_TYPES = [
-    { id: 'non-face', icon: '🎥', title: '비대면 상담', desc: '화상으로 진행되는 1:1 맞춤 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 330000, priceLabel: '33만원', sessions: 2, category: 'consultation' as const },
-    { id: 'face', icon: '🤝', title: '대면 상담', desc: '직접 만나서 진행하는 심층 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 550000, priceLabel: '55만원', sessions: 2, category: 'consultation' as const },
-    { id: 'vip', icon: '👑', title: '자산가 상담', desc: '금융자산 10억원 초과 고객 전용 VIP 상담', detail: '3회 진행 · 일정 별도 협의', price: 1100000, priceLabel: '110만원', sessions: 3, premium: true, category: 'consultation' as const },
+    { id: 'non-face', icon: '💰', title: '비대면 상담', desc: '화상으로 진행되는 1:1 맞춤 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 330000, priceLabel: '33만원', sessions: 2, category: 'consultation' as const },
+    { id: 'face', icon: '💵', title: '대면 상담', desc: '직접 만나서 진행하는 심층 재무상담', detail: '2회 진행 · 일정 별도 협의', price: 550000, priceLabel: '55만원', sessions: 2, category: 'consultation' as const },
+    { id: 'vip', icon: '📈', title: '자산가 상담', desc: '금융자산 10억원 초과 고객 전용 VIP 상담', detail: '3회 진행 · 일정 별도 협의', price: 1100000, priceLabel: '110만원', sessions: 3, premium: true, category: 'consultation' as const },
     { id: 'expert-lecture', icon: '🎓', title: '전문가 강의', desc: '보험설계사·FP 대상 실전 재무설계 강의', detail: '대면+비대면 · 월 4회 · 1년 과정', price: 1100000, priceLabel: '110만원', priceSub: '1년 과정', sessions: 4, category: 'lecture' as const, scheduleType: 'expert' },
     { id: 'general-lecture', icon: '📚', title: '일반인 강의', desc: '누구나 들을 수 있는 재무설계 기초 강의', detail: '비대면 · 월 4회 · 연간 일정표 제공', price: 550000, priceLabel: '55만원', sessions: 4, category: 'lecture' as const, scheduleType: 'general' },
   ];
@@ -1112,15 +1112,11 @@ export default function MyPage({
 
           {/* 헤더 */}
           <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-4 py-4 flex items-center justify-between shrink-0">
-            {consultView !== 'list' ? (
-              <button onClick={handleConsultGoBack} className="w-10 h-10 flex items-center justify-center text-white text-xl">←</button>
-            ) : (
-              <div className="w-10" />
-            )}
+            <button onClick={consultView === 'list' ? closeExpertConsultModal : handleConsultGoBack} className="w-10 h-10 flex items-center justify-center text-white text-xl">←</button>
             <span className="text-white text-base font-bold">
               {consultView === 'list' ? '전문가 강의상담' : consultView === 'schedule' ? '수강 월 선택' : '예약 확인'}
             </span>
-            <button onClick={closeExpertConsultModal} className="w-10 h-10 flex items-center justify-center text-white text-xl">✕</button>
+            <div className="w-10" />
           </div>
 
           {/* 본문 */}
@@ -1215,9 +1211,9 @@ export default function MyPage({
                 {consultSelectedType.id === 'expert-lecture' && (
                   <div className="mx-4 mt-2 bg-white rounded-xl p-3.5 border border-gray-100">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <span className="text-lg">🎥</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
+                      <span className="text-lg">🖥️</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
                       <span className="text-base font-bold text-purple-600 mx-1">+</span>
-                      <span className="text-lg">🤝</span><span className="text-sm font-semibold text-gray-800">대면</span>
+                      <span className="text-lg">🏢</span><span className="text-sm font-semibold text-gray-800">대면</span>
                     </div>
                     <p className="text-xs text-gray-400 text-center">대면+비대면 병행 · 1년 과정 · 110만원</p>
                   </div>
@@ -1225,7 +1221,7 @@ export default function MyPage({
                 {consultSelectedType.id === 'general-lecture' && (
                   <div className="mx-4 mt-2 bg-white rounded-xl p-3.5 border border-gray-100">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <span className="text-lg">🎥</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
+                      <span className="text-lg">🖥️</span><span className="text-sm font-semibold text-gray-800">비대면 (화상)</span>
                     </div>
                     <p className="text-xs text-gray-400 text-center">비대면 진행 · 55만원</p>
                   </div>
