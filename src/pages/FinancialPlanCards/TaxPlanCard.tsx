@@ -5,7 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
-import { CardProps, TaxInputRow } from './shared';
+import type { CardProps } from './shared';
+import { TaxInputRow } from './shared';
 
 export function TaxPlanCard({ onNext, onPrev, onOpenOCR }: CardProps) {
   const [activeTab, setActiveTab] = useState<'income' | 'inheritance'>('income');
