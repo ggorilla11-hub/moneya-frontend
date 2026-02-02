@@ -277,25 +277,90 @@ export default function MyPage({
   const handleResetConfirm = () => { setShowResetConfirm(false); onReset(); };
   const displayName = userName.split('(')[0].trim();
 
+  // ─── 현재 DESIRE 단계 계산 (프로필 영역 일러스트용) ───
+  const desireStage: number | null = (() => {
+    try {
+      const raw = localStorage.getItem('financialHouseData');
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (data?.desireStage?.stage) return data.desireStage.stage;
+      // desireStage가 없으면 완료 상태에서 추론
+      const completed = localStorage.getItem('desireCompleted');
+      if (completed) {
+        const c = JSON.parse(completed);
+        for (let i = 6; i >= 1; i--) { if (c[i]) return i; }
+      }
+      return 1;
+    } catch { return null; }
+  })();
+  const currentStageInfo = desireStage ? {
+    ...DESIRE_STAGES[desireStage - 1],
+    weather: ['⛈️', '☁️', '⛅', '☀️', '🌤️', '🌈'][desireStage - 1],
+    bgColor: [
+      'from-red-100 to-red-50', 'from-orange-100 to-orange-50', 'from-yellow-100 to-yellow-50',
+      'from-blue-100 to-blue-50', 'from-purple-100 to-purple-50', 'from-emerald-100 to-emerald-50'
+    ][desireStage - 1],
+    textColor: ['text-red-600', 'text-orange-600', 'text-yellow-600', 'text-blue-600', 'text-purple-600', 'text-emerald-600'][desireStage - 1],
+  } : null;
+
   // ═══════════════════════════════════════
   // ▶ 렌더링
   // ═══════════════════════════════════════
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
 
-      {/* ─── 프로필 섹션 ─── */}
+      {/* ─── 프로필 섹션 (v2.0 복원: 일러스트 집 + DESIRE 진행바) ─── */}
       <div className="bg-white p-5 border-b border-gray-200">
-        <div className="flex items-center gap-4 mb-4">
-          <img src={LOGO_URL} alt="AI머니야 로고" className="w-14 h-14 rounded-full object-cover border-2 border-gray-200" />
-          <div className="flex-1">
-            <p className="text-lg font-extrabold text-gray-800">{displayName}님</p>
-            <p className="text-xs text-gray-400">{userEmail}</p>
+        <div className="flex gap-4">
+          {/* 왼쪽: 로고 + 이름/이메일 + 구독상태 */}
+          <div className="flex-1 flex flex-col justify-between">
+            <div className="flex items-center gap-3 mb-3">
+              <img src={LOGO_URL} alt="AI머니야 로고" className="w-14 h-14" />
+              <div>
+                <p className="font-extrabold text-lg text-gray-900">{displayName}님</p>
+                <p className="text-sm text-gray-500">{userEmail}</p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl self-start">
+              <span className="text-base">👑</span>
+              <span className="text-sm font-bold text-purple-600">프리미엄급 이용 중</span>
+              <span className="text-xs text-gray-500 ml-1">무료체험</span>
+            </div>
           </div>
-          <button onClick={() => setShowProfileEdit(true)} className="px-3 py-1.5 text-xs font-semibold text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">프로필 편집</button>
-        </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl">
-          <span className="text-sm">✨</span>
-          <span className="text-xs font-bold text-purple-600">프리미엄급 이용 중 (무료체험)</span>
+          
+          {/* 오른쪽: 금융집짓기 일러스트 + DESIRE 진행바 */}
+          <div className="flex flex-col items-center justify-center w-32">
+            {currentStageInfo ? (
+              <>
+                <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${currentStageInfo.bgColor} flex flex-col items-center justify-center shadow-md border border-gray-100`}>
+                  <span className="text-base mb-0.5">{currentStageInfo.weather}</span>
+                  <span className="text-4xl">{currentStageInfo.house}</span>
+                  <span className="text-[10px] text-gray-600 font-semibold mt-0.5">{currentStageInfo.houseName}</span>
+                </div>
+                <div className="w-full mt-2">
+                  <div className="flex items-center justify-center gap-1 mb-1.5">
+                    <span className={`text-xs font-bold ${currentStageInfo.textColor}`}>DESIRE</span>
+                    <span className="text-xs text-gray-600 font-semibold">{desireStage}단계</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5, 6].map((step) => (
+                      <div key={step} className={`h-2 flex-1 rounded-full ${step <= (desireStage || 0) ? step <= 2 ? 'bg-red-400' : step <= 4 ? 'bg-yellow-400' : 'bg-emerald-400' : 'bg-gray-200'}`} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    {[1, 2, 3, 4, 5, 6].map((step) => (
+                      <span key={step} className={`text-[9px] ${step === desireStage ? 'font-bold text-gray-800' : 'text-gray-400'}`}>{step}</span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="w-24 h-24 rounded-2xl bg-gray-100 flex flex-col items-center justify-center border border-gray-200">
+                <span className="text-3xl mb-1">🏠</span>
+                <span className="text-[9px] text-gray-400 text-center">재무설계를<br/>시작하세요</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
