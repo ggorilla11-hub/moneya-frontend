@@ -1,6 +1,6 @@
 // src/components/FinancialReport.tsx
 // 종합재무설계 리포트 v3.0 (Phase 1 + 2 + 3 최종 통합)
-// ★★★ v3.0: 보험설계, DESIRE분석, Executive Summary, Action Plan, 금융집 시각화 추가 ★★★
+// ★★★ v3.2: 섹션순서변경 + 금융집SVG 추가, DESIRE분석, Executive Summary, Action Plan, 금융집 시각화 추가 ★★★
 //
 // [Phase 1] 커버 / 인적사항 / 관심사&목표 / 부채설계 / 저축설계 / 부동산설계
 // [Phase 2] 은퇴설계 / 투자설계 / 세금설계
@@ -295,6 +295,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
+
             {/* ── 섹션 1: 인적사항 ── */}
             <Sec num="01" title="인적사항" color="indigo">
               <div className="grid grid-cols-3 gap-2">
@@ -321,8 +322,123 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               {data.goal&&goalLabels[data.goal]&&(<div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-3.5 border border-teal-100"><p className="text-[10px] text-teal-500 font-semibold mb-1">🏆 최우선 재무목표</p><div className="flex items-center gap-2"><span className="text-2xl">{goalLabels[data.goal].emoji}</span><span className="text-base font-bold text-teal-700">{goalLabels[data.goal].label}</span></div></div>)}
             </Sec>
 
-            {/* ── 섹션 3: 부채설계 ── */}
-            <Sec num="03" title="부채설계" color="rose" pill={debtG}>
+            {/* ── ★ 금융집짓기 내부 SVG 다이어그램 ── */}
+            <section className="overflow-hidden rounded-2xl shadow-sm print:break-before-page">
+              <div className="relative bg-gradient-to-b from-teal-400 to-teal-500 p-3">
+                <div className="w-full max-w-[340px] mx-auto">
+                  {/* 지붕 */}
+                  <div className="relative">
+                    <svg viewBox="0 0 340 90" className="w-full" preserveAspectRatio="xMidYMid meet">
+                      <polygon points="255,10 295,10 295,66 255,45" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
+                      <polygon points="170,0 0,90 170,90" fill="#C0392B" stroke="#333" strokeWidth="1.5"/>
+                      <polygon points="170,0 340,90 170,90" fill="#27AE60" stroke="#333" strokeWidth="1.5"/>
+                      <line x1="170" y1="0" x2="170" y2="90" stroke="#333" strokeWidth="1"/>
+                    </svg>
+                    <div className="absolute inset-0 flex">
+                      <div className="flex-1 flex flex-col items-end justify-center pt-6 pr-3">
+                        <p className="text-[11px] font-extrabold text-white">📈 투자</p>
+                        <p className="text-[9px] text-white/90 mt-0.5">부자지수 <span className="font-bold">{data.invest.wealthIndex > 0 ? `${data.invest.wealthIndex}%` : '-'}</span></p>
+                        <p className="text-[8px] text-white/80">순자산 <span className="font-bold">{data.netAst > 0 ? fmt.eok(data.netAst) : '-'}</span></p>
+                      </div>
+                      <div className="flex-1 flex flex-col items-start justify-center pt-6 pl-3">
+                        <p className="text-[11px] font-extrabold text-white">💸 세금</p>
+                        <p className="text-[9px] text-white/90 mt-0.5">결정세액 <span className="font-bold">{data.tax.determinedTax > 0 ? fmt.manwon(data.tax.determinedTax) : '-'}</span></p>
+                        <p className="text-[8px] text-white/80">예상상속세 <span className="font-bold">{data.tax.inherit.tax > 0 ? fmt.manwon(data.tax.inherit.tax) : '-'}</span></p>
+                      </div>
+                    </div>
+                    <div className="absolute right-[38px] top-[20px] text-center">
+                      <p className="text-[9px] font-bold text-gray-700">🏠 부동산</p>
+                      <p className="text-[7px] text-gray-600">{data.reAst.residential > 0 ? fmt.eok(data.reAst.residential) : '-'}</p>
+                    </div>
+                  </div>
+                  {/* 처마보 */}
+                  {(()=>{const eP=Math.max(0,data.retire.retireAge-data.pi.age);const rP=Math.max(0,90-data.retire.retireAge);return(
+                  <div className="bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border-x-2 border-gray-800 px-2 py-1.5 flex items-center justify-between">
+                    <div className="text-center"><p className="text-[13px] font-extrabold text-gray-800">{data.pi.age}</p><p className="text-[7px] text-gray-500">현재</p></div>
+                    <div className="flex-1 flex items-center justify-center mx-1"><div className="flex items-center gap-0.5"><span className="text-red-500 text-[8px]">◀</span><div className="flex-1 h-[1px] bg-red-400 min-w-[20px]"/><span className="text-[9px] font-bold text-red-500 px-1">{eP}년</span><div className="flex-1 h-[1px] bg-red-400 min-w-[20px]"/><span className="text-red-500 text-[8px]">▶</span></div></div>
+                    <div className="text-center"><p className="text-[13px] font-extrabold text-gray-800">{data.retire.retireAge}</p><p className="text-[7px] text-gray-500">은퇴</p></div>
+                    <div className="flex-1 flex items-center justify-center mx-1"><div className="flex items-center gap-0.5"><span className="text-red-500 text-[8px]">◀</span><div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"/><span className="text-[9px] font-bold text-red-500 px-1">{rP}년</span><div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"/><span className="text-red-500 text-[8px]">▶</span></div></div>
+                    <div className="text-center"><p className="text-[13px] font-extrabold text-gray-800">90</p><p className="text-[7px] text-gray-500">기대수명</p></div>
+                  </div>);})()}
+                  {/* 기둥 */}
+                  <div className="flex border-x-2 border-gray-800" style={{height:'110px'}}>
+                    <div className="relative border-r-2 border-gray-800" style={{flex:'50'}}>
+                      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                        <polygon points="0,0 100,0 0,100" fill="#F1C40F"/>
+                        <polygon points="100,0 100,100 0,100" fill="#8B4513"/>
+                        <line x1="0" y1="100" x2="100" y2="0" stroke="#333" strokeWidth="0.5"/>
+                      </svg>
+                      <div className="absolute top-2 left-2 text-left">
+                        <p className="text-[10px] font-extrabold text-gray-800">💳 부채 <span className="text-red-500">↓</span></p>
+                        <p className="text-[8px] text-gray-700">총부채 <span className="font-bold">{data.dbt.totalDebt > 0 ? fmt.eok(data.dbt.totalDebt) : '-'}</span></p>
+                        <p className="text-[8px] text-gray-700">부채비율 <span className="font-bold text-red-600">{data.dRatio > 0 ? `${data.dRatio}%` : '-'}</span></p>
+                      </div>
+                      <div className="absolute bottom-2 right-2 text-right">
+                        <p className="text-[10px] font-extrabold text-white"><span className="text-green-300">↑</span> 💰 저축</p>
+                        <p className="text-[8px] text-white/90">목적: {data.save.purpose||'-'}</p>
+                        <p className="text-[8px] text-white/90">기간: {data.save.targetYears>0?`${data.save.targetYears}년`:'-'}</p>
+                        <p className="text-[8px] text-white/90">목표금액: <span className="font-bold">{data.save.targetAmount > 0 ? fmt.manwon(data.save.targetAmount) : '-'}</span></p>
+                        <p className="text-[8px] text-white/90">월저축 <span className="font-bold">{data.save.monthlySavingRequired > 0 ? fmt.manwon(data.save.monthlySavingRequired) : '-'}</span></p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col bg-gradient-to-b from-blue-100 to-blue-200" style={{flex:'50'}}>
+                      <div className="flex-1 px-2 py-1.5 flex flex-col justify-center gap-0.5">
+                        <p className="text-[10px] font-extrabold text-blue-700 mb-0.5">🏖️ 은퇴</p>
+                        <div className="flex justify-between"><span className="text-[8px] text-gray-600">필요자금(월)</span><span className="text-[9px] font-semibold text-gray-800">{fmt.manwon(data.retire.requiredMonthly)}</span></div>
+                        <div className="flex justify-between"><span className="text-[8px] text-gray-600">준비자금(월)</span><span className="text-[9px] font-semibold text-gray-800">{fmt.manwon(data.retire.preparedMonthly||data.retire.totalPreparedMonthly)}</span></div>
+                        <div className="flex justify-between"><span className="text-[8px] text-gray-600">부족자금(월)</span><span className="text-[9px] font-bold text-red-500">{fmt.manwon(data.retire.monthlyShortfall)}</span></div>
+                        <div className="border-t border-gray-300 mt-0.5 pt-0.5">
+                          <div className="flex justify-between"><span className="text-[7px] text-gray-500">순은퇴일시금</span><span className="text-[8px] font-bold text-red-500">{fmt.eok(data.retire.totalRequiredRetireFund||0)}</span></div>
+                          <div className="flex justify-between"><span className="text-[7px] text-gray-500">월저축연금액</span><span className="text-[8px] font-semibold text-gray-800">{fmt.manwon(data.retire.monthlySavingForRetire||0)}</span></div>
+                          <div className="flex justify-between"><span className="text-[7px] text-gray-500">은퇴준비율</span><span className="text-[8px] font-bold text-blue-600">{data.retire.retirementReadyRate}%</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 보험 */}
+                  <div className="border-2 border-t-0 border-gray-800 px-2 py-2" style={{backgroundColor:'#3E2723'}}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] font-extrabold text-amber-300">🛡️ 보장성 보험 (8대 보장)</p>
+                    </div>
+                    <div className="flex gap-1">
+                      {data.insurance.items.map((item: any, idx: number) => {
+                        const ratio = item.needed > 0 ? (item.prepared / item.needed) * 100 : 0;
+                        const hasData = item.needed > 0 || item.prepared > 0;
+                        const barPercent = Math.min((ratio / 200) * 100, 100);
+                        const isOver = ratio > 100;
+                        return (
+                          <div key={idx} className="flex-1 flex flex-col items-center">
+                            <div className="w-full h-12 rounded-sm overflow-hidden flex flex-col justify-end relative" style={{backgroundColor:'#5D4037'}}>
+                              <div className="absolute left-0 right-0 h-[2px] bg-red-500 z-10" style={{bottom:'50%'}}/>
+                              {hasData && (<div className="w-full rounded-t-sm" style={{height:`${barPercent}%`,backgroundColor:isOver?'#F39C12':'#F1C40F',minHeight:barPercent>0?'2px':'0'}}/>)}
+                              {!hasData && (<div className="flex items-center justify-center h-full"><p className="text-[5px] text-gray-400">미입력</p></div>)}
+                            </div>
+                            <p className={`text-[7px] font-semibold mt-0.5 ${ratio >= 100 ? 'text-green-400' : ratio > 0 ? 'text-amber-300' : 'text-gray-500'}`}>{hasData ? `${Math.round(ratio)}%` : '-'}</p>
+                            <p className="text-[6px] text-amber-200/80 leading-tight text-center whitespace-pre-line">{item.label}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 justify-center">
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-sm" style={{backgroundColor:'#F1C40F'}}/><span className="text-[6px] text-amber-200/70">준비자금</span></div>
+                      <div className="flex items-center gap-1"><div className="w-3 h-[2px] bg-red-500"/><span className="text-[6px] text-amber-200/70">필요자금(기준)</span></div>
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-white/80 text-center mt-2">출처: 한국FPSB, 오원트금융연구소</p>
+                </div>
+              </div>
+            </section>
+
+            {/* ── 섹션 3: 은퇴설계 ── */}
+            <Sec num="03" title="은퇴설계" color="sky" pill={retG}>
+              <div className="flex items-start gap-3"><GB g={retG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">은퇴 준비율</p><p className="text-2xl font-extrabold" style={{color:retG.color}}>{data.retire.retirementReadyRate}%</p><div className="mt-1.5 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${Math.min(100,data.retire.retirementReadyRate)}%`,backgroundColor:retG.color}}/></div><p className="text-[9px] text-slate-400 mt-1">준비된 월수령액 ÷ 필요 월생활비</p></div></div>
+              <div className="bg-sky-50 rounded-xl p-3 border border-sky-100"><p className="text-[10px] text-sky-500 font-semibold mb-2">⏱️ 은퇴 타임라인</p><div className="grid grid-cols-3 gap-2 text-center">{[{v:data.retire.currentAge,l:'현재',c:'text-sky-700'},{v:data.retire.retireAge,l:'은퇴',c:'text-amber-600'},{v:90,l:'기대수명',c:'text-slate-500'}].map(x=>(<div key={x.l}><p className={`text-lg font-extrabold ${x.c}`}>{x.v}세</p><p className="text-[9px] text-slate-400">{x.l}</p></div>))}</div><div className="mt-2 flex items-center gap-2 text-[10px]"><span className="bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full">경제활동 {data.retire.yearsToRetire}년</span><span className="text-slate-300">→</span><span className="bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">은퇴생활 {data.retire.retireYears}년</span></div></div>
+              <RetireTable data={data.retire}/>
+              {data.retire.monthlyShortfall>0?(<div className="bg-gradient-to-r from-rose-50 to-orange-50 rounded-xl p-3.5 border border-rose-100 space-y-2"><p className="text-[10px] text-rose-500 font-semibold">⚠️ 부족분 분석</p><div className="grid grid-cols-2 gap-2"><div><p className="text-[9px] text-slate-400">월부족액</p><p className="text-base font-extrabold text-rose-600">{fmt.manwon(data.retire.monthlyShortfall)}/월</p></div><div><p className="text-[9px] text-slate-400">총부족자금</p><p className="text-base font-extrabold text-rose-700">{fmt.eok(data.retire.totalRequiredRetireFund)}</p></div></div><div className="bg-white rounded-lg p-2.5 border border-rose-100"><p className="text-[10px] text-slate-500">{data.retire.yearsToRetire}년간 매월 추가저축:</p><p className="text-xl font-extrabold text-rose-600">{fmt.manwon(data.retire.additionalMonthlySaving)}/월</p></div></div>):data.retire.requiredMonthly>0?(<div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-3.5 border border-emerald-100"><p className="text-sm font-bold text-emerald-700">✅ 은퇴 준비 충분!</p></div>):null}
+            </Sec>
+
+            {/* ── 섹션 4: 부채설계 ── */}
+            <Sec num="04" title="부채설계" color="rose" pill={debtG}>
               <div className="flex items-start gap-3">
                 <GB g={debtG}/>
                 <div className="flex-1 grid grid-cols-2 gap-2">
@@ -335,29 +451,15 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <EmergencyBox fund={data.emFund} months={data.emMon} required={data.mReq} grade={emG} isDual={data.invest.isDualIncome} recAmt={data.invest.recommendedEmergency}/>
             </Sec>
 
-            {/* ── 섹션 4: 저축설계 ── */}
-            <Sec num="04" title="저축설계" color="emerald" pill={savG}>
+            {/* ── 섹션 5: 저축설계 ── */}
+            <Sec num="05" title="저축설계" color="emerald" pill={savG}>
               <div className="flex items-start gap-3"><GB g={savG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">저축률</p><p className="text-2xl font-extrabold" style={{color:savG.color}}>{data.savRate}%</p><p className="text-[9px] text-slate-400">월소득 대비 저축+연금 (권장 20%↑)</p></div></div>
               {data.save.targetAmount>0&&(<div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100"><p className="text-[10px] text-emerald-500 font-semibold mb-2">🎯 목표 달성 계획</p><div className="grid grid-cols-2 gap-2">{[{l:'목적',v:data.save.purpose},{l:'기간',v:`${data.save.targetYears}년`},{l:'목표금액',v:fmt.manwon(data.save.targetAmount)},{l:'필요 월저축',v:fmt.manwon(data.save.monthlySavingRequired)}].map(x=>(<div key={x.l}><p className="text-[9px] text-slate-400">{x.l}</p><p className="text-xs font-bold text-slate-700">{x.v}</p></div>))}</div></div>)}
               {expItems.length>0&&(<BarChart title="💳 월지출 구성" items={expItems} max={expMax}/>)}
             </Sec>
 
-            {/* ── 섹션 5: 부동산설계 ── */}
-            <Sec num="05" title="부동산설계" color="amber">
-              <div className="grid grid-cols-2 gap-2"><IC l="주거용 부동산" v={fmt.eok(data.reAst.residential)} c="amber"/><IC l="투자용 부동산" v={fmt.eok(data.reAst.investment)} c="blue"/></div>
-              <DonutSection label="자산 내 부동산 비중" ratio={reR} total={reT} other={Math.max(0,data.totAst-reT)} warn={reR>70?`부동산 비중 ${reR}%로 높음. 유동성 자산 확보 권장`:undefined}/>
-            </Sec>
-
-            {/* ── 섹션 6: 은퇴설계 ── */}
-            <Sec num="06" title="은퇴설계" color="sky" pill={retG}>
-              <div className="flex items-start gap-3"><GB g={retG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">은퇴 준비율</p><p className="text-2xl font-extrabold" style={{color:retG.color}}>{data.retire.retirementReadyRate}%</p><div className="mt-1.5 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${Math.min(100,data.retire.retirementReadyRate)}%`,backgroundColor:retG.color}}/></div><p className="text-[9px] text-slate-400 mt-1">준비된 월수령액 ÷ 필요 월생활비</p></div></div>
-              <div className="bg-sky-50 rounded-xl p-3 border border-sky-100"><p className="text-[10px] text-sky-500 font-semibold mb-2">⏱️ 은퇴 타임라인</p><div className="grid grid-cols-3 gap-2 text-center">{[{v:data.retire.currentAge,l:'현재',c:'text-sky-700'},{v:data.retire.retireAge,l:'은퇴',c:'text-amber-600'},{v:90,l:'기대수명',c:'text-slate-500'}].map(x=>(<div key={x.l}><p className={`text-lg font-extrabold ${x.c}`}>{x.v}세</p><p className="text-[9px] text-slate-400">{x.l}</p></div>))}</div><div className="mt-2 flex items-center gap-2 text-[10px]"><span className="bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full">경제활동 {data.retire.yearsToRetire}년</span><span className="text-slate-300">→</span><span className="bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">은퇴생활 {data.retire.retireYears}년</span></div></div>
-              <RetireTable data={data.retire}/>
-              {data.retire.monthlyShortfall>0?(<div className="bg-gradient-to-r from-rose-50 to-orange-50 rounded-xl p-3.5 border border-rose-100 space-y-2"><p className="text-[10px] text-rose-500 font-semibold">⚠️ 부족분 분석</p><div className="grid grid-cols-2 gap-2"><div><p className="text-[9px] text-slate-400">월부족액</p><p className="text-base font-extrabold text-rose-600">{fmt.manwon(data.retire.monthlyShortfall)}/월</p></div><div><p className="text-[9px] text-slate-400">총부족자금</p><p className="text-base font-extrabold text-rose-700">{fmt.eok(data.retire.totalRequiredRetireFund)}</p></div></div><div className="bg-white rounded-lg p-2.5 border border-rose-100"><p className="text-[10px] text-slate-500">{data.retire.yearsToRetire}년간 매월 추가저축:</p><p className="text-xl font-extrabold text-rose-600">{fmt.manwon(data.retire.additionalMonthlySaving)}/월</p></div></div>):data.retire.requiredMonthly>0?(<div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-3.5 border border-emerald-100"><p className="text-sm font-bold text-emerald-700">✅ 은퇴 준비 충분!</p></div>):null}
-            </Sec>
-
-            {/* ── 섹션 7: 투자설계 ── */}
-            <Sec num="07" title="투자설계" color="violet" pill={wG}>
+            {/* ── 섹션 6: 투자설계 ── */}
+            <Sec num="06" title="투자설계" color="violet" pill={wG}>
               <div className="flex items-start gap-3"><GB g={wG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">부자지수</p><p className="text-2xl font-extrabold" style={{color:wG.color}}>{data.invest.wealthIndex}</p><p className="text-[9px] text-slate-400">(순자산×10)÷(나이×연소득)×100 | 목표: 100↑</p></div></div>
               <div className="bg-violet-50 rounded-xl p-3 border border-violet-100"><div className="flex items-center justify-between mb-1.5"><span className="text-[10px] text-violet-500 font-semibold">부자지수 게이지</span><span className="text-[10px] text-violet-600 font-bold">{data.invest.wealthIndex}/100</span></div><div className="h-3 bg-violet-100 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-500" style={{width:`${Math.min(100,data.invest.wealthIndex)}%`}}/></div><div className="flex justify-between mt-1 text-[8px] text-violet-400"><span>0</span><span>25(D)</span><span>50(C)</span><span>100(A)</span></div></div>
               <div className="grid grid-cols-3 gap-2"><IC l="총자산" v={fmt.eok(data.invest.totalAssets)} c="blue"/><IC l="총부채" v={fmt.eok(data.invest.totalDebt)} c="red"/><IC l="순자산" v={fmt.eok(data.invest.netAsset)} c="emerald"/></div>
@@ -365,12 +467,18 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <EmergencyBox fund={data.invest.portfolio.emergency} months={data.emMon} required={data.mReq} grade={emG} isDual={data.invest.isDualIncome} recAmt={data.invest.recommendedEmergency}/>
             </Sec>
 
-            {/* ── 섹션 8: 세금설계 ── */}
-            <Sec num="08" title="세금설계" color="orange">
+            {/* ── 섹션 7: 세금설계 ── */}
+            <Sec num="07" title="세금설계" color="orange">
               <div className="grid grid-cols-2 gap-2"><IC l="연소득" v={fmt.manwon(data.tax.annualSalary)} c="blue"/><IC l="실효세율" v={`${data.tax.effectiveTaxRate}%`} c="amber"/><IC l="결정세액" v={fmt.manwon(data.tax.determinedTax)} c="red"/><IC l="기납부세액" v={fmt.manwon(data.tax.prepaidTax)} c="emerald"/></div>
               {(data.tax.determinedTax>0||data.tax.prepaidTax>0)?(<div className={`rounded-xl p-3.5 border ${data.tax.taxRefund>=0?'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100':'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100'}`}><p className="text-[10px] font-semibold" style={{color:data.tax.taxRefund>=0?'#059669':'#dc2626'}}>{data.tax.taxRefund>=0?'✅ 예상 환급':'⚠️ 예상 추가납부'}</p><p className="text-xl font-extrabold mt-0.5" style={{color:data.tax.taxRefund>=0?'#047857':'#b91c1c'}}>{data.tax.taxRefund>=0?'+':''}{fmt.manwon(Math.abs(data.tax.taxRefund))}</p></div>):null}
               {data.tax.inherit.totalAssets>0&&(<InheritSection inh={data.tax.inherit}/>)}
               <TaxTips/>
+            </Sec>
+
+            {/* ── 섹션 8: 부동산설계 ── */}
+            <Sec num="08" title="부동산설계" color="amber">
+              <div className="grid grid-cols-2 gap-2"><IC l="주거용 부동산" v={fmt.eok(data.reAst.residential)} c="amber"/><IC l="투자용 부동산" v={fmt.eok(data.reAst.investment)} c="blue"/></div>
+              <DonutSection label="자산 내 부동산 비중" ratio={reR} total={reT} other={Math.max(0,data.totAst-reT)} warn={reR>70?`부동산 비중 ${reR}%로 높음. 유동성 자산 확보 권장`:undefined}/>
             </Sec>
 
             {/* ── ★ 섹션 9: 보험설계 (v3.0 신규) ── */}
