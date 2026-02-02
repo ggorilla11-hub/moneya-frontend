@@ -3,8 +3,9 @@
 // 기능 변경 없음 (1:1 동일)
 
 import { useState, useEffect } from 'react';
-import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
-import { CardProps, DisclaimerBox } from './shared';
+import { loadDesignData } from '../FinancialHouseDesign';
+import type { CardProps } from './shared';
+import { DisclaimerBox } from './shared';
 
 interface DebtItem {
   id: string;
