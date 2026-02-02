@@ -348,8 +348,8 @@ function App() {
     if (currentIndex < allLessons.length - 1) setSelectedLesson(allLessons[currentIndex + 1]);
   };
 
-  // ★★★ v7: 티커 표시 조건 (로그인 후 메인에서만) ★★★
-  const showTicker = user && currentStep === 'main';
+  // ★★★ v7.1: 티커 표시 조건 (AI지출탭 + 금융집짓기탭에만) ★★★
+  const showTicker = user && currentStep === 'main' && (currentTab === 'ai-spend' || currentTab === 'financial-house');
 
   if (loading) {
     return (
