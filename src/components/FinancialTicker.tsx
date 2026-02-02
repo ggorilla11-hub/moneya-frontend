@@ -176,7 +176,7 @@ export default function FinancialTicker() {
       {/* 티커 트랙 */}
       <div className="flex items-center h-full whitespace-nowrap ticker-scroll">
         {doubled.map((item, i) => (
-          <div key={i} className="inline-flex items-center px-5 h-9 text-[13px] border-r border-[#00FF88]/20">
+          <div key={i} className="inline-flex items-center px-5 h-9 text-[13px] border-r border-[#00FF88]/20 ticker-text">
             {item}
           </div>
         ))}
@@ -184,7 +184,7 @@ export default function FinancialTicker() {
       
       <style>{`
         .ticker-scroll {
-          animation: scroll 35s linear infinite;
+          animation: scroll 18s linear infinite;
         }
         .ticker-scroll:hover {
           animation-play-state: paused;
@@ -192,6 +192,10 @@ export default function FinancialTicker() {
         @keyframes scroll {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        .ticker-text {
+          font-style: italic;
+          transform: skewX(-3deg);
         }
       `}</style>
     </div>
