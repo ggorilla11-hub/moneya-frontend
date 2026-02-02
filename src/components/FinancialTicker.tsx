@@ -1,6 +1,6 @@
 // src/components/FinancialTicker.tsx
 // AI머니야 상단 티커 - 블룸버그/증권사 스타일
-// v2.0 - 검정 바탕 + 형광 초록 + 빠른 속도
+// v2.1 - 시장지수 제거, 고객 데이터 + 명언 + 질문만
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -16,14 +16,9 @@ const QUOTES = [
   { text: "큰 부는 기다릴 때 만들어진다", author: "찰리 멍거" },
   { text: "투자는 마라톤이다", author: "존 보글" },
   { text: "월급은 생존, 투자는 자유다", author: "격언" },
-];
-
-const MARKETS = [
-  { name: "KOSPI", price: "2,687.42", change: "+1.23%", up: true },
-  { name: "S&P500", price: "6,012.88", change: "-0.45%", up: false },
-  { name: "NASDAQ", price: "19,245.67", change: "+0.82%", up: true },
-  { name: "USD/KRW", price: "1,342.50", change: "-0.31%", up: false },
-  { name: "BTC", price: "$96,842", change: "+2.14%", up: true },
+  { text: "돈을 잃는 것보다 시간을 잃는 게 더 나쁘다", author: "레이 달리오" },
+  { text: "단순함이 복잡함을 이긴다", author: "존 보글" },
+  { text: "비용은 확실하지만 수익은 불확실하다", author: "존 보글" },
 ];
 
 const QUESTIONS = [
@@ -31,6 +26,10 @@ const QUESTIONS = [
   "6개월 버틸 비상자금 있나요?",
   "10년 후 순자산 목표는?",
   "저축이 목표 달성에 충분한가요?",
+  "내 보험료, 소득의 몇 %인가요?",
+  "현금 실질가치, 매년 줄고 있어요",
+  "지금 소비, 10년 후 복리로 얼마?",
+  "우리 가족 연간 최소 생활비는?",
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -87,21 +86,8 @@ const shuffle = <T,>(arr: T[]): T[] => {
 const generateItems = (c: CustomerData | null): React.ReactNode[] => {
   const items: React.ReactNode[] = [];
   
-  // 시장지수
-  shuffle(MARKETS).forEach(m => {
-    items.push(
-      <span key={`m-${m.name}`} className="inline-flex items-center gap-1.5">
-        <span className="text-[#00FF88] font-bold">{m.name}</span>
-        <span className="font-mono text-white">{m.price}</span>
-        <span className={m.up ? 'text-[#00FF88]' : 'text-[#FF4466]'}>
-          {m.up ? '▲' : '▼'}{m.change}
-        </span>
-      </span>
-    );
-  });
-  
-  // 명언
-  shuffle(QUOTES).slice(0, 3).forEach((q, i) => {
+  // 명언 (5개)
+  shuffle(QUOTES).slice(0, 5).forEach((q, i) => {
     items.push(
       <span key={`q-${i}`} className="inline-flex items-center gap-1.5">
         <span className="text-[#00FF88]">💡</span>
@@ -137,10 +123,25 @@ const generateItems = (c: CustomerData | null): React.ReactNode[] => {
         </span>
       );
     }
+    // DESIRE 단계
+    const stageNames: { [key: string]: string } = {
+      'D': '꿈설정', 'E': '비상자금', 'S': '저축습관', 
+      'I': '투자', 'R': '은퇴설계', 'E2': '자산이전'
+    };
+    if (stageNames[c.desireStage]) {
+      items.push(
+        <span key="c-desire" className="inline-flex items-center gap-1.5">
+          <span className="text-[#00FF88]">🎯</span>
+          <span className="text-[#00FF88]">DESIRE</span>
+          <span className="font-mono font-bold text-[#00FFFF]">{c.desireStage}단계</span>
+          <span className="text-[#00CC6A] text-xs">{stageNames[c.desireStage]}</span>
+        </span>
+      );
+    }
   }
   
-  // 질문
-  shuffle(QUESTIONS).slice(0, 2).forEach((q, i) => {
+  // 질문 (3개)
+  shuffle(QUESTIONS).slice(0, 3).forEach((q, i) => {
     items.push(
       <span key={`qu-${i}`} className="inline-flex items-center gap-1.5">
         <span className="bg-[#00FF88] text-black text-[10px] font-black px-1 rounded">Q</span>
