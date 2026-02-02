@@ -213,7 +213,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <button onClick={()=>setPrintMode('mobile')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='mobile'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📱 모바일</button>
               <button onClick={()=>setPrintMode('a4')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='a4'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📄 A4</button>
             </div>
-            <button onClick={()=>{setPrintMode('a4');setTimeout(()=>window.print(),300)}} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700">🖨️ 출력</button>
+            <button onClick={()=>{setPrintMode('a4');setTimeout(()=>{document.body.classList.add('printing-report');window.print();document.body.classList.remove('printing-report')},300)}} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700">🖨️ 출력</button>
           </div>
         </div>
 
@@ -580,22 +580,23 @@ const FinancialReport = ({ userName, onClose }: Props) => {
       </div>
       <style>{`
 @media print{
-  /* 핵심: fixed/overflow 해제 → 모든 콘텐츠 출력 */
-  .print-report-root{position:static!important;overflow:visible!important;height:auto!important;width:100%!important;z-index:auto!important}
+  /* ★ 핵심: 리포트 외 모든 콘텐츠 숨김 */
+  body.printing-report>*:not(#root){display:none!important}
+  body.printing-report #root>*{visibility:hidden!important;position:absolute!important;overflow:hidden!important;height:0!important;width:0!important}
+  body.printing-report .print-report-root{visibility:visible!important;position:static!important;overflow:visible!important;height:auto!important;width:100%!important;z-index:auto!important;display:block!important}
+  body.printing-report .print-report-root *{visibility:visible!important}
+  /* 배경 오버레이 숨김 */
   .print-report-root>div:first-child{display:none!important}
+  /* 스크롤 영역 해제 */
   .print-report-root .print-scroll-area{overflow:visible!important;height:auto!important;max-width:none!important;flex:none!important}
   .print-report-root .print-content-area{padding:8mm!important}
   .print\\:hidden{display:none!important}
   .print\\:break-after-page{break-after:page}
   .print\\:break-before-page{break-before:page}
   body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;margin:0!important;padding:0!important}
-  /* 섹션 내 page-break 방지 */
   section,.sec-wrap{break-inside:avoid;page-break-inside:avoid}
-  /* A4 사이즈 설정 */
   @page{size:A4 portrait;margin:10mm}
-  /* 배경색 강제 출력 */
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-  /* 그림자/블러 제거 (인쇄 속도) */
   .shadow-sm,.shadow-md,.shadow-lg{box-shadow:none!important}
   .backdrop-blur,.backdrop-blur-sm{backdrop-filter:none!important}
 }
