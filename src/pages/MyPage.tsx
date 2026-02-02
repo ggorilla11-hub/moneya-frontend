@@ -113,7 +113,7 @@ interface MyPageProps {
   userEmail: string;
   userPhoto: string | null;
   financialResult: FinancialResult | null;
-  onNavigate: (page: string) => void;
+  onNavigate: (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course') => void;
   onLogout: () => void;
   onReset: () => void;
 }
