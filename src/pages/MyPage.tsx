@@ -1,11 +1,15 @@
 // src/pages/MyPage.tsx
-// v2.5: 통합 버전
+// v2.6: DESIRE 로드맵 원본 기획 복원
 // - v2.2: 온라인강좌 페이지 연결
 // - v2.3: 공유 URL, DESIRE 로드맵 (실제 financialHouseData 연동)
 // - v2.4: 멤버십 플랜 (일반인/FP 탭, 월간/연간 선택, 카드결제 UI)
 // - v2.5: mailto encodeURIComponent 수정, 전체 통합
+// - v2.6: DESIRE 로드맵 → 원본 기획대로 재구현
+//         아코디언 클릭 시 실제 대출 건별 목록/게이지 바 표시
+//         완료 체크 + 📷 인증샷 첨부 기능 추가
+//         6단계: 축하 메시지 + 선물 열기 → 빵빠레
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // ─── 이미지 URL 상수 ───
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
@@ -43,45 +47,24 @@ interface MembershipPlanItem {
 
 // ─── DESIRE 6단계 정의 ───
 const DESIRE_STAGES = [
-  { stage: 1, letter: 'D', name: 'Debt Free', title: '신용대출 상환', house: '🏚️', houseName: '초가집', weather: '⛈️', color: '#dc2626', bgFrom: '#fee2e2', bgTo: '#fecaca' },
-  { stage: 2, letter: 'E', name: 'Emergency Fund', title: '비상예비자금 확보', house: '🏡', houseName: '나무집', weather: '☁️', color: '#ea580c', bgFrom: '#ffedd5', bgTo: '#fed7aa' },
-  { stage: 3, letter: 'S', name: 'Savings', title: '저축·연금 자동화', house: '🏠', houseName: '벽돌집', weather: '⛅', color: '#ca8a04', bgFrom: '#fef9c3', bgTo: '#fef08a' },
-  { stage: 4, letter: 'I', name: 'Investment', title: '금융자산 증식', house: '🏢', houseName: '콘크리트', weather: '☀️', color: '#2563eb', bgFrom: '#dbeafe', bgTo: '#bfdbfe' },
-  { stage: 5, letter: 'R', name: 'Retirement', title: '담보대출 상환', house: '🏛️', houseName: '대리석', weather: '🌤️', color: '#7c3aed', bgFrom: '#ede9fe', bgTo: '#ddd6fe' },
-  { stage: 6, letter: 'E', name: 'Enjoy & Estate', title: '🎁 선물함', house: '🏰', houseName: '고급주택', weather: '🌈', color: '#059669', bgFrom: '#d1fae5', bgTo: '#a7f3d0' },
+  { stage: 1, letter: 'D', name: 'Debt Free', title: '신용대출 상환', house: '🏚️', houseName: '초가집', color: '#dc2626', bgFrom: '#fee2e2', bgTo: '#fecaca', certGuide: '신용대출 상환 완료 인증샷을 첨부하세요', dataSource: '금융집짓기 > 부채설계 > 신용대출' },
+  { stage: 2, letter: 'E', name: 'Emergency Fund', title: '비상예비자금 확보', house: '🏡', houseName: '나무집', color: '#ea580c', bgFrom: '#ffedd5', bgTo: '#fed7aa', certGuide: '비상예비자금 마련 금액을 인증하세요', dataSource: '금융집짓기 > 투자설계 > 비상예비자금' },
+  { stage: 3, letter: 'S', name: 'Savings', title: '저축·연금 자동화', house: '🏠', houseName: '벽돌집', color: '#ca8a04', bgFrom: '#fef9c3', bgTo: '#fef08a', certGuide: '저축/투자 현황 인증샷을 첨부하세요', dataSource: '금융집짓기 > 예산설계 > 저축/연금' },
+  { stage: 4, letter: 'I', name: 'Investment', title: '금융자산 10억', house: '🏢', houseName: '콘크리트', color: '#2563eb', bgFrom: '#dbeafe', bgTo: '#bfdbfe', certGuide: '금융자산 10억원 달성 인증샷을 첨부하세요', dataSource: '금융집짓기 > 투자설계 > 금융자산' },
+  { stage: 5, letter: 'R', name: 'Retirement', title: '담보대출 상환', house: '🏛️', houseName: '대리석', color: '#7c3aed', bgFrom: '#ede9fe', bgTo: '#ddd6fe', certGuide: '담보대출 상환 완료 인증샷을 첨부하세요', dataSource: '금융집짓기 > 부채설계 > 담보대출' },
+  { stage: 6, letter: 'E', name: 'Enjoy & Estate', title: '🎁 선물함', house: '🏰', houseName: '고급주택', color: '#059669', bgFrom: '#d1fae5', bgTo: '#a7f3d0', certGuide: '', dataSource: '' },
 ];
 
-// ─── DESIRE 단계별 체크리스트 ───
-const DESIRE_CHECKLIST: Record<number, { id: string; label: string; dataKey: string }[]> = {
-  1: [
-    { id: 'd1', label: '신용대출 목록 확인', dataKey: 'creditLoansChecked' },
-    { id: 'd2', label: '고금리 대출부터 상환 계획 수립', dataKey: 'highInterestPlan' },
-    { id: 'd3', label: '신용대출 전액 상환 완료', dataKey: 'creditLoansPaidOff' },
-  ],
-  2: [
-    { id: 'e1', label: '비상예비자금 목표 설정 (월 생활비 3~6배)', dataKey: 'emergencyGoalSet' },
-    { id: 'e2', label: '비상예비자금 전용 계좌 개설', dataKey: 'emergencyAccountOpened' },
-    { id: 'e3', label: '비상예비자금 목표 달성', dataKey: 'emergencyFundComplete' },
-  ],
-  3: [
-    { id: 's1', label: '월 저축액 자동이체 설정', dataKey: 'autoSavingsSet' },
-    { id: 's2', label: '연금저축/IRP 가입 확인', dataKey: 'pensionChecked' },
-    { id: 's3', label: '저축률 20% 이상 달성', dataKey: 'savingsRateAchieved' },
-  ],
-  4: [
-    { id: 'i1', label: '투자 포트폴리오 구성', dataKey: 'portfolioSet' },
-    { id: 'i2', label: 'ISA/연금저축 세제혜택 활용', dataKey: 'taxBenefitUsed' },
-    { id: 'i3', label: '금융자산 1억 돌파', dataKey: 'assetMilestone' },
-  ],
-  5: [
-    { id: 'r1', label: '담보대출 상환 계획 수립', dataKey: 'mortgagePlanSet' },
-    { id: 'r2', label: '중도상환 실행', dataKey: 'prepaymentDone' },
-    { id: 'r3', label: '담보대출 전액 상환 완료', dataKey: 'mortgagePaidOff' },
-  ],
-  6: [
-    { id: 'ee1', label: '🎉 축하합니다! DESIRE 전 단계 완료!', dataKey: 'allComplete' },
-  ],
-};
+// ─── DESIRE 단계별 실데이터 타입 ───
+interface LoanItem { id: number; name: string; amount: number; rate: number; }
+interface DesireStageDetail {
+  summary: string;
+  creditLoans?: LoanItem[];
+  mortgageLoans?: LoanItem[];
+  emergencyFund?: { current: number; target: number; secured: boolean };
+  savings?: { monthlySaving: number; monthlyPension: number; irregularIncome: number; budgetTotal: number };
+  investment?: { financialAssets: number; target: number };
+}
 
 // ─── FAQ 데이터 ───
 const FAQ_DATA = [
@@ -178,73 +161,148 @@ export default function MyPage({
 
   // ─── DESIRE 로드맵 상태 ───
   const [desireExpandedStage, setDesireExpandedStage] = useState<number | null>(null);
-  const [desireChecks, setDesireChecks] = useState<Record<string, boolean>>({});
-  const [desireStageData, setDesireStageData] = useState<Record<number, string>>({});
+  const [desireStageDetails, setDesireStageDetails] = useState<Record<number, DesireStageDetail>>({});
+  const [desireCompleted, setDesireCompleted] = useState<Record<number, boolean>>({});
+  const [desireLoanChecks, setDesireLoanChecks] = useState<Record<string, boolean>>({});
+  const [desirePhotos, setDesirePhotos] = useState<Record<number, string>>({});
   const [showCelebration, setShowCelebration] = useState(false);
+  const [giftOpened, setGiftOpened] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [activePhotoStage, setActivePhotoStage] = useState<number | null>(null);
 
-  // ─── 실제 financialHouseData에서 DESIRE 데이터 로드 ───
+  // ─── 실제 financialHouseData에서 DESIRE 상세 데이터 로드 ───
   useEffect(() => {
+    const details: Record<number, DesireStageDetail> = {};
+
     try {
       const raw = localStorage.getItem('financialHouseData');
-      if (!raw) return;
+      if (!raw) {
+        // 데이터 없으면 기본값
+        for (let i = 1; i <= 6; i++) details[i] = { summary: '금융집짓기에서 데이터를 먼저 입력해주세요' };
+        setDesireStageDetails(details);
+        return;
+      }
       const data = JSON.parse(raw);
-      const stageInfo: Record<number, string> = {};
 
-      // 1단계: 신용대출 (debtDesign.creditLoans)
-      const creditLoans = data?.debtDesign?.creditLoans || [];
-      const creditTotal = creditLoans.reduce((s: number, l: { amount?: number }) => s + (l.amount || 0), 0);
-      stageInfo[1] = creditTotal > 0 ? `신용대출 ${creditLoans.length}건 · ${(creditTotal / 10000).toLocaleString()}만원` : '신용대출 없음 ✅';
+      // 1단계: 신용대출 (debtDesign.creditLoans) - 고금리순 정렬
+      const creditLoans: LoanItem[] = (data?.debtDesign?.creditLoans || []).map((l: any, idx: number) => ({
+        id: idx + 1,
+        name: l.name || l.loanName || `신용대출 ${idx + 1}`,
+        amount: Number(l.amount || l.loanAmount || 0),
+        rate: Number(l.rate || l.interestRate || 0),
+      })).sort((a: LoanItem, b: LoanItem) => b.rate - a.rate);
+      const creditTotal = creditLoans.reduce((s, l) => s + l.amount, 0);
+      details[1] = {
+        summary: creditTotal > 0 ? `신용대출 ${creditLoans.length}건 · ${(creditTotal / 10000).toLocaleString()}만원` : '신용대출 없음 ✅',
+        creditLoans,
+      };
 
       // 2단계: 비상예비자금 (investDesign.emergencyFund)
-      const emergencyFund = data?.investDesign?.emergencyFund || 0;
-      stageInfo[2] = emergencyFund > 0 ? `비상예비자금 ${(emergencyFund / 10000).toLocaleString()}만원 확보` : '비상예비자금 미설정';
+      const ef = data?.investDesign?.emergencyFund || 0;
+      const efTarget = data?.investDesign?.emergencyFundTarget || (data?.budgetDesign?.monthlyExpense || 0) * 6;
+      const efSecured = ef >= efTarget && efTarget > 0;
+      details[2] = {
+        summary: ef > 0 ? `비상예비자금 ${(ef / 10000).toLocaleString()}만원 확보` : '비상예비자금 미설정',
+        emergencyFund: { current: ef, target: efTarget, secured: efSecured },
+      };
 
       // 3단계: 저축/연금 (budgetDesign)
-      const monthlySavings = data?.budgetDesign?.monthlySavings || 0;
+      const monthlySaving = data?.budgetDesign?.monthlySavings || data?.budgetDesign?.monthlySaving || 0;
       const monthlyPension = data?.budgetDesign?.monthlyPension || 0;
-      const totalSave = monthlySavings + monthlyPension;
-      stageInfo[3] = totalSave > 0 ? `월 저축+연금 ${(totalSave / 10000).toLocaleString()}만원` : '저축/연금 미설정';
+      const irregularIncome = data?.budgetDesign?.irregularIncome || 0;
+      const budgetTotal = data?.budgetDesign?.totalBudget || data?.budgetDesign?.monthlyIncome || 0;
+      details[3] = {
+        summary: (monthlySaving + monthlyPension) > 0 ? `월 저축+연금 ${((monthlySaving + monthlyPension) / 10000).toLocaleString()}만원` : '저축/연금 미설정',
+        savings: { monthlySaving, monthlyPension, irregularIncome, budgetTotal },
+      };
 
       // 4단계: 금융자산 (investDesign.financialAssets)
-      const financialAssets = data?.investDesign?.financialAssets || 0;
-      stageInfo[4] = financialAssets > 0 ? `금융자산 ${(financialAssets / 10000).toLocaleString()}만원` : '금융자산 미입력';
+      const fa = data?.investDesign?.financialAssets || 0;
+      const target10 = 1000000000; // 10억원
+      details[4] = {
+        summary: fa > 0 ? `금융자산 ${(fa / 100000000).toFixed(1)}억원` : '금융자산 미입력',
+        investment: { financialAssets: fa, target: target10 },
+      };
 
-      // 5단계: 담보대출 (debtDesign.mortgageLoans)
-      const mortgageLoans = data?.debtDesign?.mortgageLoans || [];
-      const mortgageTotal = mortgageLoans.reduce((s: number, l: { amount?: number }) => s + (l.amount || 0), 0);
-      stageInfo[5] = mortgageTotal > 0 ? `담보대출 ${mortgageLoans.length}건 · ${(mortgageTotal / 10000).toLocaleString()}만원` : '담보대출 없음 ✅';
+      // 5단계: 담보대출 (debtDesign.mortgageLoans) - 고금리순 정렬
+      const mortgageLoans: LoanItem[] = (data?.debtDesign?.mortgageLoans || []).map((l: any, idx: number) => ({
+        id: idx + 1,
+        name: l.name || l.loanName || `담보대출 ${idx + 1}`,
+        amount: Number(l.amount || l.loanAmount || 0),
+        rate: Number(l.rate || l.interestRate || 0),
+      })).sort((a: LoanItem, b: LoanItem) => b.rate - a.rate);
+      const mortgageTotal = mortgageLoans.reduce((s, l) => s + l.amount, 0);
+      details[5] = {
+        summary: mortgageTotal > 0 ? `담보대출 ${mortgageLoans.length}건 · ${(mortgageTotal / 10000).toLocaleString()}만원` : '담보대출 없음 ✅',
+        mortgageLoans,
+      };
 
       // 6단계: 선물함
-      stageInfo[6] = '1~5단계를 모두 완료하면 열립니다';
+      details[6] = { summary: '1~5단계를 모두 완료하면 열립니다' };
 
-      setDesireStageData(stageInfo);
+      setDesireStageDetails(details);
     } catch (e) {
       console.error('DESIRE 데이터 로드 실패:', e);
     }
 
-    // 저장된 체크 상태 로드
+    // 저장된 완료/체크/사진 상태 로드
     try {
-      const savedChecks = localStorage.getItem('desireRoadmapChecks');
-      if (savedChecks) setDesireChecks(JSON.parse(savedChecks));
+      const sc = localStorage.getItem('desireCompleted');
+      if (sc) setDesireCompleted(JSON.parse(sc));
+      const lc = localStorage.getItem('desireLoanChecks');
+      if (lc) setDesireLoanChecks(JSON.parse(lc));
+      const ph = localStorage.getItem('desirePhotos');
+      if (ph) setDesirePhotos(JSON.parse(ph));
+      const go = localStorage.getItem('desireGiftOpened');
+      if (go) setGiftOpened(true);
     } catch { /* ignore */ }
   }, [showDesireRoadmap]);
 
-  // ─── DESIRE 체크 저장 ───
-  const handleDesireCheck = (id: string) => {
-    const next = { ...desireChecks, [id]: !desireChecks[id] };
-    setDesireChecks(next);
-    localStorage.setItem('desireRoadmapChecks', JSON.stringify(next));
+  // ─── DESIRE 완료 체크 토글 ───
+  const handleDesireComplete = (stage: number) => {
+    const next = { ...desireCompleted, [stage]: !desireCompleted[stage] };
+    setDesireCompleted(next);
+    localStorage.setItem('desireCompleted', JSON.stringify(next));
+  };
+
+  // ─── DESIRE 대출 개별 체크 ───
+  const handleLoanCheck = (key: string) => {
+    const next = { ...desireLoanChecks, [key]: !desireLoanChecks[key] };
+    setDesireLoanChecks(next);
+    localStorage.setItem('desireLoanChecks', JSON.stringify(next));
+  };
+
+  // ─── DESIRE 인증샷 첨부 ───
+  const handlePhotoAttach = (stage: number) => {
+    setActivePhotoStage(stage);
+    photoInputRef.current?.click();
+  };
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || activePhotoStage === null) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      const next = { ...desirePhotos, [activePhotoStage]: url };
+      setDesirePhotos(next);
+      localStorage.setItem('desirePhotos', JSON.stringify(next));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // ─── 6단계 선물 열기 ───
+  const handleOpenGift = () => {
+    setGiftOpened(true);
+    setShowCelebration(true);
+    localStorage.setItem('desireGiftOpened', 'true');
   };
 
   // 단계별 완료 여부
   const isStageComplete = (stage: number): boolean => {
-    const items = DESIRE_CHECKLIST[stage] || [];
     if (stage === 6) return [1, 2, 3, 4, 5].every(s => isStageComplete(s));
-    return items.length > 0 && items.every(item => desireChecks[item.id]);
+    return !!desireCompleted[stage];
   };
-
-  // 6단계 잠금 여부
-  const isStage6Locked = !([1, 2, 3, 4, 5].every(s => isStageComplete(s)));
 
   // ─── mailto 수정 (v2.5) ───
   const handleInquiry = () => {
@@ -415,87 +473,286 @@ export default function MyPage({
       </div>
 
       {/* ═══════════════════════════════════════ */}
-      {/* ▶ 모달: DESIRE 로드맵                   */}
+      {/* ▶ 모달: DESIRE 로드맵 (v2.6 원본 기획)    */}
       {/* ═══════════════════════════════════════ */}
       {showDesireRoadmap && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
           <div className="bg-white w-full max-w-lg rounded-t-2xl max-h-[90vh] overflow-y-auto">
             {/* 헤더 */}
-            <div className="sticky top-0 bg-gradient-to-r from-emerald-500 to-teal-600 p-4 rounded-t-2xl flex items-center">
+            <div className="sticky top-0 bg-gradient-to-r from-emerald-500 to-teal-600 p-4 rounded-t-2xl flex items-center z-10">
               <button onClick={() => setShowDesireRoadmap(false)} className="text-white text-xl mr-3">←</button>
-              <div>
-                <h2 className="text-white text-lg font-bold">🗺️ DESIRE 로드맵</h2>
-                <p className="text-emerald-100 text-xs">나의 금융 자유 여정</p>
+              <div className="flex-1">
+                <h2 className="text-white text-lg font-bold">🏆 도전! DESIRE 로드맵</h2>
+                <p className="text-emerald-100 text-xs">현재 {[1,2,3,4,5].filter(s => isStageComplete(s)).length > 0 ? `${[1,2,3,4,5].filter(s => isStageComplete(s)).length}단계 완료` : '시작 전'} · 나의 금융 자유 여정</p>
               </div>
             </div>
 
-            {/* 진행률 */}
+            {/* 전체 진행률 */}
             <div className="px-4 py-3 bg-emerald-50">
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-emerald-700 font-semibold">전체 진행률</span>
                 <span className="text-emerald-600 font-bold">
-                  {Math.round(([1, 2, 3, 4, 5].filter(s => isStageComplete(s)).length / 5) * 100)}%
+                  {[1,2,3,4,5].filter(s => isStageComplete(s)).length}/6
                 </span>
               </div>
-              <div className="w-full h-2 bg-emerald-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all" style={{ width: `${([1, 2, 3, 4, 5].filter(s => isStageComplete(s)).length / 5) * 100}%` }} />
+              <div className="w-full h-2.5 bg-emerald-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500" style={{ width: `${([1,2,3,4,5].filter(s => isStageComplete(s)).length / 6) * 100}%` }} />
               </div>
             </div>
 
-            {/* 단계 카드 */}
+            {/* 인증샷 input (숨김) */}
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+
+            {/* 단계 카드 (아코디언) */}
             <div className="p-4 space-y-3">
               {DESIRE_STAGES.map((stage) => {
                 const isComplete = isStageComplete(stage.stage);
                 const isExpanded = desireExpandedStage === stage.stage;
-                const isLocked = stage.stage === 6 && isStage6Locked;
-                const checklist = DESIRE_CHECKLIST[stage.stage] || [];
+                const isLocked = stage.stage === 6 && !isStageComplete(6);
+                const detail = desireStageDetails[stage.stage];
 
                 return (
-                  <div key={stage.stage} className="rounded-xl overflow-hidden border" style={{ borderColor: isComplete ? stage.color : '#e5e7eb' }}>
+                  <div key={stage.stage} className="rounded-xl overflow-hidden border-2 transition-all" style={{ borderColor: isComplete ? stage.color : '#e5e7eb' }}>
                     {/* 카드 헤더 */}
                     <button
                       onClick={() => {
                         if (isLocked) return;
                         setDesireExpandedStage(isExpanded ? null : stage.stage);
                       }}
-                      className="w-full flex items-center gap-3 p-3 text-left"
-                      style={{ background: `linear-gradient(135deg, ${stage.bgFrom}, ${stage.bgTo})`, opacity: isLocked ? 0.5 : 1 }}
+                      className="w-full flex items-center gap-3 p-3 text-left transition-opacity"
+                      style={{ background: `linear-gradient(135deg, ${stage.bgFrom}, ${stage.bgTo})`, opacity: isLocked ? 0.4 : 1 }}
                     >
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: stage.color }}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow" style={{ background: stage.color }}>
                         {isComplete ? '✓' : stage.letter}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold" style={{ color: stage.color }}>STAGE {stage.stage}</span>
-                          {isComplete && <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded">완료</span>}
+                          <span className="text-xs font-bold" style={{ color: stage.color }}>STEP {stage.stage}</span>
+                          {isComplete && <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">완료</span>}
                           {isLocked && <span className="text-xs">🔒</span>}
                         </div>
                         <p className="text-sm font-semibold text-gray-800">{stage.title}</p>
-                        {desireStageData[stage.stage] && (
-                          <p className="text-xs text-gray-500 mt-0.5">{desireStageData[stage.stage]}</p>
-                        )}
+                        {detail && <p className="text-xs text-gray-500 mt-0.5 truncate">{detail.summary}</p>}
                       </div>
                       <span className="text-xl">{stage.house}</span>
                       {!isLocked && <span className="text-gray-400 text-sm">{isExpanded ? '▲' : '▼'}</span>}
                     </button>
 
-                    {/* 체크리스트 */}
+                    {/* ─── 아코디언 펼침 영역 ─── */}
                     {isExpanded && !isLocked && (
-                      <div className="bg-white p-3 space-y-2">
-                        {stage.stage === 6 && !isStage6Locked ? (
-                          <div className="text-center py-4">
-                            <p className="text-3xl mb-2">🎉</p>
-                            <p className="text-lg font-bold text-emerald-600">축하합니다!</p>
-                            <p className="text-sm text-gray-600">DESIRE 전 단계를 완료했습니다!</p>
-                            <button onClick={() => setShowCelebration(true)} className="mt-3 px-6 py-2 bg-gradient-to-r from-amber-400 to-amber-500 text-white text-sm font-bold rounded-lg">🎁 선물함 열기</button>
+                      <div className="bg-white p-4 border-t border-gray-100">
+
+                        {/* === 1단계: 신용대출 목록 (고금리순) === */}
+                        {stage.stage === 1 && (
+                          <div className="space-y-2">
+                            {(detail?.creditLoans || []).length > 0 ? (
+                              <>
+                                <p className="text-xs text-gray-500 mb-2">📌 고금리 순으로 상환하세요</p>
+                                {detail!.creditLoans!.map((loan) => (
+                                  <label key={`cl-${loan.id}`} className="flex items-center gap-3 p-3 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition">
+                                    <input type="checkbox" checked={!!desireLoanChecks[`cl-${loan.id}`]} onChange={() => handleLoanCheck(`cl-${loan.id}`)} className="w-5 h-5 rounded accent-red-500" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-semibold ${desireLoanChecks[`cl-${loan.id}`] ? 'line-through text-gray-400' : 'text-gray-800'}`}>{loan.name}</p>
+                                      <p className="text-xs text-gray-500">{(loan.amount / 10000).toLocaleString()}만원</p>
+                                    </div>
+                                    <span className="text-sm font-bold text-red-600">{loan.rate}%</span>
+                                  </label>
+                                ))}
+                                <p className="text-xs text-gray-400 text-center mt-2">
+                                  진행: {Object.keys(desireLoanChecks).filter(k => k.startsWith('cl-') && desireLoanChecks[k]).length}/{detail!.creditLoans!.length}건 완료
+                                </p>
+                              </>
+                            ) : (
+                              <div className="text-center py-4">
+                                <p className="text-3xl mb-2">✅</p>
+                                <p className="text-sm text-green-600 font-semibold">신용대출이 없습니다!</p>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          checklist.map(item => (
-                            <label key={item.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                              <input type="checkbox" checked={!!desireChecks[item.id]} onChange={() => handleDesireCheck(item.id)} className="w-4 h-4 rounded" />
-                              <span className={`text-sm ${desireChecks[item.id] ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.label}</span>
-                            </label>
-                          ))
+                        )}
+
+                        {/* === 2단계: 비상예비자금 게이지 === */}
+                        {stage.stage === 2 && detail?.emergencyFund && (
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>현재: <strong className="text-orange-600">{(detail.emergencyFund.current / 10000).toLocaleString()}만원</strong></span>
+                              <span>목표: <strong>{(detail.emergencyFund.target / 10000).toLocaleString()}만원</strong></span>
+                            </div>
+                            <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{
+                                  width: `${Math.min(100, detail.emergencyFund.target > 0 ? (detail.emergencyFund.current / detail.emergencyFund.target) * 100 : 0)}%`,
+                                  background: `linear-gradient(90deg, #ea580c, #f97316)`,
+                                }}
+                              />
+                            </div>
+                            <p className="text-center text-xs text-gray-500">
+                              달성률 <strong className="text-orange-600">{detail.emergencyFund.target > 0 ? Math.round((detail.emergencyFund.current / detail.emergencyFund.target) * 100) : 0}%</strong>
+                              {detail.emergencyFund.secured && ' ✅'}
+                            </p>
+                          </div>
+                        )}
+                        {stage.stage === 2 && !detail?.emergencyFund && (
+                          <div className="text-center py-4 text-gray-400 text-sm">금융집짓기에서 비상예비자금을 설정해주세요</div>
+                        )}
+
+                        {/* === 3단계: 저축/연금 카드 === */}
+                        {stage.stage === 3 && detail?.savings && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                                <p className="text-xs text-gray-500">월 저축투자</p>
+                                <p className="text-lg font-bold text-yellow-700">{(detail.savings.monthlySaving / 10000).toLocaleString()}<span className="text-xs font-normal">만원</span></p>
+                              </div>
+                              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                                <p className="text-xs text-gray-500">월 노후연금</p>
+                                <p className="text-lg font-bold text-yellow-700">{(detail.savings.monthlyPension / 10000).toLocaleString()}<span className="text-xs font-normal">만원</span></p>
+                              </div>
+                            </div>
+                            {detail.savings.irregularIncome > 0 && (
+                              <div className="bg-amber-50 rounded-lg p-3 text-center">
+                                <p className="text-xs text-gray-500">비정기 수입</p>
+                                <p className="text-base font-bold text-amber-700">{(detail.savings.irregularIncome / 10000).toLocaleString()}만원</p>
+                              </div>
+                            )}
+                            <p className="text-xs text-gray-400 text-center">
+                              합계: 월 {((detail.savings.monthlySaving + detail.savings.monthlyPension) / 10000).toLocaleString()}만원
+                            </p>
+                          </div>
+                        )}
+                        {stage.stage === 3 && !detail?.savings && (
+                          <div className="text-center py-4 text-gray-400 text-sm">금융집짓기에서 저축/연금을 설정해주세요</div>
+                        )}
+
+                        {/* === 4단계: 금융자산 10억 게이지 === */}
+                        {stage.stage === 4 && detail?.investment && (
+                          <div className="space-y-3">
+                            <div className="text-center mb-2">
+                              <p className="text-3xl font-bold text-blue-600">{(detail.investment.financialAssets / 100000000).toFixed(1)}<span className="text-sm font-normal text-gray-500">억원</span></p>
+                              <p className="text-xs text-gray-400">목표: 10억원</p>
+                            </div>
+                            <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{
+                                  width: `${Math.min(100, (detail.investment.financialAssets / detail.investment.target) * 100)}%`,
+                                  background: `linear-gradient(90deg, #2563eb, #3b82f6)`,
+                                }}
+                              />
+                            </div>
+                            <p className="text-center text-xs text-gray-500">
+                              달성률 <strong className="text-blue-600">{Math.round((detail.investment.financialAssets / detail.investment.target) * 100)}%</strong>
+                            </p>
+                          </div>
+                        )}
+                        {stage.stage === 4 && !detail?.investment && (
+                          <div className="text-center py-4 text-gray-400 text-sm">금융집짓기에서 금융자산을 입력해주세요</div>
+                        )}
+
+                        {/* === 5단계: 담보대출 목록 === */}
+                        {stage.stage === 5 && (
+                          <div className="space-y-2">
+                            {(detail?.mortgageLoans || []).length > 0 ? (
+                              <>
+                                <p className="text-xs text-gray-500 mb-2">📌 담보대출 상환 계획</p>
+                                {detail!.mortgageLoans!.map((loan) => (
+                                  <label key={`ml-${loan.id}`} className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition">
+                                    <input type="checkbox" checked={!!desireLoanChecks[`ml-${loan.id}`]} onChange={() => handleLoanCheck(`ml-${loan.id}`)} className="w-5 h-5 rounded accent-purple-500" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-semibold ${desireLoanChecks[`ml-${loan.id}`] ? 'line-through text-gray-400' : 'text-gray-800'}`}>{loan.name}</p>
+                                      <p className="text-xs text-gray-500">{(loan.amount / 10000).toLocaleString()}만원</p>
+                                    </div>
+                                    <span className="text-sm font-bold text-purple-600">{loan.rate}%</span>
+                                  </label>
+                                ))}
+                                <p className="text-xs text-gray-400 text-center mt-2">
+                                  진행: {Object.keys(desireLoanChecks).filter(k => k.startsWith('ml-') && desireLoanChecks[k]).length}/{detail!.mortgageLoans!.length}건 완료
+                                </p>
+                              </>
+                            ) : (
+                              <div className="text-center py-4">
+                                <p className="text-3xl mb-2">✅</p>
+                                <p className="text-sm text-green-600 font-semibold">담보대출이 없습니다!</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* === 6단계: 축하 + 선물 열기 === */}
+                        {stage.stage === 6 && (
+                          <div className="text-center py-6">
+                            {!giftOpened ? (
+                              <>
+                                <p className="text-5xl mb-3 animate-bounce">🎁</p>
+                                <h4 className="text-lg font-bold text-emerald-700 mb-2">축하드립니다!</h4>
+                                <p className="text-sm text-gray-600 mb-1">DESIRE 6단계를 모두 완료하셨습니다!</p>
+                                <p className="text-sm text-gray-600 mb-4">초가집에서 시작한 금융 여정이<br />마침내 <strong className="text-emerald-600">고급주택</strong>에 도달했습니다!</p>
+                                <button
+                                  onClick={handleOpenGift}
+                                  className="px-8 py-3 bg-gradient-to-r from-amber-400 to-amber-500 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105"
+                                >
+                                  🎁 선물함 열기
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-5xl mb-3">🏰</p>
+                                <h4 className="text-lg font-bold text-emerald-700 mb-2">경제적 자유 달성!</h4>
+                                <p className="text-sm text-gray-500">당신의 금융집이 완성되었습니다 🎉</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ─── 공통: 완료 체크 + 인증샷 (1~5단계) ─── */}
+                        {stage.stage <= 5 && (
+                          <div className="mt-4 pt-3 border-t border-gray-100 space-y-3">
+                            {/* 완료 체크 버튼 */}
+                            <button
+                              onClick={() => handleDesireComplete(stage.stage)}
+                              className={`w-full py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${
+                                desireCompleted[stage.stage]
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {desireCompleted[stage.stage] ? '✅ 완료!' : '☐ 완료 체크'}
+                            </button>
+
+                            {/* 인증샷 첨부 */}
+                            <button
+                              onClick={() => handlePhotoAttach(stage.stage)}
+                              className="w-full py-2.5 rounded-xl text-xs font-semibold border-2 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-600 transition flex items-center justify-center gap-2"
+                            >
+                              📷 인증샷 첨부
+                            </button>
+
+                            {/* 인증샷 미리보기 */}
+                            {desirePhotos[stage.stage] && (
+                              <div className="relative">
+                                <img
+                                  src={desirePhotos[stage.stage]}
+                                  alt="인증샷"
+                                  className="w-full h-40 object-cover rounded-xl border border-gray-200"
+                                  onClick={() => window.open(desirePhotos[stage.stage], '_blank')}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const next = { ...desirePhotos };
+                                    delete next[stage.stage];
+                                    setDesirePhotos(next);
+                                    localStorage.setItem('desirePhotos', JSON.stringify(next));
+                                  }}
+                                  className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full text-white text-xs flex items-center justify-center"
+                                >✕</button>
+                              </div>
+                            )}
+
+                            {/* 데이터 출처 안내 */}
+                            <p className="text-xs text-gray-400 text-center">📍 {stage.dataSource}</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -508,10 +765,10 @@ export default function MyPage({
             <div className="px-4 pb-6">
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-xs text-gray-500 mb-2">나의 금융집 진화</p>
-                <div className="flex items-center justify-center gap-2 text-2xl">
+                <div className="flex items-center justify-center gap-1 text-2xl flex-wrap">
                   {DESIRE_STAGES.map((s, i) => (
-                    <span key={i} className={`${isStageComplete(s.stage) ? '' : 'opacity-30'}`}>
-                      {i > 0 && <span className="text-sm text-gray-400 mx-1">→</span>}
+                    <span key={i} className={`transition-opacity ${isStageComplete(s.stage) ? '' : 'opacity-30'}`}>
+                      {i > 0 && <span className="text-sm text-gray-400 mx-0.5">→</span>}
                       {s.house}
                     </span>
                   ))}
@@ -522,14 +779,39 @@ export default function MyPage({
         </div>
       )}
 
-      {/* 축하 모달 */}
+      {/* 축하 모달 (빵빠레) */}
       {showCelebration && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
-            <p className="text-5xl mb-3">🎊</p>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">DESIRE 완주!</h3>
-            <p className="text-sm text-gray-600 mb-4">금융 자유를 향한 모든 단계를 완료하셨습니다.<br />축하드립니다! 🎉</p>
-            <button onClick={() => setShowCelebration(false)} className="px-8 py-3 bg-gradient-to-r from-amber-400 to-amber-500 text-white font-bold rounded-xl">감사합니다! 🙏</button>
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={() => setShowCelebration(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* 폭죽 효과 */}
+            <div className="absolute inset-0 pointer-events-none">
+              {Array.from({ length: 30 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-2 h-2 rounded-full animate-ping"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    background: ['#dc2626', '#ea580c', '#ca8a04', '#2563eb', '#7c3aed', '#059669', '#f59e0b', '#ec4899'][i % 8],
+                    animationDelay: `${Math.random() * 2}s`,
+                    animationDuration: `${1 + Math.random() * 2}s`,
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-6xl mb-4 relative">🎊</p>
+            <h3 className="text-xl font-bold text-gray-800 mb-2 relative">🎉 DESIRE 완주! 🎉</h3>
+            <p className="text-sm text-gray-600 mb-2 relative">금융 자유를 향한 모든 단계를 완료하셨습니다!</p>
+            <p className="text-sm text-gray-500 mb-4 relative">당신의 금융집이 완성되었어요! 🏰</p>
+            <div className="flex items-center justify-center gap-1 text-2xl mb-4 relative">
+              <span>🏚️</span><span className="text-sm">→</span>
+              <span>🏡</span><span className="text-sm">→</span>
+              <span>🏠</span><span className="text-sm">→</span>
+              <span>🏢</span><span className="text-sm">→</span>
+              <span>🏛️</span><span className="text-sm">→</span>
+              <span>🏰</span>
+            </div>
+            <button onClick={() => setShowCelebration(false)} className="px-8 py-3 bg-gradient-to-r from-amber-400 to-amber-500 text-white font-bold rounded-xl relative">감사합니다! 🙏</button>
           </div>
         </div>
       )}
