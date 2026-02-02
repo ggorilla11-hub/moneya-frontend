@@ -7,7 +7,7 @@
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
 
 import { useState, useEffect, useRef } from 'react';
-import { RetirePlanCard, DebtPlanCard, SavePlanCard, InvestPlanCard, TaxPlanCard, EstatePlanCard, InsurancePlanCard } from './FinancialPlanCards';
+import { RetirePlanCard, DebtPlanCard, SavePlanCard, InvestPlanCard, TaxPlanCard, EstatePlanCard, InsurancePlanCard } from './FinancialPlanCards/index';
 
 // ============================================
 // 상수 정의
