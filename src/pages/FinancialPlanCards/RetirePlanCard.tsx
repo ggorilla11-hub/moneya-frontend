@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
-import { CardProps, DisclaimerBox } from './shared';
+import type { CardProps } from './shared';
+import { DisclaimerBox } from './shared';
 
 export function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
