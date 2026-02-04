@@ -633,7 +633,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
 
       {/* ★★★ 스크롤 콘텐츠 영역 (상단 고정 영역 높이만큼 margin-top) ★★★ */}
       {/* 고정 영역 높이: 티커(40px) + 헤더(60px) + 진행바(52px) + 도트(32px) + 안내메시지(76px) ≈ 260px */}
-      <div className="flex-1 overflow-y-auto mt-[260px] pb-24 px-4">
+      {/* 하단 여백: 버튼(72px) + 내비바(80px) = 152px → pb-40 */}
+      <div className="flex-1 overflow-y-auto mt-[260px] pb-40 px-4">
         {/* Step 1: 인적사항 */}
         {currentStep === 1 && (
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -970,8 +971,8 @@ export default function FinancialHouseBasic({ userName, onComplete, onBack, exis
         )}
       </div>
       
-      {/* 하단 버튼 - 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-40">
+      {/* ★★★ v10.1 수정: 하단 버튼 - 내비바 위에 고정 (bottom-20 = 80px) ★★★ */}
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-white border-t border-gray-200 z-40">
         <div className="flex gap-3">
           <button onClick={goPrev} className="flex-1 py-3.5 rounded-xl bg-gray-100 text-gray-600 font-semibold">← 이전</button>
           <button onClick={goNext} className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold shadow-lg shadow-teal-500/30">
