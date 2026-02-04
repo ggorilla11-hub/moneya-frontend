@@ -27,7 +27,6 @@ import VideoPlayerPage from './pages/VideoPlayerPage';
 import PodcastPage from './pages/PodcastPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
-// ★★★ v7 추가: 상단 티커 import ★★★
 import FinancialTicker from './components/FinancialTicker';
 import { SpendProvider } from './context/SpendContext';
 import { FinancialHouseProvider } from './context/FinancialHouseContext';
@@ -121,7 +120,11 @@ function App() {
           if (savedIncomeExpense) {
             setIncomeExpenseData(JSON.parse(savedIncomeExpense));
           }
-          const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          // ★★★ 수정: uid 있는 키와 없는 키 모두 확인 ★★★
+          const financialHouseCompletedWithUid = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          const financialHouseCompletedWithoutUid = localStorage.getItem('financialHouseCompleted');
+          const financialHouseCompleted = financialHouseCompletedWithUid || financialHouseCompletedWithoutUid;
+          
           const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${currentUser.uid}`);
           
           if (financialHouseCompleted) {
@@ -214,10 +217,15 @@ function App() {
     setCurrentTab('home');
   };
 
+  // ★★★ 수정: handleTabChange에서 uid 있는 키와 없는 키 모두 확인 ★★★
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
     if (tab === 'financial-house' && user) {
-      const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      // ★★★ 수정: uid 있는 키와 없는 키 모두 확인 ★★★
+      const financialHouseCompletedWithUid = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      const financialHouseCompletedWithoutUid = localStorage.getItem('financialHouseCompleted');
+      const financialHouseCompleted = financialHouseCompletedWithUid || financialHouseCompletedWithoutUid;
+      
       const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${user.uid}`);
       
       if (financialHouseCompleted) {
@@ -287,6 +295,9 @@ function App() {
       localStorage.removeItem(`financialHouseDisclaimerAgreed_${user.uid}`);
       localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
       localStorage.removeItem('financialHouseBasicDraft');
+      // ★★★ 추가: uid 없는 키도 삭제 ★★★
+      localStorage.removeItem('financialHouseCompleted');
+      localStorage.removeItem('financialHouseData');
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
@@ -313,6 +324,8 @@ function App() {
 
   const handleFinancialHouseComplete = () => {
     if (user) localStorage.setItem(`financialHouseCompleted_${user.uid}`, 'true');
+    // ★★★ 추가: uid 없는 키도 함께 저장 (호환성) ★★★
+    localStorage.setItem('financialHouseCompleted', 'true');
     setFinancialHouseStep('result');
   };
 
@@ -321,6 +334,9 @@ function App() {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
       localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
       localStorage.removeItem('financialHouseBasicDraft');
+      // ★★★ 추가: uid 없는 키도 삭제 ★★★
+      localStorage.removeItem('financialHouseCompleted');
+      localStorage.removeItem('financialHouseData');
     }
     setBasicInitialStep(1);
     setFinancialHouseStep('basic');
@@ -351,7 +367,6 @@ function App() {
     if (currentIndex < allLessons.length - 1) setSelectedLesson(allLessons[currentIndex + 1]);
   };
 
-  // ★★★ v7.1: 티커 표시 조건 (AI지출탭 + 금융집짓기탭에만) ★★★
   const showTicker = user && currentStep === 'main' && (currentTab === 'ai-spend' || currentTab === 'financial-house');
 
   if (loading) {
@@ -467,10 +482,8 @@ function App() {
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
-        {/* ★★★ v7: 상단 티커 (메인 화면에서만 표시) ★★★ */}
         {showTicker && <FinancialTicker />}
         
-        {/* ★★★ v7: 티커 높이(36px)만큼 상단 여백 추가 ★★★ */}
         <div className={showTicker ? 'pt-9' : ''}>
           {currentTab === 'home' && (
             <HomePage 
