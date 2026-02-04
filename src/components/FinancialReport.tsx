@@ -1,6 +1,7 @@
 // src/components/FinancialReport.tsx
 // 종합재무설계 리포트 v3.0 (Phase 1 + 2 + 3 최종 통합)
 // ★★★ v3.2: 섹션순서변경 + 금융집SVG 추가, DESIRE분석, Executive Summary, Action Plan, 금융집 시각화 추가 ★★★
+// ★★★ v3.3: 헤더 녹색 티커 아래로 이동 (top-10) + 백버튼 + 공유버튼 추가 (Web Share API) ★★★
 //
 // [Phase 1] 커버 / 인적사항 / 관심사&목표 / 부채설계 / 저축설계 / 부동산설계
 // [Phase 2] 은퇴설계 / 투자설계 / 세금설계
@@ -14,28 +15,18 @@ const BASIC_DRAFT_KEY = 'financialHouseBasicDraft';
 const BASIC_FINAL_KEY = 'financialHouseData';
 const DESIGN_KEY = 'financialHouseDesignData';
 
-// ── 포맷 유틸리티
 const fmt = {
   manwon: (v: number): string => { if (!v) return '0만원'; if (v >= 10000) { const e = Math.floor(v/10000); const r = v%10000; return r===0 ? `${e}억원` : `${e}억 ${r.toLocaleString()}만원`; } return `${v.toLocaleString()}만원`; },
   eok: (v: number): string => { if (!v) return '0원'; if (v >= 10000) return `${(v/10000).toFixed(1)}억원`; return `${v.toLocaleString()}만원`; },
   percent: (v: number): string => `${Math.round(v)}%`,
 };
 
-// ── 라벨 매핑
 const interestLabels: Record<string,{emoji:string;label:string}> = { saving:{emoji:'💰',label:'돈 모으기'}, house:{emoji:'🏠',label:'내집 마련'}, retire:{emoji:'🏖️',label:'노후 준비'}, education:{emoji:'👶',label:'자녀 교육비'}, debt:{emoji:'💳',label:'빚 갚기'}, invest:{emoji:'📈',label:'투자 시작'}, insurance:{emoji:'🛡️',label:'보험 점검'}, tax:{emoji:'💸',label:'세금 절약'} };
 const goalLabels: Record<string,{emoji:string;label:string}> = { house:{emoji:'🏠',label:'내집 마련'}, retire:{emoji:'☀️',label:'행복한 노후'}, education:{emoji:'🎓',label:'자녀교육 준비'}, emergency:{emoji:'🛡️',label:'비상자금 마련'}, invest:{emoji:'📊',label:'투자 포트폴리오'}, debt_free:{emoji:'✅',label:'부채 완전 청산'}, saving_10:{emoji:'💎',label:'10억 자산 달성'} };
 
-// ── 등급 판정
 const gradeMap = (thresholds: number[], labels: string[], value: number) => {
-  const grades = [
-    { grade:'A', color:'#059669', bg:'#ecfdf5' },
-    { grade:'B', color:'#0891b2', bg:'#ecfeff' },
-    { grade:'C', color:'#d97706', bg:'#fffbeb' },
-    { grade:'D', color:'#dc2626', bg:'#fef2f2' },
-  ];
-  for (let i = 0; i < thresholds.length; i++) {
-    if (value >= thresholds[i]) return { ...grades[i], label: labels[i] };
-  }
+  const grades = [{ grade:'A', color:'#059669', bg:'#ecfdf5' },{ grade:'B', color:'#0891b2', bg:'#ecfeff' },{ grade:'C', color:'#d97706', bg:'#fffbeb' },{ grade:'D', color:'#dc2626', bg:'#fef2f2' }];
+  for (let i = 0; i < thresholds.length; i++) { if (value >= thresholds[i]) return { ...grades[i], label: labels[i] }; }
   return { ...grades[3], label: labels[3] };
 };
 const getDebtGrade = (r: number) => gradeMap([0,0,0,0].map((_,i)=>[80,60,40,0][i]), ['매우양호','양호','주의','위험'], 100-r);
@@ -45,7 +36,6 @@ const getRetireGrade = (r: number) => gradeMap([100,70,40,0], ['충분','양호'
 const getWealthGrade = (i: number) => gradeMap([100,50,25,0], ['부자','양호','보통','개선필요'], i);
 const getInsuranceGrade = (r: number) => gradeMap([80,60,40,0], ['양호','보통','부족','위험'], r);
 
-// ── 상속세 계산
 const calcInheritanceTax = (taxable: number) => {
   if (taxable <= 0) return { tax:0, rate:0, bracket:'-' };
   const b = [{l:10000,r:10},{l:50000,r:20},{l:100000,r:30},{l:300000,r:40},{l:Infinity,r:50}];
@@ -54,9 +44,6 @@ const calcInheritanceTax = (taxable: number) => {
   return { tax:Math.round(tax), rate:rt, bracket:br };
 };
 
-// ══════════════════════════════════════════
-// loadData — 모든 localStorage 데이터를 구조화
-// ══════════════════════════════════════════
 const loadData = () => {
   let b: any = null, d: any = null;
   try { const r = localStorage.getItem(BASIC_FINAL_KEY) || localStorage.getItem(BASIC_DRAFT_KEY); if(r) b=JSON.parse(r); } catch{}
@@ -84,14 +71,12 @@ const loadData = () => {
   const reAst = { residential: d?.estate?.residentialProperty||0, investment: d?.estate?.investmentProperty||0 };
   const sv = d?.save||{}; const svPurp=sv.purpose||'-'; const svYrs=sv.targetYears||0; const svAmt=sv.targetAmount||0; const svMon=svYrs>0?Math.round(svAmt/(svYrs*12)):0;
 
-  // 은퇴
   const ret = d?.retire||{}; const rAge=ret.currentAge||pi.age||0; const rRAge=ret.retireAge||pi.retireAge||65;
   const rExp=ret.monthlyLivingExpense||0; const rNP=ret.expectedNationalPension||0; const rPP=ret.currentPersonalPension||0; const rLump=ret.expectedRetirementLumpSum||0;
   const yToR=Math.max(0,rRAge-rAge); const rYrs=Math.max(0,90-rRAge); const rPrep=rNP+rPP; const rLumpM=rYrs>0?Math.round(rLump/(rYrs*12)):0;
   const rTotPrep=rPrep+rLumpM; const rRate=rExp>0?Math.round((rTotPrep/rExp)*100):0; const rShort=Math.max(0,rExp-rTotPrep);
   const rTotNeed=rShort*12*rYrs; const rAddMon=yToR>0?Math.round(rTotNeed/(yToR*12)):0;
 
-  // 투자
   const inv = d?.invest||{}; const iAge=inv.currentAge||rAge||0; const iInc=inv.monthlyIncome||inc.total||0;
   const iTotA=inv.totalAssets||totAst||0; const iTotD=inv.totalDebt||dbt.totalDebt||0; const iNet=iTotA-iTotD; const iAnnInc=iInc*12;
   const wIdx=(iAge>0&&iAnnInc>0)?Math.round((iNet*10)/(iAge*iAnnInc)*100):0;
@@ -99,7 +84,6 @@ const loadData = () => {
   const pfTot=pf.liquid+pf.safe+pf.growth+pf.highRisk;
   const isDual=inv.dualIncome==='맞벌이'||pi.dualIncome==='맞벌이'; const recEm=isDual?(mReq*3):(mReq*6);
 
-  // 세금
   const tx=d?.tax||{}; const txInc=tx.incomeData||{}; const txInh=tx.inheritData||{};
   const txSal=txInc.annualSalary||iAnnInc||0; const txDet=txInc.determinedTax||0; const txPre=txInc.prepaidTax||0;
   const txRef=txPre-txDet; const txEff=txSal>0?Math.round((txDet/txSal)*10000)/100:0;
@@ -107,7 +91,6 @@ const loadData = () => {
   const ihBD=50000; const ihSD=ihSp?50000:0; const ihCD=ihCh*5000; const ihTD=ihBD+ihSD+ihCD;
   const ihTax=Math.max(0,ihA-ihD-ihTD); const ihRes=calcInheritanceTax(ihTax);
 
-  // ★ v3.0: 보험
   const ins=d?.insurance||{}; const insAI=ins.annualIncome||(iAnnInc>0?Math.round(iAnnInc/12):6000); const insTD=ins.totalDebt||dbt.totalDebt||0;
   const prep=ins.prepared||{};
   const isIns = (v:string) => ['O','o','유','Y','y'].includes(String(v));
@@ -126,7 +109,6 @@ const loadData = () => {
   const insPrepT=insItems.filter(i=>!i.isSpecial).reduce((s,i)=>s+i.prepared,0);
   const insRate=insNeedT>0?Math.round((insPrepT/insNeedT)*100):0;
 
-  // ★ v3.0: DESIRE
   const dStages = [
     {letter:'D',name:'Debt Free',kr:'부채자유',emoji:'💳'},
     {letter:'E',name:'Emergency',kr:'비상자금',emoji:'🛡️'},
@@ -153,9 +135,6 @@ const loadData = () => {
   };
 };
 
-// ══════════════════════════════════════════
-// 메인 컴포넌트
-// ══════════════════════════════════════════
 interface Props { userName?: string; onClose: () => void; }
 
 const FinancialReport = ({ userName, onClose }: Props) => {
@@ -165,7 +144,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   const printRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback(() => setData(loadData()), []);
 
-  // ★ 출력 함수: 리포트를 body 직속으로 이동 → 출력 → 원위치 복원
   const handlePrint = useCallback(() => {
     setPrintMode('a4');
     setTimeout(() => {
@@ -173,12 +151,9 @@ const FinancialReport = ({ userName, onClose }: Props) => {
       if (!el) return;
       const parent = el.parentElement;
       const sibling = el.nextSibling;
-      // 1) body 직속으로 이동
       document.body.appendChild(el);
       document.body.classList.add('printing-report');
-      // 2) 출력
       window.print();
-      // 3) 원위치 복원
       document.body.classList.remove('printing-report');
       if (parent) {
         if (sibling) parent.insertBefore(el, sibling);
@@ -186,6 +161,28 @@ const FinancialReport = ({ userName, onClose }: Props) => {
       }
     }, 400);
   }, []);
+
+  // ★★★ v3.3 추가: 공유 함수 (Web Share API) ★★★
+  const handleShare = useCallback(async () => {
+    const nm = data.pi.name || userName || '고객';
+    const shareData = {
+      title: `${nm}님의 종합재무설계 리포트`,
+      text: `AI머니야 금융집짓기® 기반 종합재무설계 리포트입니다.\n\n📊 종합등급: ${data.desire.currentStage}단계 (${data.desire.stageName})\n💰 순자산: ${fmt.eok(data.netAst)}\n🏖️ 은퇴준비율: ${data.retire.retirementReadyRate}%`,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        const textToCopy = `${shareData.title}\n\n${shareData.text}\n\n🔗 ${shareData.url}`;
+        await navigator.clipboard.writeText(textToCopy);
+        alert('리포트 링크가 클립보드에 복사되었습니다.\n카카오톡, 이메일 등에 붙여넣기 해주세요.');
+      }
+    } catch (error) {
+      console.error('[리포트] 공유 실패:', error);
+    }
+  }, [data, userName]);
+
   useEffect(() => { window.addEventListener('storage',refresh); const id=setInterval(refresh,2000); return()=>{window.removeEventListener('storage',refresh);clearInterval(id);}; }, [refresh]);
 
   const nm = data.pi.name||userName||'고객';
@@ -205,12 +202,10 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   const pfMax = Math.max(...pfItems.map(i=>i.v),1);
   const pfPct = (v:number) => data.invest.portfolioTotal>0?Math.round((v/data.invest.portfolioTotal)*100):0;
 
-  // ★ v3.0: 종합 점수 (7개 영역 평균)
   const gradeToScore = (g:string) => g==='A'?100:g==='B'?75:g==='C'?50:25;
   const overallScore = Math.round(([debtG,savG,retG,wG,insG].map(g=>gradeToScore(g.grade)).reduce((a,b)=>a+b,0))/5);
   const overallGrade = overallScore>=80?'A':overallScore>=60?'B':overallScore>=40?'C':'D';
 
-  // ★ v3.0: Action Plan 자동 생성
   const actionPlan: {priority:number;area:string;emoji:string;action:string;detail:string}[] = [];
   let prio = 1;
   if (data.desire.currentStage === 1) actionPlan.push({priority:prio++,area:'부채',emoji:'💳',action:'신용대출 즉시 상환',detail:`신용대출 ${fmt.eok(data.credT)} → 고금리부터 스노우볼 상환`});
@@ -225,26 +220,27 @@ const FinancialReport = ({ userName, onClose }: Props) => {
     <div ref={printRef} className={`fixed inset-0 z-50 overflow-hidden print-report-root ${printMode==='a4'?'print-a4-mode':''}`}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print-overlay" onClick={onClose} />
       <div className="relative h-full flex flex-col">
-        {/* 컨트롤 바 */}
-        <div className="flex-shrink-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between print:hidden z-10">
-          <button onClick={onClose} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-700">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
-            <span className="text-sm font-medium">닫기</span>
+        {/* ★★★ v3.3 수정: 컨트롤 바 - 녹색 티커 아래로 이동 (top-10 = 40px) ★★★ */}
+        <div className="fixed top-10 left-0 right-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between print:hidden z-[60]">
+          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+            <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
           </button>
+          <h1 className="text-sm font-bold text-slate-700">종합재무설계 리포트</h1>
           <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 rounded-lg p-0.5">
-              <button onClick={()=>setPrintMode('mobile')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='mobile'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📱 모바일</button>
-              <button onClick={()=>setPrintMode('a4')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${printMode==='a4'?'bg-white text-slate-800 shadow-sm':'text-slate-400'}`}>📄 A4</button>
-            </div>
-            <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700">🖨️ 출력</button>
+            <button onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors shadow-md" title="공유하기">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+            </button>
+            <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center bg-slate-700 rounded-xl hover:bg-slate-800 transition-colors shadow-md" title="출력하기">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            </button>
           </div>
         </div>
 
-        {/* 스크롤 영역 */}
-        <div ref={ref} className={`flex-1 overflow-y-auto bg-slate-50 print-scroll-area ${printMode==='a4'?'max-w-[210mm] mx-auto bg-white':''}`}>
+        {/* ★★★ v3.3 수정: 스크롤 영역 - 상단 여백 추가 ★★★ */}
+        <div ref={ref} className={`flex-1 overflow-y-auto bg-slate-50 mt-[104px] print-scroll-area ${printMode==='a4'?'max-w-[210mm] mx-auto bg-white':''}`}>
           <div className={`${printMode==='a4'?'p-[15mm]':'p-4 pb-20'} space-y-5 print-content-area`}>
 
-            {/* ── 섹션 0: 커버 ── */}
+            {/* 커버 */}
             <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white min-h-[200px] flex flex-col justify-between print:break-after-page">
               <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-teal-500/20 to-transparent rounded-bl-full"/>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-indigo-500/15 to-transparent rounded-tr-full"/>
@@ -262,14 +258,13 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
-            {/* ── ★ v3.0: Executive Summary ── */}
+            {/* Executive Summary */}
             <section className="bg-gradient-to-br from-indigo-50 via-white to-teal-50 rounded-2xl shadow-sm border border-indigo-100 overflow-hidden print:break-before-page">
               <div className="px-5 py-3.5 border-b border-indigo-100 flex items-center gap-2">
                 <span className="text-lg">📊</span>
                 <h2 className="text-sm font-bold text-slate-800">종합재무 요약 (Executive Summary)</h2>
               </div>
               <div className="p-4 space-y-4">
-                {/* 종합 점수 원형 */}
                 <div className="flex items-center gap-4">
                   <div className="relative w-20 h-20 flex-shrink-0">
                     <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -291,7 +286,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                     </div>
                   </div>
                 </div>
-                {/* DESIRE 현재 단계 미니 */}
                 <div className="bg-white rounded-xl p-3 border border-slate-100">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">{data.desire.stageEmoji}</span>
@@ -306,7 +300,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                     ))}
                   </div>
                 </div>
-                {/* 핵심 KPI 4개 */}
                 <div className="grid grid-cols-4 gap-2">
                   {[{l:'순자산',v:fmt.eok(data.netAst),c:'#6366f1'},{l:'부자지수',v:String(data.invest.wealthIndex),c:'#8b5cf6'},{l:'은퇴준비',v:`${data.retire.retirementReadyRate}%`,c:'#0891b2'},{l:'보험보장',v:`${data.insurance.overallRate}%`,c:'#059669'}].map(x=>(
                     <div key={x.l} className="text-center p-2 rounded-lg" style={{backgroundColor:x.c+'10'}}>
@@ -318,8 +311,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
-
-            {/* ── 섹션 1: 인적사항 ── */}
+            {/* 섹션 1: 인적사항 */}
             <Sec num="01" title="인적사항" color="indigo">
               <div className="grid grid-cols-3 gap-2">
                 <IC l="이름" v={nm} c="indigo"/><IC l="나이" v={`${data.pi.age}세`} s={`은퇴 ${data.pi.retireAge}세`} c="blue"/><IC l="결혼" v={data.pi.married} c="teal"/>
@@ -334,7 +326,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <TimelineBar age={data.pi.age} retireAge={data.pi.retireAge}/>
             </Sec>
 
-            {/* ── 섹션 2: 관심사&목표 ── */}
+            {/* 섹션 2: 관심사&목표 */}
             <Sec num="02" title="경제적 관심사 & 재무목표" color="teal">
               {data.interests.length>0?(
                 <div className="space-y-2">
@@ -345,11 +337,10 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               {data.goal&&goalLabels[data.goal]&&(<div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl p-3.5 border border-teal-100"><p className="text-[10px] text-teal-500 font-semibold mb-1">🏆 최우선 재무목표</p><div className="flex items-center gap-2"><span className="text-2xl">{goalLabels[data.goal].emoji}</span><span className="text-base font-bold text-teal-700">{goalLabels[data.goal].label}</span></div></div>)}
             </Sec>
 
-            {/* ── ★ 금융집짓기 내부 SVG 다이어그램 ── */}
+            {/* 금융집짓기 SVG */}
             <section className="overflow-hidden rounded-2xl shadow-sm print:break-before-page">
               <div className="relative bg-gradient-to-b from-teal-400 to-teal-500 p-3">
                 <div className="w-full max-w-[340px] mx-auto">
-                  {/* 지붕 */}
                   <div className="relative">
                     <svg viewBox="0 0 340 90" className="w-full" preserveAspectRatio="xMidYMid meet">
                       <polygon points="255,10 295,10 295,66 255,45" fill="#E8E8E8" stroke="#333" strokeWidth="1.5"/>
@@ -374,7 +365,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                       <p className="text-[7px] text-gray-600">{data.reAst.residential > 0 ? fmt.eok(data.reAst.residential) : '-'}</p>
                     </div>
                   </div>
-                  {/* 처마보 */}
                   {(()=>{const eP=Math.max(0,data.retire.retireAge-data.pi.age);const rP=Math.max(0,90-data.retire.retireAge);return(
                   <div className="bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border-x-2 border-gray-800 px-2 py-1.5 flex items-center justify-between">
                     <div className="text-center"><p className="text-[13px] font-extrabold text-gray-800">{data.pi.age}</p><p className="text-[7px] text-gray-500">현재</p></div>
@@ -383,7 +373,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                     <div className="flex-1 flex items-center justify-center mx-1"><div className="flex items-center gap-0.5"><span className="text-red-500 text-[8px]">◀</span><div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"/><span className="text-[9px] font-bold text-red-500 px-1">{rP}년</span><div className="flex-1 h-[1px] bg-red-400 min-w-[15px]"/><span className="text-red-500 text-[8px]">▶</span></div></div>
                     <div className="text-center"><p className="text-[13px] font-extrabold text-gray-800">90</p><p className="text-[7px] text-gray-500">기대수명</p></div>
                   </div>);})()}
-                  {/* 기둥 */}
                   <div className="flex border-x-2 border-gray-800" style={{height:'110px'}}>
                     <div className="relative border-r-2 border-gray-800" style={{flex:'50'}}>
                       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
@@ -418,7 +407,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                       </div>
                     </div>
                   </div>
-                  {/* 보험 */}
                   <div className="border-2 border-t-0 border-gray-800 px-2 py-2" style={{backgroundColor:'#3E2723'}}>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[10px] font-extrabold text-amber-300">🛡️ 보장성 보험 (8대 보장)</p>
@@ -452,7 +440,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
-            {/* ── 섹션 3: 은퇴설계 ── */}
+            {/* 섹션 3: 은퇴설계 */}
             <Sec num="03" title="은퇴설계" color="sky" pill={retG}>
               <div className="flex items-start gap-3"><GB g={retG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">은퇴 준비율</p><p className="text-2xl font-extrabold" style={{color:retG.color}}>{data.retire.retirementReadyRate}%</p><div className="mt-1.5 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${Math.min(100,data.retire.retirementReadyRate)}%`,backgroundColor:retG.color}}/></div><p className="text-[9px] text-slate-400 mt-1">준비된 월수령액 ÷ 필요 월생활비</p></div></div>
               <div className="bg-sky-50 rounded-xl p-3 border border-sky-100"><p className="text-[10px] text-sky-500 font-semibold mb-2">⏱️ 은퇴 타임라인</p><div className="grid grid-cols-3 gap-2 text-center">{[{v:data.retire.currentAge,l:'현재',c:'text-sky-700'},{v:data.retire.retireAge,l:'은퇴',c:'text-amber-600'},{v:90,l:'기대수명',c:'text-slate-500'}].map(x=>(<div key={x.l}><p className={`text-lg font-extrabold ${x.c}`}>{x.v}세</p><p className="text-[9px] text-slate-400">{x.l}</p></div>))}</div><div className="mt-2 flex items-center gap-2 text-[10px]"><span className="bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full">경제활동 {data.retire.yearsToRetire}년</span><span className="text-slate-300">→</span><span className="bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">은퇴생활 {data.retire.retireYears}년</span></div></div>
@@ -460,7 +448,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               {data.retire.monthlyShortfall>0?(<div className="bg-gradient-to-r from-rose-50 to-orange-50 rounded-xl p-3.5 border border-rose-100 space-y-2"><p className="text-[10px] text-rose-500 font-semibold">⚠️ 부족분 분석</p><div className="grid grid-cols-2 gap-2"><div><p className="text-[9px] text-slate-400">월부족액</p><p className="text-base font-extrabold text-rose-600">{fmt.manwon(data.retire.monthlyShortfall)}/월</p></div><div><p className="text-[9px] text-slate-400">총부족자금</p><p className="text-base font-extrabold text-rose-700">{fmt.eok(data.retire.totalRequiredRetireFund)}</p></div></div><div className="bg-white rounded-lg p-2.5 border border-rose-100"><p className="text-[10px] text-slate-500">{data.retire.yearsToRetire}년간 매월 추가저축:</p><p className="text-xl font-extrabold text-rose-600">{fmt.manwon(data.retire.additionalMonthlySaving)}/월</p></div></div>):data.retire.requiredMonthly>0?(<div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-3.5 border border-emerald-100"><p className="text-sm font-bold text-emerald-700">✅ 은퇴 준비 충분!</p></div>):null}
             </Sec>
 
-            {/* ── 섹션 4: 부채설계 ── */}
+            {/* 섹션 4: 부채설계 */}
             <Sec num="04" title="부채설계" color="rose" pill={debtG}>
               <div className="flex items-start gap-3">
                 <GB g={debtG}/>
@@ -474,14 +462,14 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <EmergencyBox fund={data.emFund} months={data.emMon} required={data.mReq} grade={emG} isDual={data.invest.isDualIncome} recAmt={data.invest.recommendedEmergency}/>
             </Sec>
 
-            {/* ── 섹션 5: 저축설계 ── */}
+            {/* 섹션 5: 저축설계 */}
             <Sec num="05" title="저축설계" color="emerald" pill={savG}>
               <div className="flex items-start gap-3"><GB g={savG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">저축률</p><p className="text-2xl font-extrabold" style={{color:savG.color}}>{data.savRate}%</p><p className="text-[9px] text-slate-400">월소득 대비 저축+연금 (권장 20%↑)</p></div></div>
               {data.save.targetAmount>0&&(<div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100"><p className="text-[10px] text-emerald-500 font-semibold mb-2">🎯 목표 달성 계획</p><div className="grid grid-cols-2 gap-2">{[{l:'목적',v:data.save.purpose},{l:'기간',v:`${data.save.targetYears}년`},{l:'목표금액',v:fmt.manwon(data.save.targetAmount)},{l:'필요 월저축',v:fmt.manwon(data.save.monthlySavingRequired)}].map(x=>(<div key={x.l}><p className="text-[9px] text-slate-400">{x.l}</p><p className="text-xs font-bold text-slate-700">{x.v}</p></div>))}</div></div>)}
               {expItems.length>0&&(<BarChart title="💳 월지출 구성" items={expItems} max={expMax}/>)}
             </Sec>
 
-            {/* ── 섹션 6: 투자설계 ── */}
+            {/* 섹션 6: 투자설계 */}
             <Sec num="06" title="투자설계" color="violet" pill={wG}>
               <div className="flex items-start gap-3"><GB g={wG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">부자지수</p><p className="text-2xl font-extrabold" style={{color:wG.color}}>{data.invest.wealthIndex}</p><p className="text-[9px] text-slate-400">(순자산×10)÷(나이×연소득)×100 | 목표: 100↑</p></div></div>
               <div className="bg-violet-50 rounded-xl p-3 border border-violet-100"><div className="flex items-center justify-between mb-1.5"><span className="text-[10px] text-violet-500 font-semibold">부자지수 게이지</span><span className="text-[10px] text-violet-600 font-bold">{data.invest.wealthIndex}/100</span></div><div className="h-3 bg-violet-100 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-500" style={{width:`${Math.min(100,data.invest.wealthIndex)}%`}}/></div><div className="flex justify-between mt-1 text-[8px] text-violet-400"><span>0</span><span>25(D)</span><span>50(C)</span><span>100(A)</span></div></div>
@@ -490,7 +478,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <EmergencyBox fund={data.invest.portfolio.emergency} months={data.emMon} required={data.mReq} grade={emG} isDual={data.invest.isDualIncome} recAmt={data.invest.recommendedEmergency}/>
             </Sec>
 
-            {/* ── 섹션 7: 세금설계 ── */}
+            {/* 섹션 7: 세금설계 */}
             <Sec num="07" title="세금설계" color="orange">
               <div className="grid grid-cols-2 gap-2"><IC l="연소득" v={fmt.manwon(data.tax.annualSalary)} c="blue"/><IC l="실효세율" v={`${data.tax.effectiveTaxRate}%`} c="amber"/><IC l="결정세액" v={fmt.manwon(data.tax.determinedTax)} c="red"/><IC l="기납부세액" v={fmt.manwon(data.tax.prepaidTax)} c="emerald"/></div>
               {(data.tax.determinedTax>0||data.tax.prepaidTax>0)?(<div className={`rounded-xl p-3.5 border ${data.tax.taxRefund>=0?'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100':'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100'}`}><p className="text-[10px] font-semibold" style={{color:data.tax.taxRefund>=0?'#059669':'#dc2626'}}>{data.tax.taxRefund>=0?'✅ 예상 환급':'⚠️ 예상 추가납부'}</p><p className="text-xl font-extrabold mt-0.5" style={{color:data.tax.taxRefund>=0?'#047857':'#b91c1c'}}>{data.tax.taxRefund>=0?'+':''}{fmt.manwon(Math.abs(data.tax.taxRefund))}</p></div>):null}
@@ -498,16 +486,15 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               <TaxTips/>
             </Sec>
 
-            {/* ── 섹션 8: 부동산설계 ── */}
+            {/* 섹션 8: 부동산설계 */}
             <Sec num="08" title="부동산설계" color="amber">
               <div className="grid grid-cols-2 gap-2"><IC l="주거용 부동산" v={fmt.eok(data.reAst.residential)} c="amber"/><IC l="투자용 부동산" v={fmt.eok(data.reAst.investment)} c="blue"/></div>
               <DonutSection label="자산 내 부동산 비중" ratio={reR} total={reT} other={Math.max(0,data.totAst-reT)} warn={reR>70?`부동산 비중 ${reR}%로 높음. 유동성 자산 확보 권장`:undefined}/>
             </Sec>
 
-            {/* ── ★ 섹션 9: 보험설계 (v3.0 신규) ── */}
+            {/* 섹션 9: 보험설계 */}
             <Sec num="09" title="보험설계" color="pink" pill={insG}>
               <div className="flex items-start gap-3"><GB g={insG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">보험 보장율</p><p className="text-2xl font-extrabold" style={{color:insG.color}}>{data.insurance.overallRate}%</p><p className="text-[9px] text-slate-400">6대 보장 필요자금 대비 준비율 | 부족 {data.insurance.lackCount}개</p></div></div>
-              {/* 8대 보장 테이블 */}
               <div className="space-y-2">
                 <p className="text-[10px] text-slate-400 font-semibold">🛡️ 8대 보장 분석</p>
                 <div className="border border-slate-100 rounded-xl overflow-hidden">
@@ -528,7 +515,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                   })}
                 </div>
               </div>
-              {/* 보장율 게이지 */}
               <div className="bg-pink-50 rounded-xl p-3 border border-pink-100">
                 <div className="flex items-center justify-between mb-1.5"><span className="text-[10px] text-pink-500 font-semibold">종합 보장율</span><span className="text-[10px] text-pink-600 font-bold">{data.insurance.overallRate}%</span></div>
                 <div className="h-3 bg-pink-100 rounded-full overflow-hidden relative">
@@ -540,7 +526,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               {data.insurance.lackCount>0&&(<div className="bg-rose-50 rounded-xl p-3 border border-rose-100"><p className="text-[10px] text-rose-600 font-semibold">⚠️ {data.insurance.lackCount}개 보장 항목 보완이 필요합니다</p><p className="text-[9px] text-slate-400 mt-1">전문 보험설계사와 상담하여 부족 보장을 점검하세요.</p></div>)}
             </Sec>
 
-            {/* ── ★ 섹션 10: DESIRE 분석 (v3.0 신규) ── */}
+            {/* 섹션 10: DESIRE */}
             <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 rounded-2xl shadow-sm overflow-hidden text-white print:break-before-page">
               <div className="px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-500/20 flex items-center justify-center text-xs font-bold text-teal-300">10</span>
@@ -552,7 +538,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
                   <p className="text-xl font-extrabold mt-2">{data.desire.currentStage}단계: {data.desire.stageName}</p>
                   <p className="text-xs text-slate-400 mt-1">{data.desire.stageDesc}</p>
                 </div>
-                {/* 6단계 스텝 */}
                 <div className="flex gap-1.5">
                   {data.desire.stages.map((s,i)=>{
                     const done = i < data.desire.currentStage - 1;
@@ -572,7 +557,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
-            {/* ── ★ 섹션 11: Action Plan (v3.0 신규) ── */}
+            {/* 섹션 11: Action Plan */}
             <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden print:break-before-page">
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-50 flex items-center justify-center text-xs font-bold text-teal-600">11</span>
@@ -591,7 +576,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
               </div>
             </section>
 
-            {/* ── 면책조항 ── */}
+            {/* 면책조항 */}
             <div className="bg-slate-100 rounded-xl p-4 text-center space-y-1">
               <p className="text-[10px] text-slate-400 font-semibold">⚠️ 면책조항</p>
               <p className="text-[9px] text-slate-400 leading-relaxed">본 리포트는 금융집짓기® 방법론에 기반한 참고용 분석 자료이며, 투자 권유나 재무 자문을 구성하지 않습니다. 모든 재무 결정은 본인의 판단과 전문가 상담을 통해 이루어져야 합니다.</p>
@@ -603,23 +588,16 @@ const FinancialReport = ({ userName, onClose }: Props) => {
       </div>
       <style>{`
 @media print{
-  /* ★ 출력 시: body 직속의 리포트만 표시, 나머지 숨김 */
   body.printing-report>*:not(.print-report-root){display:none!important}
-  /* fixed/overflow 해제 → 전체 콘텐츠 출력 */
   .print-report-root{position:static!important;overflow:visible!important;height:auto!important;width:100%!important;z-index:auto!important}
-  /* 배경 오버레이 숨김 */
   .print-report-root>.print-overlay{display:none!important}
-  /* 컨트롤바 숨김 */
   .print\\:hidden{display:none!important}
-  /* 스크롤 영역 해제 */
-  .print-report-root .print-scroll-area{overflow:visible!important;height:auto!important;max-width:none!important;flex:none!important}
+  .print-report-root .print-scroll-area{overflow:visible!important;height:auto!important;max-width:none!important;flex:none!important;margin-top:0!important}
   .print-report-root .print-content-area{padding:8mm!important}
-  /* 페이지 제어 */
   .print\\:break-after-page{break-after:page}
   .print\\:break-before-page{break-before:page}
   section,.sec-wrap{break-inside:avoid;page-break-inside:avoid}
   @page{size:A4 portrait;margin:10mm}
-  /* 배경색 강제 출력 */
   body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;margin:0!important;padding:0!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
   .shadow-sm,.shadow-md,.shadow-lg{box-shadow:none!important}
@@ -632,9 +610,6 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   );
 };
 
-// ══════════════════════════════════════════
-// 하위 컴포넌트
-// ══════════════════════════════════════════
 const Sec = ({num,title,color,pill,children}:{num:string;title:string;color:string;pill?:{grade:string;label:string;color:string};children:React.ReactNode}) => (
   <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
