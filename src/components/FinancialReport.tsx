@@ -1,5 +1,5 @@
-// src/components/FinancialReport.tsx v3.4
-// ★★★ v3.4: 공유모달(카톡/이메일/문자/링크복사), 출력=window.print() 직접호출 ★★★
+// src/components/FinancialReport.tsx v3.5
+// ★★★ v3.5: PDF 생성 공유, 공유모달 상단 위치 ★★★
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
@@ -7,6 +7,18 @@ const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72
 const BASIC_DRAFT_KEY = 'financialHouseBasicDraft';
 const BASIC_FINAL_KEY = 'financialHouseData';
 const DESIGN_KEY = 'financialHouseDesignData';
+
+// ★★★ v3.5: html2pdf CDN 동적 로드 ★★★
+const loadHtml2Pdf = (): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).html2pdf) { resolve((window as any).html2pdf); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = () => resolve((window as any).html2pdf);
+    script.onerror = () => reject(new Error('html2pdf 로드 실패'));
+    document.head.appendChild(script);
+  });
+};
 
 const fmt = {
   manwon: (v: number): string => { if (!v) return '0만원'; if (v >= 10000) { const e = Math.floor(v/10000); const r = v%10000; return r===0 ? `${e}억원` : `${e}억 ${r.toLocaleString()}만원`; } return `${v.toLocaleString()}만원`; },
@@ -89,14 +101,103 @@ const loadData = () => {
   return { pi, interests, goal, inc, exp, ast, dbt, mortT, credT, othDT, emFund, mReq, emMon, totAst, dRatio, dsr, savRate, netAst, reAst, save:{purpose:svPurp,targetYears:svYrs,targetAmount:svAmt,monthlySavingRequired:svMon}, retire:{currentAge:rAge,retireAge:rRAge,yearsToRetire:yToR,retireYears:rYrs,monthlyLivingExpense:rExp,expectedNationalPension:rNP,currentPersonalPension:rPP,expectedRetirementLumpSum:rLump,requiredMonthly:rExp,preparedMonthly:rPrep,monthlySavingForRetire:rLumpM,totalPreparedMonthly:rTotPrep,retirementReadyRate:rRate,monthlyShortfall:rShort,totalRequiredRetireFund:rTotNeed,additionalMonthlySaving:rAddMon}, invest:{currentAge:iAge,monthlyIncome:iInc,totalAssets:iTotA,totalDebt:iTotD,netAsset:iNet,annualIncome:iAnnInc,wealthIndex:wIdx,portfolio:pf,portfolioTotal:pfTot,isDualIncome:isDual,recommendedEmergency:recEm}, tax:{annualSalary:txSal,determinedTax:txDet,prepaidTax:txPre,taxRefund:txRef,effectiveTaxRate:txEff,inherit:{totalAssets:ihA,totalDebts:ihD,hasSpouse:ihSp,childrenCount:ihCh,basicDeduction:ihBD,spouseDeduction:ihSD,childDeduction:ihCD,totalDeduction:ihTD,taxableAmount:ihTax,tax:ihRes.tax,rate:ihRes.rate,bracket:ihRes.bracket}}, insurance:{items:insItems,lackCount:insLack,totalNeeded:insNeedT,totalPrepared:insPrepT,overallRate:insRate,annualIncome:insAI}, desire:{currentStage:dCur,stageName:dName,stageEmoji:dEmoji,stageDesc:dDesc,stages:dStages} };
 };
 
-// ★★★ v3.4: 공유 모달 ★★★
-const ShareModal = ({ isOpen, onClose, shareText, shareUrl }: { isOpen: boolean; onClose: () => void; shareText: string; shareUrl: string }) => {
+// ★★★ v3.5: 공유 모달 - 상단 위치 + PDF 생성 기능 ★★★
+const ShareModal = ({ isOpen, onClose, userName, contentRef }: { isOpen: boolean; onClose: () => void; userName: string; contentRef: React.RefObject<HTMLDivElement> }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+
+  // PDF 생성 함수
+  const generatePdf = async (): Promise<Blob | null> => {
+    if (!contentRef.current) return null;
+    setIsGenerating(true);
+    try {
+      const html2pdf = await loadHtml2Pdf();
+      const element = contentRef.current;
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `${userName}_재무설계리포트.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+      const pdfInstance = html2pdf().set(opt).from(element);
+      const blob = await pdfInstance.outputPdf('blob');
+      setPdfBlob(blob);
+      return blob;
+    } catch (err) {
+      console.error('PDF 생성 실패:', err);
+      alert('PDF 생성에 실패했습니다. 다시 시도해주세요.');
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // PDF 다운로드
+  const downloadPdf = async () => {
+    const blob = pdfBlob || await generatePdf();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${userName}_재무설계리포트.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onClose();
+  };
+
+  // 카카오톡 공유 (PDF 다운로드 후 안내)
+  const shareKakao = async () => {
+    await downloadPdf();
+    alert('PDF가 다운로드되었습니다.\n카카오톡에서 파일을 첨부하여 공유해주세요.');
+  };
+
+  // 이메일 공유
+  const shareEmail = async () => {
+    await downloadPdf();
+    const subject = encodeURIComponent(`${userName}님의 종합재무설계 리포트`);
+    const body = encodeURIComponent(`안녕하세요,\n\n${userName}님의 종합재무설계 리포트를 첨부합니다.\n\nAI머니야 금융집짓기® 기반으로 작성된 리포트입니다.\n\n감사합니다.`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
+  // 문자 공유
+  const shareSMS = async () => {
+    await downloadPdf();
+    alert('PDF가 다운로드되었습니다.\n문자에서 파일을 첨부하여 공유해주세요.');
+  };
+
   if (!isOpen) return null;
-  const shareKakao = () => { const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { window.location.href = `kakaolink://send?text=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`; setTimeout(() => { window.open(`https://accounts.kakao.com/login?continue=https://sharer.kakao.com`, '_blank'); }, 2000); } else { window.open(`https://sharer.kakao.com/talk/friends/picker/link?app_key=javascript&text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=500,height=600'); } onClose(); };
-  const shareEmail = () => { window.location.href = `mailto:?subject=${encodeURIComponent('AI머니야 종합재무설계 리포트')}&body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`; onClose(); };
-  const shareSMS = () => { const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); if (isMobile) { const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent); window.location.href = `sms:${isIOS ? '&' : '?'}body=${encodeURIComponent(shareText + '\n\n' + shareUrl)}`; } else { alert('문자 공유는 모바일에서만 가능합니다.'); } onClose(); };
-  const copyLink = async () => { try { await navigator.clipboard.writeText(shareText + '\n\n' + shareUrl); alert('링크가 클립보드에 복사되었습니다!'); } catch { const ta = document.createElement('textarea'); ta.value = shareText + '\n\n' + shareUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('링크가 클립보드에 복사되었습니다!'); } onClose(); };
-  return (<div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"><div className="absolute inset-0 bg-black/50" onClick={onClose} /><div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-xl animate-slide-up"><div className="flex items-center justify-between px-5 py-4 border-b border-slate-100"><h3 className="text-base font-bold text-slate-800">리포트 공유하기</h3><button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100"><svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div><div className="p-5 grid grid-cols-4 gap-4"><button onClick={shareKakao} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-[#FEE500] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-8 h-8" viewBox="0 0 24 24" fill="#3C1E1E"><path d="M12 3C6.477 3 2 6.463 2 10.714c0 2.683 1.786 5.037 4.465 6.386-.197.727-.713 2.635-.816 3.043-.128.509.187.502.393.365.162-.107 2.58-1.747 3.625-2.456.77.108 1.567.162 2.333.162 5.523 0 10-3.463 10-7.5S17.523 3 12 3z"/></svg></div><span className="text-xs text-slate-600 font-medium">카카오톡</span></button><button onClick={shareEmail} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">이메일</span></button><button onClick={shareSMS} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-green-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg></div><span className="text-xs text-slate-600 font-medium">문자</span></button><button onClick={copyLink} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-slate-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg></div><span className="text-xs text-slate-600 font-medium">링크복사</span></button></div><div className="px-5 pb-5"><p className="text-[11px] text-slate-400 text-center">원하시는 방법을 선택해서 리포트를 공유하세요</p></div></div><style>{`@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}.animate-slide-up{animation:slideUp 0.3s ease-out}`}</style></div>);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl animate-slide-down">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-teal-500 to-emerald-500">
+          <h3 className="text-base font-bold text-white">📄 리포트 PDF 공유</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        {isGenerating ? (
+          <div className="p-8 flex flex-col items-center justify-center">
+            <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-sm text-slate-600 font-medium">PDF 생성 중...</p>
+            <p className="text-xs text-slate-400 mt-1">잠시만 기다려주세요</p>
+          </div>
+        ) : (
+          <>
+            <div className="p-5 grid grid-cols-4 gap-4">
+              <button onClick={shareKakao} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-[#FEE500] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-8 h-8" viewBox="0 0 24 24" fill="#3C1E1E"><path d="M12 3C6.477 3 2 6.463 2 10.714c0 2.683 1.786 5.037 4.465 6.386-.197.727-.713 2.635-.816 3.043-.128.509.187.502.393.365.162-.107 2.58-1.747 3.625-2.456.77.108 1.567.162 2.333.162 5.523 0 10-3.463 10-7.5S17.523 3 12 3z"/></svg></div><span className="text-xs text-slate-600 font-medium">카카오톡</span></button>
+              <button onClick={shareEmail} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">이메일</span></button>
+              <button onClick={shareSMS} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-green-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg></div><span className="text-xs text-slate-600 font-medium">문자</span></button>
+              <button onClick={downloadPdf} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">PDF저장</span></button>
+            </div>
+            <div className="px-5 pb-5"><p className="text-[11px] text-slate-400 text-center">PDF 파일로 저장하여 공유하세요</p></div>
+          </>
+        )}
+      </div>
+      <style>{`@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}.animate-slide-down{animation:slideDown 0.3s ease-out}`}</style>
+    </div>
+  );
 };
 
 const Sec = ({num,title,color,pill,children}:{num:string;title:string;color:string;pill?:{grade:string;label:string;color:string};children:React.ReactNode}) => (<section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"><div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2"><span className={`w-6 h-6 rounded-lg bg-${color}-50 flex items-center justify-center text-xs font-bold text-${color}-600`}>{num}</span><h2 className="text-sm font-bold text-slate-800">{title}</h2>{pill&&<div className="ml-auto"><span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{backgroundColor:pill.color+'15',color:pill.color}}>{pill.grade} {pill.label}</span></div>}</div><div className="p-4 space-y-4">{children}</div></section>);
@@ -129,10 +230,28 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   const [data, setData] = useState(() => loadData());
   const [showShareModal, setShowShareModal] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const printRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback(() => setData(loadData()), []);
 
-  const handlePrint = useCallback(() => { window.print(); }, []);
+  // ★★★ v3.5: PDF 출력 ★★★
+  const handlePrint = useCallback(async () => {
+    if (!contentRef.current) return;
+    try {
+      const html2pdf = await loadHtml2Pdf();
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `${data.pi.name||userName||'고객'}_재무설계리포트.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      await html2pdf().set(opt).from(contentRef.current).save();
+    } catch (err) {
+      console.error('PDF 저장 실패:', err);
+      window.print();
+    }
+  }, [data.pi.name, userName]);
+
   const handleShare = useCallback(() => { setShowShareModal(true); }, []);
 
   useEffect(() => { window.addEventListener('storage',refresh); const id=setInterval(refresh,2000); return()=>{window.removeEventListener('storage',refresh);clearInterval(id);}; }, [refresh]);
@@ -162,24 +281,21 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   if (reR > 70) actionPlan.push({priority:prio++,area:'부동산',emoji:'🏠',action:'부동산 비중 조정',detail:`현재 ${reR}% → 유동성 자산 확보 권장`});
   if (actionPlan.length === 0) actionPlan.push({priority:1,area:'종합',emoji:'🎉',action:'현재 재무상태 양호',detail:'현재 전략을 유지하며 정기적으로 리밸런싱하세요.'});
 
-  const shareText = `${nm}님의 종합재무설계 리포트\n\n📊 종합등급: ${data.desire.currentStage}단계 (${data.desire.stageName})\n💰 순자산: ${fmt.eok(data.netAst)}\n🏖️ 은퇴준비율: ${data.retire.retirementReadyRate}%\n\nAI머니야 금융집짓기® 기반`;
-  const shareUrl = window.location.href;
-
   return (
-    <div ref={printRef} className="fixed inset-0 z-50 overflow-hidden print-report-root">
+    <div className="fixed inset-0 z-50 overflow-hidden print-report-root">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print-overlay" onClick={onClose} />
       <div className="relative h-full flex flex-col">
         <div className="fixed top-10 left-0 right-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between print:hidden z-[60]">
           <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"><svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg></button>
           <h1 className="text-sm font-bold text-slate-700">종합재무설계 리포트</h1>
           <div className="flex items-center gap-2">
-            <button onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors shadow-md" title="공유하기"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg></button>
-            <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center bg-slate-700 rounded-xl hover:bg-slate-800 transition-colors shadow-md" title="출력하기"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
+            <button onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors shadow-md" title="PDF 공유"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg></button>
+            <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center bg-slate-700 rounded-xl hover:bg-slate-800 transition-colors shadow-md" title="PDF 저장"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></button>
           </div>
         </div>
-        <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} shareText={shareText} shareUrl={shareUrl} />
+        <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} userName={nm} contentRef={contentRef} />
         <div ref={ref} className="flex-1 overflow-y-auto bg-slate-50 mt-[104px] print-scroll-area">
-          <div className="p-4 pb-20 space-y-5 print-content-area">
+          <div ref={contentRef} className="p-4 pb-20 space-y-5 print-content-area bg-slate-50">
             <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white min-h-[200px] flex flex-col justify-between print:break-after-page">
               <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-teal-500/20 to-transparent rounded-bl-full"/><div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-indigo-500/15 to-transparent rounded-tr-full"/>
               <div className="relative z-10"><div className="flex items-center gap-2 mb-1"><img src={LOGO_URL} alt="AI머니야" className="h-7 rounded"/><span className="text-[10px] text-teal-300 font-medium tracking-wider">AI MONEYA</span></div><p className="text-[10px] text-slate-400 mt-2">{dateStr} 기준</p></div>
@@ -220,8 +336,7 @@ const FinancialReport = ({ userName, onClose }: Props) => {
 
             <Sec num="06" title="투자설계" color="violet" pill={wG}><div className="flex items-start gap-3"><GB g={wG}/><div className="flex-1"><p className="text-[10px] text-slate-400 mb-1">부자지수</p><p className="text-2xl font-extrabold" style={{color:wG.color}}>{data.invest.wealthIndex}</p><p className="text-[9px] text-slate-400">(순자산×10)÷(나이×연소득)×100 | 목표: 100↑</p></div></div><div className="bg-violet-50 rounded-xl p-3 border border-violet-100"><div className="flex items-center justify-between mb-1.5"><span className="text-[10px] text-violet-500 font-semibold">부자지수 게이지</span><span className="text-[10px] text-violet-600 font-bold">{data.invest.wealthIndex}/100</span></div><div className="h-3 bg-violet-100 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-500" style={{width:`${Math.min(100,data.invest.wealthIndex)}%`}}/></div><div className="flex justify-between mt-1 text-[8px] text-violet-400"><span>0</span><span>25(D)</span><span>50(C)</span><span>100(A)</span></div></div><div className="grid grid-cols-3 gap-2"><IC l="총자산" v={fmt.eok(data.invest.totalAssets)} c="blue"/><IC l="총부채" v={fmt.eok(data.invest.totalDebt)} c="red"/><IC l="순자산" v={fmt.eok(data.invest.netAsset)} c="emerald"/></div>{data.invest.portfolioTotal>0&&(<BarChart title="📊 금융자산 포트폴리오" items={pfItems} max={pfMax} showPct pctFn={pfPct}/>)}<EmergencyBox fund={data.invest.portfolio.emergency} months={data.emMon} required={data.mReq} grade={emG} isDual={data.invest.isDualIncome} recAmt={data.invest.recommendedEmergency}/></Sec>
 
-            <Sec num="07" title="세금설계" color="orange"><div className="grid grid-cols-2 gap-2"><IC l="연소득" v={fmt.manwon(data.tax.annualSalary)} c="blue"/><IC l="실효세율" v={`${data.tax.effectiveTaxRate}%`} c="amber"/><IC l="결정세액" v={fmt.manwon(data.tax.determinedTax)} c="red"/><IC l="기납부세액
-" v={fmt.manwon(data.tax.prepaidTax)} c="emerald"/></div>{(data.tax.determinedTax>0||data.tax.prepaidTax>0)?(<div className={`rounded-xl p-3.5 border ${data.tax.taxRefund>=0?'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100':'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100'}`}><p className="text-[10px] font-semibold" style={{color:data.tax.taxRefund>=0?'#059669':'#dc2626'}}>{data.tax.taxRefund>=0?'✅ 예상 환급':'⚠️ 예상 추가납부'}</p><p className="text-xl font-extrabold mt-0.5" style={{color:data.tax.taxRefund>=0?'#047857':'#b91c1c'}}>{data.tax.taxRefund>=0?'+':''}{fmt.manwon(Math.abs(data.tax.taxRefund))}</p></div>):null}{data.tax.inherit.totalAssets>0&&(<InheritSection inh={data.tax.inherit}/>)}<TaxTips/></Sec>
+            <Sec num="07" title="세금설계" color="orange"><div className="grid grid-cols-2 gap-2"><IC l="연소득" v={fmt.manwon(data.tax.annualSalary)} c="blue"/><IC l="실효세율" v={`${data.tax.effectiveTaxRate}%`} c="amber"/><IC l="결정세액" v={fmt.manwon(data.tax.determinedTax)} c="red"/><IC l="기납부세액" v={fmt.manwon(data.tax.prepaidTax)} c="emerald"/></div>{(data.tax.determinedTax>0||data.tax.prepaidTax>0)?(<div className={`rounded-xl p-3.5 border ${data.tax.taxRefund>=0?'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100':'bg-gradient-to-r from-rose-50 to-orange-50 border-rose-100'}`}><p className="text-[10px] font-semibold" style={{color:data.tax.taxRefund>=0?'#059669':'#dc2626'}}>{data.tax.taxRefund>=0?'✅ 예상 환급':'⚠️ 예상 추가납부'}</p><p className="text-xl font-extrabold mt-0.5" style={{color:data.tax.taxRefund>=0?'#047857':'#b91c1c'}}>{data.tax.taxRefund>=0?'+':''}{fmt.manwon(Math.abs(data.tax.taxRefund))}</p></div>):null}{data.tax.inherit.totalAssets>0&&(<InheritSection inh={data.tax.inherit}/>)}<TaxTips/></Sec>
 
             <Sec num="08" title="부동산설계" color="amber"><div className="grid grid-cols-2 gap-2"><IC l="주거용 부동산" v={fmt.eok(data.reAst.residential)} c="amber"/><IC l="투자용 부동산" v={fmt.eok(data.reAst.investment)} c="blue"/></div><DonutSection label="자산 내 부동산 비중" ratio={reR} total={reT} other={Math.max(0,data.totAst-reT)} warn={reR>70?`부동산 비중 ${reR}%로 높음. 유동성 자산 확보 권장`:undefined}/></Sec>
 
