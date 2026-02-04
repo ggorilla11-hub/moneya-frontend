@@ -1,5 +1,9 @@
-// src/components/FinancialReport.tsx v3.5
-// ★★★ v3.5: PDF 생성 공유, 공유모달 상단 위치 ★★★
+// src/components/FinancialReport.tsx v3.6
+// ★★★ v3.6: 공유모달/출력/X버튼 완전 수정 ★★★
+// - 공유모달: 텍스트 기반 공유 (카톡/이메일/문자) + stopPropagation
+// - 출력버튼: window.print() 직접 호출
+// - X버튼: stopPropagation으로 이벤트 분리
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
@@ -7,18 +11,6 @@ const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72
 const BASIC_DRAFT_KEY = 'financialHouseBasicDraft';
 const BASIC_FINAL_KEY = 'financialHouseData';
 const DESIGN_KEY = 'financialHouseDesignData';
-
-// ★★★ v3.5: html2pdf CDN 동적 로드 ★★★
-const loadHtml2Pdf = (): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    if ((window as any).html2pdf) { resolve((window as any).html2pdf); return; }
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    script.onload = () => resolve((window as any).html2pdf);
-    script.onerror = () => reject(new Error('html2pdf 로드 실패'));
-    document.head.appendChild(script);
-  });
-};
 
 const fmt = {
   manwon: (v: number): string => { if (!v) return '0만원'; if (v >= 10000) { const e = Math.floor(v/10000); const r = v%10000; return r===0 ? `${e}억원` : `${e}억 ${r.toLocaleString()}만원`; } return `${v.toLocaleString()}만원`; },
@@ -79,6 +71,7 @@ const loadData = () => {
   const wIdx=(iAge>0&&iAnnInc>0)?Math.round((iNet*10)/(iAge*iAnnInc)*100):0;
   const pf = { liquid:inv.liquidAssets||0, safe:inv.safeAssets||0, growth:inv.growthAssets||0, highRisk:inv.highRiskAssets||0, emergency:inv.emergencyFund||emFund||0, resRE:inv.residentialRealEstate||reAst.residential||0, invRE:inv.investmentRealEstate||reAst.investment||0 };
   const pfTot=pf.liquid+pf.safe+pf.growth+pf.highRisk; const isDual=inv.dualIncome==='맞벌이'||pi.dualIncome==='맞벌이'; const recEm=isDual?(mReq*3):(mReq*6);
+
   const tx=d?.tax||{}; const txInc=tx.incomeData||{}; const txInh=tx.inheritData||{};
   const txSal=txInc.annualSalary||iAnnInc||0; const txDet=txInc.determinedTax||0; const txPre=txInc.prepaidTax||0;
   const txRef=txPre-txDet; const txEff=txSal>0?Math.round((txDet/txSal)*10000)/100:0;
@@ -101,101 +94,84 @@ const loadData = () => {
   return { pi, interests, goal, inc, exp, ast, dbt, mortT, credT, othDT, emFund, mReq, emMon, totAst, dRatio, dsr, savRate, netAst, reAst, save:{purpose:svPurp,targetYears:svYrs,targetAmount:svAmt,monthlySavingRequired:svMon}, retire:{currentAge:rAge,retireAge:rRAge,yearsToRetire:yToR,retireYears:rYrs,monthlyLivingExpense:rExp,expectedNationalPension:rNP,currentPersonalPension:rPP,expectedRetirementLumpSum:rLump,requiredMonthly:rExp,preparedMonthly:rPrep,monthlySavingForRetire:rLumpM,totalPreparedMonthly:rTotPrep,retirementReadyRate:rRate,monthlyShortfall:rShort,totalRequiredRetireFund:rTotNeed,additionalMonthlySaving:rAddMon}, invest:{currentAge:iAge,monthlyIncome:iInc,totalAssets:iTotA,totalDebt:iTotD,netAsset:iNet,annualIncome:iAnnInc,wealthIndex:wIdx,portfolio:pf,portfolioTotal:pfTot,isDualIncome:isDual,recommendedEmergency:recEm}, tax:{annualSalary:txSal,determinedTax:txDet,prepaidTax:txPre,taxRefund:txRef,effectiveTaxRate:txEff,inherit:{totalAssets:ihA,totalDebts:ihD,hasSpouse:ihSp,childrenCount:ihCh,basicDeduction:ihBD,spouseDeduction:ihSD,childDeduction:ihCD,totalDeduction:ihTD,taxableAmount:ihTax,tax:ihRes.tax,rate:ihRes.rate,bracket:ihRes.bracket}}, insurance:{items:insItems,lackCount:insLack,totalNeeded:insNeedT,totalPrepared:insPrepT,overallRate:insRate,annualIncome:insAI}, desire:{currentStage:dCur,stageName:dName,stageEmoji:dEmoji,stageDesc:dDesc,stages:dStages} };
 };
 
-// ★★★ v3.5: 공유 모달 - 상단 위치 + PDF 생성 기능 ★★★
-const ShareModal = ({ isOpen, onClose, userName, contentRef }: { isOpen: boolean; onClose: () => void; userName: string; contentRef: React.RefObject<HTMLDivElement | null> }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+// ★★★ v3.6: 공유 모달 - 텍스트 기반 공유 + 이벤트 수정 ★★★
+interface ShareModalProps { isOpen: boolean; onClose: () => void; userName: string; summaryText: string; }
 
-  // PDF 생성 함수
-  const generatePdf = async (): Promise<Blob | null> => {
-    if (!contentRef.current) return null;
-    setIsGenerating(true);
-    try {
-      const html2pdf = await loadHtml2Pdf();
-      const element = contentRef.current;
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `${userName}_재무설계리포트.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-      const pdfInstance = html2pdf().set(opt).from(element);
-      const blob = await pdfInstance.outputPdf('blob');
-      setPdfBlob(blob);
-      return blob;
-    } catch (err) {
-      console.error('PDF 생성 실패:', err);
-      alert('PDF 생성에 실패했습니다. 다시 시도해주세요.');
-      return null;
-    } finally {
-      setIsGenerating(false);
+const ShareModal = ({ isOpen, onClose, userName, summaryText }: ShareModalProps) => {
+  const [status, setStatus] = useState<'idle' | 'success'>('idle');
+
+  const handleBackdropClick = (e: React.MouseEvent) => { e.stopPropagation(); onClose(); };
+  const handleCloseClick = (e: React.MouseEvent) => { e.stopPropagation(); e.preventDefault(); onClose(); };
+
+  const shareKakao = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = `📊 ${userName}님의 종합재무설계 리포트\n\n${summaryText}\n\n🏠 AI머니야 금융집짓기®`;
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      window.location.href = `kakaotalk://msg/text?text=${encodeURIComponent(text)}`;
+      setTimeout(() => { navigator.clipboard.writeText(text).then(() => alert('리포트 내용이 복사되었습니다.\n카카오톡에서 붙여넣기 해주세요.')); }, 1500);
+    } else {
+      navigator.clipboard.writeText(text).then(() => alert('리포트 내용이 복사되었습니다.\n카카오톡에서 붙여넣기 해주세요.'));
     }
-  };
-
-  // PDF 다운로드
-  const downloadPdf = async () => {
-    const blob = pdfBlob || await generatePdf();
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${userName}_재무설계리포트.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
     onClose();
   };
 
-  // 카카오톡 공유 (PDF 다운로드 후 안내)
-  const shareKakao = async () => {
-    await downloadPdf();
-    alert('PDF가 다운로드되었습니다.\n카카오톡에서 파일을 첨부하여 공유해주세요.');
-  };
-
-  // 이메일 공유
-  const shareEmail = async () => {
-    await downloadPdf();
+  const shareEmail = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const subject = encodeURIComponent(`${userName}님의 종합재무설계 리포트`);
-    const body = encodeURIComponent(`안녕하세요,\n\n${userName}님의 종합재무설계 리포트를 첨부합니다.\n\nAI머니야 금융집짓기® 기반으로 작성된 리포트입니다.\n\n감사합니다.`);
+    const body = encodeURIComponent(`안녕하세요,\n\n${userName}님의 종합재무설계 리포트입니다.\n\n${summaryText}\n\nAI머니야 금융집짓기® 기반 리포트입니다.`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    onClose();
   };
 
-  // 문자 공유
-  const shareSMS = async () => {
-    await downloadPdf();
-    alert('PDF가 다운로드되었습니다.\n문자에서 파일을 첨부하여 공유해주세요.');
+  const shareSMS = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = `📊 ${userName}님의 재무설계 리포트\n${summaryText}`;
+    if (/Android/i.test(navigator.userAgent)) { window.location.href = `sms:?body=${encodeURIComponent(text)}`; }
+    else if (/iPhone|iPad/i.test(navigator.userAgent)) { window.location.href = `sms:&body=${encodeURIComponent(text)}`; }
+    else { navigator.clipboard.writeText(text).then(() => alert('리포트 내용이 복사되었습니다.')); }
+    onClose();
+  };
+
+  const copyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = `📊 ${userName}님의 종합재무설계 리포트\n\n${summaryText}\n\n🏠 AI머니야 금융집짓기® | 오원트금융연구소`;
+    navigator.clipboard.writeText(text).then(() => { setStatus('success'); setTimeout(() => { setStatus('idle'); onClose(); }, 1500); });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl animate-slide-down">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-24" onClick={handleBackdropClick}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative bg-white rounded-2xl w-full max-w-sm mx-4 overflow-hidden shadow-2xl animate-slide-down" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-teal-500 to-emerald-500">
-          <h3 className="text-base font-bold text-white">📄 리포트 PDF 공유</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <h3 className="text-base font-bold text-white">📤 리포트 공유하기</h3>
+          <button type="button" onClick={handleCloseClick} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 transition-colors">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
-        {isGenerating ? (
-          <div className="p-8 flex flex-col items-center justify-center">
-            <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-sm text-slate-600 font-medium">PDF 생성 중...</p>
-            <p className="text-xs text-slate-400 mt-1">잠시만 기다려주세요</p>
-          </div>
-        ) : (
-          <>
-            <div className="p-5 grid grid-cols-4 gap-4">
-              <button onClick={shareKakao} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-[#FEE500] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-8 h-8" viewBox="0 0 24 24" fill="#3C1E1E"><path d="M12 3C6.477 3 2 6.463 2 10.714c0 2.683 1.786 5.037 4.465 6.386-.197.727-.713 2.635-.816 3.043-.128.509.187.502.393.365.162-.107 2.58-1.747 3.625-2.456.77.108 1.567.162 2.333.162 5.523 0 10-3.463 10-7.5S17.523 3 12 3z"/></svg></div><span className="text-xs text-slate-600 font-medium">카카오톡</span></button>
-              <button onClick={shareEmail} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">이메일</span></button>
-              <button onClick={shareSMS} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-green-500 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg></div><span className="text-xs text-slate-600 font-medium">문자</span></button>
-              <button onClick={downloadPdf} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-slate-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">PDF저장</span></button>
+        <div className="p-5">
+          {status === 'success' ? (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 mx-auto bg-emerald-100 rounded-full flex items-center justify-center mb-3">
+                <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <p className="text-sm font-semibold text-slate-700">복사 완료!</p>
             </div>
-            <div className="px-5 pb-5"><p className="text-[11px] text-slate-400 text-center">PDF 파일로 저장하여 공유하세요</p></div>
-          </>
-        )}
+          ) : (
+            <>
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <button type="button" onClick={shareKakao} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-[#FEE500] flex items-center justify-center group-hover:scale-110 transition-transform shadow-md"><svg className="w-8 h-8" viewBox="0 0 24 24" fill="#3C1E1E"><path d="M12 3C6.477 3 2 6.463 2 10.714c0 2.683 1.786 5.037 4.465 6.386-.197.727-.713 2.635-.816 3.043-.128.509.187.502.393.365.162-.107 2.58-1.747 3.625-2.456.77.108 1.567.162 2.333.162 5.523 0 10-3.463 10-7.5S17.523 3 12 3z"/></svg></div><span className="text-xs text-slate-600 font-medium">카카오톡</span></button>
+                <button type="button" onClick={shareEmail} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div><span className="text-xs text-slate-600 font-medium">이메일</span></button>
+                <button type="button" onClick={shareSMS} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-green-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg></div><span className="text-xs text-slate-600 font-medium">문자</span></button>
+                <button type="button" onClick={copyLink} className="flex flex-col items-center gap-2 group"><div className="w-14 h-14 rounded-2xl bg-slate-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md"><svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg></div><span className="text-xs text-slate-600 font-medium">복사</span></button>
+              </div>
+              <p className="text-[11px] text-slate-400 text-center">리포트 요약 내용이 공유됩니다</p>
+            </>
+          )}
+        </div>
       </div>
-      <style>{`@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}.animate-slide-down{animation:slideDown 0.3s ease-out}`}</style>
+      <style>{`@keyframes slideDown{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}.animate-slide-down{animation:slideDown 0.25s ease-out}`}</style>
     </div>
   );
 };
@@ -233,26 +209,10 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback(() => setData(loadData()), []);
 
-  // ★★★ v3.5: PDF 출력 ★★★
-  const handlePrint = useCallback(async () => {
-    if (!contentRef.current) return;
-    try {
-      const html2pdf = await loadHtml2Pdf();
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `${data.pi.name||userName||'고객'}_재무설계리포트.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      await html2pdf().set(opt).from(contentRef.current).save();
-    } catch (err) {
-      console.error('PDF 저장 실패:', err);
-      window.print();
-    }
-  }, [data.pi.name, userName]);
-
+  // ★★★ v3.6: 출력 버튼 - window.print() 직접 호출 ★★★
+  const handlePrint = useCallback(() => { window.print(); }, []);
   const handleShare = useCallback(() => { setShowShareModal(true); }, []);
+  const handleClose = useCallback((e?: React.MouseEvent) => { if (e) { e.stopPropagation(); e.preventDefault(); } onClose(); }, [onClose]);
 
   useEffect(() => { window.addEventListener('storage',refresh); const id=setInterval(refresh,2000); return()=>{window.removeEventListener('storage',refresh);clearInterval(id);}; }, [refresh]);
 
@@ -281,19 +241,22 @@ const FinancialReport = ({ userName, onClose }: Props) => {
   if (reR > 70) actionPlan.push({priority:prio++,area:'부동산',emoji:'🏠',action:'부동산 비중 조정',detail:`현재 ${reR}% → 유동성 자산 확보 권장`});
   if (actionPlan.length === 0) actionPlan.push({priority:1,area:'종합',emoji:'🎉',action:'현재 재무상태 양호',detail:'현재 전략을 유지하며 정기적으로 리밸런싱하세요.'});
 
+  // ★★★ v3.6: 공유용 요약 텍스트 ★★★
+  const summaryText = `종합등급: ${overallGrade} (${overallScore}점)\n순자산: ${fmt.eok(data.netAst)}\n부자지수: ${data.invest.wealthIndex}\n은퇴준비율: ${data.retire.retirementReadyRate}%\nDESIRE 단계: ${data.desire.currentStage}단계 (${data.desire.stageName})`;
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden print-report-root">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print-overlay" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print-overlay" onClick={handleClose} />
       <div className="relative h-full flex flex-col">
         <div className="fixed top-10 left-0 right-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between print:hidden z-[60]">
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"><svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg></button>
+          <button type="button" onClick={handleClose} className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"><svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg></button>
           <h1 className="text-sm font-bold text-slate-700">종합재무설계 리포트</h1>
           <div className="flex items-center gap-2">
-            <button onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors shadow-md" title="PDF 공유"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg></button>
-            <button onClick={handlePrint} className="w-10 h-10 flex items-center justify-center bg-slate-700 rounded-xl hover:bg-slate-800 transition-colors shadow-md" title="PDF 저장"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></button>
+            <button type="button" onClick={handleShare} className="w-10 h-10 flex items-center justify-center bg-teal-500 rounded-xl hover:bg-teal-600 transition-colors shadow-md" title="공유하기"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg></button>
+            <button type="button" onClick={handlePrint} className="w-10 h-10 flex items-center justify-center bg-slate-700 rounded-xl hover:bg-slate-800 transition-colors shadow-md" title="인쇄하기"><svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
           </div>
         </div>
-        <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} userName={nm} contentRef={contentRef} />
+        <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} userName={nm} summaryText={summaryText} />
         <div ref={ref} className="flex-1 overflow-y-auto bg-slate-50 mt-[104px] print-scroll-area">
           <div ref={contentRef} className="p-4 pb-20 space-y-5 print-content-area bg-slate-50">
             <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white min-h-[200px] flex flex-col justify-between print:break-after-page">
