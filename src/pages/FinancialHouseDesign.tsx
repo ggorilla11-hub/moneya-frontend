@@ -4,7 +4,6 @@
 // v5.1: InsurancePlanCard에 onOpenOCR props 전달 (보험증권 업로드 → +버튼 OCR 모달 연결)
 // v5.2: TaxPlanCard에 onOpenOCR props 전달 (원천징수영수증 업로드 → +버튼 OCR 모달 연결)
 // v5.3: 헤더/탭/콘텐츠 위치를 녹색 티커 아래로 조정 (top-0 → top-10)
-// v5.4: 이전/다음 버튼 하단 고정 (입력창 위에 배치) + 콘텐츠 하단 여백 증가
 // ★★★ 기존 AI지출탭 AIConversation.tsx 음성 코드 100% 복사 적용 ★★★
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
 
@@ -182,7 +181,6 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, ini
 
   const currentStep = DESIGN_TABS.findIndex(tab => tab.id === currentTab) + 1;
   const displayName = userName || '고객';
-  const isLastTab = currentTab === 'insurance';
 
   // ★★★ v5.0 추가: initialTab이 변경되면 currentTab 업데이트 ★★★
   useEffect(() => {
@@ -755,10 +753,9 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, ini
         })}
       </div>
 
-      {/* ★★★ v5.4 수정: 메인 콘텐츠 영역 - 하단 여백 증가 (버튼+입력창+내비바) ★★★ */}
-      {/* mt-[152px] = 티커(40px) + 헤더(56px) + 탭(56px) */}
-      {/* pb-52 = 이전/다음 버튼(64px) + 입력창(64px) + 내비바(80px) ≈ 208px */}
-      <div className="flex-1 flex flex-col mt-[152px] pb-52 overflow-hidden">
+      {/* ★★★ v5.3 수정: 메인 콘텐츠 영역 - mt-38로 상단 여백 증가 ★★★ */}
+      {/* mt-38 = 티커(40px) + 헤더(56px) + 탭(56px) ≈ 152px */}
+      <div className="flex-1 flex flex-col mt-[152px] mb-36 overflow-hidden">
         
         {/* 입력 폼 영역 (토글 시 위로 접힘) */}
         <div 
@@ -863,24 +860,6 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack, ini
             </div>
           </div>
         )}
-      </div>
-
-      {/* ★★★ v5.4 추가: 이전/다음 버튼 - 하단 고정 (입력창 위) ★★★ */}
-      <div className="fixed bottom-[144px] left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40">
-        <div className="flex gap-3">
-          <button 
-            onClick={goToPrevTab} 
-            className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold text-sm"
-          >
-            ← 이전
-          </button>
-          <button 
-            onClick={goToNextTab} 
-            className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-teal-400 to-teal-600 text-white font-bold text-sm shadow-lg shadow-teal-500/30"
-          >
-            {isLastTab ? '재무설계 완료 →' : '다음 →'}
-          </button>
-        </div>
       </div>
 
       {/* 하단 입력 영역 - 내비바 위에 고정 (bottom-20 = 80px) */}
