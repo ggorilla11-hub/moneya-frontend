@@ -102,7 +102,7 @@ const loadData = () => {
 };
 
 // ★★★ v3.5: 공유 모달 - 상단 위치 + PDF 생성 기능 ★★★
-const ShareModal = ({ isOpen, onClose, userName, contentRef }: { isOpen: boolean; onClose: () => void; userName: string; contentRef: React.RefObject<HTMLDivElement> }) => {
+const ShareModal = ({ isOpen, onClose, userName, contentRef }: { isOpen: boolean; onClose: () => void; userName: string; contentRef: React.RefObject<HTMLDivElement | null> }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 
