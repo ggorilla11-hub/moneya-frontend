@@ -1,13 +1,6 @@
-// ============================================
-// DeleteAccountPage - 계정 삭제 안내 페이지
-// Google Play 스토어 정책 준수용
-// ============================================
-
-import React, { useState } from 'react';
+import React from 'react';
 
 const DeleteAccountPage: React.FC = () => {
-  const [showConfirm, setShowConfirm] = useState(false);
-
   return (
     <div style={{
       minHeight: '100vh',
