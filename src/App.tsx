@@ -22,6 +22,7 @@ import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
 import FinancialHouseDesign from './pages/FinancialHouseDesign';
 import FinancialHouseResult from './pages/FinancialHouseResult';
+import DeleteAccountPage from './pages/DeleteAccountPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import { SpendProvider } from './context/SpendContext';
@@ -63,11 +64,17 @@ type AppStep =
   | 'subscription'
   | 'consulting'
   | 'consulting-apply'
-  | 'monthly-report';
+  | 'monthly-report'
+  | 'delete-account';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
 function App() {
+  // URL path가 /delete-account인 경우 바로 계정삭제 페이지 표시
+  if (window.location.pathname === '/delete-account') {
+    return <DeleteAccountPage />;
+  }
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState<AppStep>('login');
@@ -239,13 +246,15 @@ function App() {
     setCurrentTab('home');
   };
 
-  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'delete-account') => {
     if (page === 'subscription') {
       setCurrentStep('subscription');
     } else if (page === 'consulting') {
       setCurrentStep('consulting');
     } else if (page === 'monthly-report') {
       setCurrentStep('monthly-report');
+    } else if (page === 'delete-account') {
+      setCurrentStep('delete-account');
     }
   };
 
@@ -449,6 +458,10 @@ function App() {
         />
       </SpendProvider>
     );
+  }
+
+  if (currentStep === 'delete-account') {
+    return <DeleteAccountPage />;
   }
 
   if (currentStep === 're-diagnosis' && financialResult) {
