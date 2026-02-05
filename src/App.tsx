@@ -25,6 +25,7 @@ import FinancialHouseResult from './pages/FinancialHouseResult';
 import OnlineCoursePage from './pages/OnlineCoursePage';
 import VideoPlayerPage from './pages/VideoPlayerPage';
 import PodcastPage from './pages/PodcastPage';
+import DeleteAccountPage from './pages/DeleteAccountPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import FinancialTicker from './components/FinancialTicker';
@@ -100,7 +101,15 @@ function App() {
   const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [isSubscribed] = useState<boolean>(false);
 
+  // ★★★ 추가: URL 경로 기반 계정 삭제 페이지 감지 ★★★
+  const isDeleteAccountPage = window.location.pathname === '/delete-account';
+
   useEffect(() => {
+    if (isDeleteAccountPage) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -150,6 +159,11 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // ★★★ 추가: 계정 삭제 페이지는 로그인 없이 바로 렌더링 ★★★
+  if (isDeleteAccountPage) {
+    return <DeleteAccountPage />;
+  }
 
   const handleOnboardingComplete = () => {
     if (user) {
