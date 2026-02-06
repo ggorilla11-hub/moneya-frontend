@@ -3,10 +3,9 @@
 // Google Play 스토어 정책 준수용
 // ============================================
 
-import React, { useState } from 'react';
+import React from 'react';
 
 const DeleteAccountPage: React.FC = () => {
-  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <div style={{
@@ -111,7 +110,7 @@ const DeleteAccountPage: React.FC = () => {
                 앱 내 삭제가 어려운 경우, 아래 이메일로 계정 삭제를 요청하실 수 있습니다.
               </p>
               <p style={{ margin: '8px 0 0' }}>
-                <a
+                
                   href="mailto:moneyaappreview@gmail.com?subject=Account%20Deletion%20Request&body=Please%20delete%20my%20AI%20Moneya%20account.%20My%20registered%20email%20is%3A%20"
                   style={{
                     color: '#38bdf8',
@@ -251,7 +250,7 @@ const DeleteAccountPage: React.FC = () => {
           <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 4px' }}>
             For inquiries, please contact us at:
           </p>
-          <a
+          
             href="mailto:moneyaappreview@gmail.com"
             style={{
               color: '#38bdf8',
