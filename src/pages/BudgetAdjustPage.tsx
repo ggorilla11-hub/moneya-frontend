@@ -1,3 +1,6 @@
+// src/pages/BudgetAdjustPage.tsx
+// v2.0: 슬라이더 단위 1만원(10000원)으로 수정 - 미세 조정 방지
+
 import { useState, useCallback, useRef } from 'react';
 import type { IncomeExpenseData } from '../types/incomeExpense';
 import { BUDGET_RATIOS } from '../types/incomeExpense';
@@ -82,8 +85,8 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
-  // 1만원 단위 조정
-  const STEP = 1;
+  // ★★★ v2.0 수정: 1만원 단위 조정 (10000원) ★★★
+  const STEP = 10000;
   
   // 스냅 허용 오차: 5만원 (원 단위이므로 50000)
   const SNAP_TOLERANCE = 50000;
@@ -129,7 +132,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const handleSliderChange = (field: BudgetField, newValue: number) => {
     if (confirmed[field]) return;
     
-    // 1만원 단위로 반올림
+    // ★★★ v2.0: 1만원 단위로 반올림 ★★★
     newValue = Math.round(newValue / STEP) * STEP;
     newValue = Math.max(0, Math.min(newValue, income));
     

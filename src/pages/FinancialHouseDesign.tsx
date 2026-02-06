@@ -1,10 +1,14 @@
 // src/pages/FinancialHouseDesign.tsx
 // v4.0: 마이크 음성 기능 + 대화 공간 + OCR 모달 추가
+// v5.0: initialTab props 추가 - back 버튼 시 마지막 탭에서 시작
+// v5.1: InsurancePlanCard에 onOpenOCR props 전달 (보험증권 업로드 → +버튼 OCR 모달 연결)
+// v5.2: TaxPlanCard에 onOpenOCR props 전달 (원천징수영수증 업로드 → +버튼 OCR 모달 연결)
+// v5.3: 헤더/탭/콘텐츠 위치를 녹색 티커 아래로 조정 (top-0 → top-10)
 // ★★★ 기존 AI지출탭 AIConversation.tsx 음성 코드 100% 복사 적용 ★★★
 // ★★★ 기존 AI지출탭 음성 코드는 절대 수정하지 않음 ★★★
 
 import { useState, useEffect, useRef } from 'react';
-import { RetirePlanCard, DebtPlanCard, SavePlanCard, InvestPlanCard, TaxPlanCard, EstatePlanCard, InsurancePlanCard } from './FinancialPlanCards';
+import { RetirePlanCard, DebtPlanCard, SavePlanCard, InvestPlanCard, TaxPlanCard, EstatePlanCard, InsurancePlanCard } from './FinancialPlanCards/index';
 
 // ============================================
 // 상수 정의
@@ -105,6 +109,7 @@ interface FinancialHouseDesignProps {
   userName: string;
   onComplete: () => void;
   onBack: () => void;
+  initialTab?: string; // ★★★ v5.0 추가: 초기 탭 설정 ★★★
 }
 
 interface Message {
@@ -131,9 +136,9 @@ const DESIGN_TABS = [
 // ============================================
 // 메인 컴포넌트
 // ============================================
-export default function FinancialHouseDesign({ userName, onComplete, onBack }: FinancialHouseDesignProps) {
-  // 탭 상태
-  const [currentTab, setCurrentTab] = useState('retire');
+export default function FinancialHouseDesign({ userName, onComplete, onBack, initialTab = 'retire' }: FinancialHouseDesignProps) {
+  // ★★★ v5.0 수정: initialTab props로 초기 탭 설정 ★★★
+  const [currentTab, setCurrentTab] = useState(initialTab);
   const [completedTabs, setCompletedTabs] = useState<string[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   
@@ -176,6 +181,11 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
 
   const currentStep = DESIGN_TABS.findIndex(tab => tab.id === currentTab) + 1;
   const displayName = userName || '고객';
+
+  // ★★★ v5.0 추가: initialTab이 변경되면 currentTab 업데이트 ★★★
+  useEffect(() => {
+    setCurrentTab(initialTab);
+  }, [initialTab]);
 
   // ★★★ 서버 워밍업 (AIConversation.tsx와 동일) ★★★
   useEffect(() => {
@@ -482,7 +492,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   };
 
   // ============================================
-  // 탭 이동 함수
+  // ★★★ v5.4 수정: 탭 이동 함수 (버튼용) ★★★
   // ============================================
   const goToNextTab = () => {
     const currentIndex = DESIGN_TABS.findIndex(tab => tab.id === currentTab);
@@ -500,6 +510,7 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
     if (currentIndex > 0) {
       setCurrentTab(DESIGN_TABS[currentIndex - 1].id);
     } else {
+      // ★★★ 첫번째 탭(은퇴설계)에서 back -> App.tsx의 onBack 호출 ★★★
       onBack();
     }
   };
@@ -713,15 +724,15 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
   // ============================================
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 헤더 - 상단 고정 */}
-      <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 z-50">
+      {/* ★★★ v5.3 수정: 헤더 - top-10으로 녹색 티커 아래로 이동 ★★★ */}
+      <header className="fixed top-10 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 z-50">
         <button onClick={goToPrevTab} className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded-lg text-lg">←</button>
         <h1 className="flex-1 text-lg font-bold">7개 재무설계</h1>
         <span className="text-xs text-gray-400 font-semibold bg-gray-100 px-2.5 py-1 rounded-xl">{currentStep}/7</span>
       </header>
 
-      {/* 탭 네비게이션 - 헤더 아래 고정 (top-14 = 56px) */}
-      <div className="fixed top-14 left-0 right-0 bg-white border-b border-gray-200 px-3 py-2 flex gap-1.5 overflow-x-auto z-50">
+      {/* ★★★ v5.3 수정: 탭 네비게이션 - top-24로 헤더 아래로 이동 (top-10 + 헤더높이 56px ≈ top-24) ★★★ */}
+      <div className="fixed top-24 left-0 right-0 bg-white border-b border-gray-200 px-3 py-2 flex gap-1.5 overflow-x-auto z-50">
         {DESIGN_TABS.map((tab) => {
           const isActive = currentTab === tab.id;
           const isDone = completedTabs.includes(tab.id);
@@ -742,9 +753,9 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
         })}
       </div>
 
-      {/* 메인 콘텐츠 영역 - 상단(헤더+탭) 고정 높이 + 하단(버튼바+내비바) 높이만큼 패딩 */}
-      {/* pt-28 = 헤더(56px) + 탭(56px), pb-36 = 버튼바(64px) + 내비바(64px) + 여유 */}
-      <div className="flex-1 flex flex-col mt-28 mb-36 overflow-hidden">
+      {/* ★★★ v5.3 수정: 메인 콘텐츠 영역 - mt-38로 상단 여백 증가 ★★★ */}
+      {/* mt-38 = 티커(40px) + 헤더(56px) + 탭(56px) ≈ 152px */}
+      <div className="flex-1 flex flex-col mt-[152px] mb-36 overflow-hidden">
         
         {/* 입력 폼 영역 (토글 시 위로 접힘) */}
         <div 
@@ -753,13 +764,14 @@ export default function FinancialHouseDesign({ userName, onComplete, onBack }: F
           }`}
           style={{ scrollbarWidth: 'thin' }}
         >
+          {/* ★★★ v5.4 수정: 각 카드에서 이전/다음 버튼 제거 (hideButtons prop 추가 필요 또는 버튼 숨김) ★★★ */}
           {currentTab === 'retire' && <RetirePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'debt' && <DebtPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'save' && <SavePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
           {currentTab === 'invest' && <InvestPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-          {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
+          {currentTab === 'tax' && <TaxPlanCard onNext={goToNextTab} onPrev={goToPrevTab} onOpenOCR={() => setIsOCRModalOpen(true)} />}
           {currentTab === 'estate' && <EstatePlanCard onNext={goToNextTab} onPrev={goToPrevTab} />}
-          {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast />}
+          {currentTab === 'insurance' && <InsurancePlanCard onNext={goToNextTab} onPrev={goToPrevTab} isLast onOpenOCR={() => setIsOCRModalOpen(true)} />}
         </div>
 
         {/* 대화 영역 (토글 시 중간에 나타남) */}

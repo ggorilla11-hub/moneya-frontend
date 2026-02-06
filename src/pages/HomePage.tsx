@@ -9,6 +9,15 @@ const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.fireb
 // 오상열 대표 사진 URL (Firebase Storage)
 const PROFILE_IMAGE_URL = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EC%98%A4%EC%83%81%EC%97%B4%20%EC%82%AC%EC%A7%84.png?alt=media&token=63eaf15e-9d0b-4d72-8fbb-ee03d6ecc8e5';
 
+// ─── 뱃지 정의 ───
+const BADGE_LIST = [
+  { id: 'streak7', emoji: '🔥', name: '7일연속' },
+  { id: 'firstSave', emoji: '💰', name: '첫저축' },
+  { id: 'analyst', emoji: '📊', name: '분석왕' },
+  { id: 'goalAchieve', emoji: '🎯', name: '목표달성' },
+  { id: 'savingKing', emoji: '👑', name: '절약왕' },
+];
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -167,6 +176,16 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
     } else {
       alert('강의상담 신청 페이지로 이동합니다.');
     }
+  };
+
+  // ─── 뱃지 & 성장기록 데이터 ───
+  // TODO: 실제 뱃지 획득 로직 구현 시 localStorage 또는 Firebase 연동
+  const earnedBadges = ['streak7', 'firstSave', 'analyst'];
+  const growthData = {
+    attendanceDays: 27,
+    totalDays: 30,
+    budgetAchieveDays: 23,
+    monthlySavings: 127000,
   };
 
   return (
@@ -459,6 +478,56 @@ function HomePage({ userName, adjustedBudget, financialResult, onMoreDetail, onR
             {totalCategorySpending === 0 && (
               <p className="text-center text-gray-400 text-xs mt-2">아직 지출 기록이 없어요</p>
             )}
+          </div>
+        </div>
+
+        {/* ─── 🏆 획득 뱃지 (v2.0 복원: 더보기탭 → 홈대시보드로 이동) ─── */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">🏆 획득한 뱃지</h3>
+          <div className="flex justify-between">
+            {BADGE_LIST.map((badge) => {
+              const isEarned = earnedBadges.includes(badge.id);
+              return (
+                <div key={badge.id} className="flex flex-col items-center gap-1.5">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xl ${
+                    isEarned
+                      ? 'bg-gradient-to-br from-yellow-100 to-yellow-200 shadow-md'
+                      : 'bg-gray-100 border-2 border-dashed border-gray-300 opacity-40'
+                  }`}>
+                    {isEarned ? badge.emoji : '🔒'}
+                  </div>
+                  <span className={`text-[10px] font-medium whitespace-nowrap ${isEarned ? 'text-gray-700' : 'text-gray-400'}`}>{badge.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ─── 📈 성장 기록 (v2.0 복원: 더보기탭 → 홈대시보드로 이동) ─── */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">📈 성장 기록</h3>
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+              <span className="text-sm text-gray-500">출석</span>
+              <span className={`text-sm font-bold ${growthData.attendanceDays >= 25 ? 'text-green-600' : 'text-red-500'}`}>
+                {growthData.attendanceDays}/{growthData.totalDays}일 {growthData.attendanceDays >= 25 ? '🔥' : '😢'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+              <span className="text-sm text-gray-500">예산 달성</span>
+              <span className={`text-sm font-bold ${growthData.budgetAchieveDays >= 20 ? 'text-green-600' : 'text-red-500'}`}>
+                {growthData.budgetAchieveDays}일 {growthData.budgetAchieveDays >= 20 ? '✅' : '⚠️'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-sm text-gray-500">이번 달 절약</span>
+              <span className={`text-sm font-bold ${growthData.monthlySavings >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {growthData.monthlySavings >= 0
+                  ? `+${growthData.monthlySavings.toLocaleString()}원 💪`
+                  : `${growthData.monthlySavings.toLocaleString()}원 😢`
+                }
+              </span>
+            </div>
           </div>
         </div>
 

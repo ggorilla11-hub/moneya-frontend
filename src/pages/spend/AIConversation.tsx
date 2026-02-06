@@ -218,6 +218,12 @@ function AIConversation({
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [status, setStatus] = useState('대기중');
   
+  // 🆕 v6: GPS 준비중 모달 상태
+  const [showGPSModal, setShowGPSModal] = useState(false);
+  
+  // 🆕 v7: 금융결제원 오픈API 준비중 모달 상태
+  const [showOpenAPIModal, setShowOpenAPIModal] = useState(false);
+  
   // 🆕 v4: SpendContext에서 addSpendItem, spendItems 가져오기
   const { addSpendItem, spendItems } = useSpend();
   
@@ -764,12 +770,27 @@ function AIConversation({
               <span className="text-white text-xl font-extrabold">₩{remainingBudget.toLocaleString()}</span>
             </div>
           </div>
+          
+          {/* 🔊 스피커 버튼 (기존 코드 - 절대 수정 안함) */}
           <button onClick={() => setVoiceEnabled(!voiceEnabled)} className={`w-10 h-10 rounded-full flex items-center justify-center ${voiceEnabled ? 'bg-white/30' : 'bg-white/10'}`}>
             {voiceEnabled ? (
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             ) : (
               <svg className="w-5 h-5 text-white/50" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
             )}
+          </button>
+          
+          {/* 🆕 v6: GPS 버튼 (스피커 우측에 추가) */}
+          <button 
+            onClick={() => setShowGPSModal(true)} 
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 transition-all relative"
+          >
+            {/* GPS/위치 아이콘 (SVG) */}
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+            {/* GPS 펄스 애니메이션 점 */}
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse border border-white"></span>
           </button>
         </div>
         <div className="mt-3 bg-white/20 rounded-full h-2 overflow-hidden">
@@ -860,6 +881,100 @@ function AIConversation({
         </div>
       </div>
 
+      {/* 🆕 v6: GPS 기능 준비중 모달 */}
+      {showGPSModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 text-center animate-slide-up">
+            {/* GPS 아이콘 애니메이션 */}
+            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-400 to-teal-500 rounded-full flex items-center justify-center relative">
+              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              {/* 펄스 링 애니메이션 */}
+              <div className="absolute inset-0 rounded-full border-4 border-green-400 animate-ping opacity-30"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-teal-300 animate-pulse"></div>
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-800 mb-2">📍 위치 기반 소비 알림</h3>
+            <p className="text-gray-500 text-sm mb-4 leading-relaxed">
+              백화점, 쇼핑몰 근처에 가면<br/>
+              <span className="text-teal-600 font-semibold">머니야가 먼저 말을 걸어</span><br/>
+              소비 경각심을 알려드려요!
+            </p>
+            
+            {/* 예시 미리보기 */}
+            <div className="bg-gradient-to-r from-teal-50 to-green-50 rounded-xl p-3 mb-5 border border-teal-200">
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+                </div>
+                <div className="bg-white rounded-xl rounded-tl-none px-3 py-2 text-left shadow-sm">
+                  <p className="text-xs text-gray-700">🛍️ <strong>신세계백화점</strong> 근처네요!<br/>오늘 예산 ₩36,000 남았어요. 신중하게!</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* 준비중 배지 */}
+            <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              서비스 준비중입니다
+            </div>
+            
+            <button 
+              onClick={() => setShowGPSModal(false)}
+              className="w-full bg-gradient-to-r from-teal-500 to-green-500 text-white py-3 rounded-xl font-bold text-base hover:opacity-90 transition-opacity"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 v7: 금융결제원 오픈API 준비중 모달 */}
+      {showOpenAPIModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 text-center animate-slide-up">
+            {/* 은행 아이콘 애니메이션 */}
+            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-full flex items-center justify-center relative">
+              <span className="text-4xl">🏦</span>
+              {/* 펄스 링 애니메이션 */}
+              <div className="absolute inset-0 rounded-full border-4 border-indigo-400 animate-ping opacity-30"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-blue-300 animate-pulse"></div>
+            </div>
+            
+            <h3 className="text-xl font-bold text-gray-800 mb-2">🏦 금융결제원 오픈API 연결</h3>
+            <p className="text-gray-500 text-sm mb-4 leading-relaxed">
+              계좌를 연결하면<br/>
+              <span className="text-indigo-600 font-semibold">지출 내역이 자동으로 기록</span>되어<br/>
+              수동 입력 없이 관리할 수 있어요!
+            </p>
+            
+            {/* 연결 가능 은행 미리보기 */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-4 mb-5 border border-indigo-200">
+              <p className="text-xs text-indigo-600 font-semibold mb-2">연결 가능 은행</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {['🏦 국민', '🏦 신한', '🏦 우리', '🏦 하나', '🏦 농협', '🏦 카카오', '🏦 토스'].map((bank, i) => (
+                  <span key={i} className="bg-white px-2 py-1 rounded-lg text-xs text-gray-700 shadow-sm">{bank}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* 준비중 배지 */}
+            <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              서비스 준비중입니다
+            </div>
+            
+            <button 
+              onClick={() => setShowOpenAPIModal(false)}
+              className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 text-white py-3 rounded-xl font-bold text-base hover:opacity-90 transition-opacity"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 🆕 v2: 입력 방식 선택 모달 */}
       {showInputMethodModal && (
         <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center">
@@ -907,6 +1022,19 @@ function AIConversation({
                   <p className="text-xs text-gray-500">머니야에게 말하기</p>
                 </div>
                 <span className="text-gray-400">›</span>
+              </button>
+              
+              {/* 🆕 v7: 금융결제원 오픈API 연결 배너 */}
+              <button 
+                onClick={() => { setShowInputMethodModal(false); setShowOpenAPIModal(true); }}
+                className="w-full flex items-center gap-3 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-300 rounded-xl hover:border-indigo-500 hover:from-indigo-100 hover:to-blue-100 transition-all"
+              >
+                <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center text-xl">🏦</div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-indigo-800">금융결제원 오픈API 연결</p>
+                  <p className="text-xs text-indigo-600">계좌 연동으로 자동 지출 기록</p>
+                </div>
+                <span className="text-indigo-500">›</span>
               </button>
             </div>
           </div>

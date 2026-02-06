@@ -22,14 +22,18 @@ import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
 import FinancialHouseDesign from './pages/FinancialHouseDesign';
 import FinancialHouseResult from './pages/FinancialHouseResult';
+import OnlineCoursePage from './pages/OnlineCoursePage';
+import VideoPlayerPage from './pages/VideoPlayerPage';
+import PodcastPage from './pages/PodcastPage';
+import DeleteAccountPage from './pages/DeleteAccountPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
+import FinancialTicker from './components/FinancialTicker';
 import { SpendProvider } from './context/SpendContext';
 import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
-// AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
 interface FinancialResult {
@@ -43,6 +47,17 @@ interface FinancialResult {
   houseName: string;
   houseImage: string;
   message: string;
+}
+
+interface Lesson {
+  id: string;
+  order: number;
+  title: string;
+  duration: string;
+  durationSeconds: number;
+  filename: string;
+  videoUrl: string;
+  isFree: boolean;
 }
 
 type AppStep = 
@@ -63,7 +78,10 @@ type AppStep =
   | 'subscription'
   | 'consulting'
   | 'consulting-apply'
-  | 'monthly-report';
+  | 'monthly-report'
+  | 'online-course'
+  | 'video-player'
+  | 'podcast';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
@@ -76,11 +94,22 @@ function App() {
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
   const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ConsultingProduct | null>(null);
-  
-  // 금융집짓기 스텝 관리
   const [financialHouseStep, setFinancialHouseStep] = useState<'disclaimer' | 'basic' | 'design' | 'result'>('disclaimer');
+  const [designInitialTab, setDesignInitialTab] = useState<string>('retire');
+  const [basicInitialStep, setBasicInitialStep] = useState<number>(1);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
+  const [isSubscribed] = useState<boolean>(false);
+
+  // ★★★ 추가: URL 경로 기반 계정 삭제 페이지 감지 ★★★
+  const isDeleteAccountPage = window.location.pathname === '/delete-account';
 
   useEffect(() => {
+    if (isDeleteAccountPage) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -100,10 +129,22 @@ function App() {
           if (savedIncomeExpense) {
             setIncomeExpenseData(JSON.parse(savedIncomeExpense));
           }
-          // 금융집짓기 완성 여부 확인
-          const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          // ★★★ 수정: uid 있는 키와 없는 키 모두 확인 ★★★
+          const financialHouseCompletedWithUid = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+          const financialHouseCompletedWithoutUid = localStorage.getItem('financialHouseCompleted');
+          const financialHouseCompleted = financialHouseCompletedWithUid || financialHouseCompletedWithoutUid;
+          
+          const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${currentUser.uid}`);
+          
           if (financialHouseCompleted) {
             setFinancialHouseStep('result');
+          } else if (disclaimerAgreed) {
+            const designStarted = localStorage.getItem(`financialHouseDesignStarted_${currentUser.uid}`);
+            if (designStarted) {
+              setFinancialHouseStep('design');
+            } else {
+              setFinancialHouseStep('basic');
+            }
           }
           setCurrentStep('main');
           setCurrentTab('home');
@@ -118,6 +159,11 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // ★★★ 추가: 계정 삭제 페이지는 로그인 없이 바로 렌더링 ★★★
+  if (isDeleteAccountPage) {
+    return <DeleteAccountPage />;
+  }
 
   const handleOnboardingComplete = () => {
     if (user) {
@@ -185,78 +231,57 @@ function App() {
     setCurrentTab('home');
   };
 
+  // ★★★ 수정: handleTabChange에서 uid 있는 키와 없는 키 모두 확인 ★★★
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
-    // 금융집짓기 탭 클릭 시 완성 여부 확인
     if (tab === 'financial-house' && user) {
-      const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      // ★★★ 수정: uid 있는 키와 없는 키 모두 확인 ★★★
+      const financialHouseCompletedWithUid = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
+      const financialHouseCompletedWithoutUid = localStorage.getItem('financialHouseCompleted');
+      const financialHouseCompleted = financialHouseCompletedWithUid || financialHouseCompletedWithoutUid;
+      
+      const disclaimerAgreed = localStorage.getItem(`financialHouseDisclaimerAgreed_${user.uid}`);
+      
       if (financialHouseCompleted) {
         setFinancialHouseStep('result');
+      } else if (disclaimerAgreed) {
+        const designStarted = localStorage.getItem(`financialHouseDesignStarted_${user.uid}`);
+        if (designStarted) {
+          setDesignInitialTab('retire');
+          setFinancialHouseStep('design');
+        } else {
+          setBasicInitialStep(1);
+          setFinancialHouseStep('basic');
+        }
+      } else {
+        setFinancialHouseStep('disclaimer');
       }
     }
   };
 
-  const handleMoreDetail = () => {
-    setCurrentStep('detail-report');
+  const handleMoreDetail = () => setCurrentStep('detail-report');
+  const handleDetailReportBack = () => { setCurrentStep('main'); setCurrentTab('home'); };
+  const handleFAQMore = () => setCurrentStep('faq-more');
+  const handleFAQBack = () => { setCurrentStep('main'); setCurrentTab('ai-spend'); };
+  const handleSelectQuestion = (question: string) => console.log('Selected question:', question);
+  const handleReDiagnosis = () => setCurrentStep('re-diagnosis');
+  const handleReAnalysis = () => setCurrentStep('re-analysis');
+  const handleBackToHome = () => { setCurrentStep('main'); setCurrentTab('home'); };
+
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast') => {
+    if (page === 'subscription') setCurrentStep('subscription');
+    else if (page === 'consulting') setCurrentStep('consulting');
+    else if (page === 'monthly-report') setCurrentStep('monthly-report');
+    else if (page === 'online-course') setCurrentStep('online-course');
+    else if (page === 'podcast') setCurrentStep('podcast');
   };
 
-  const handleDetailReportBack = () => {
-    setCurrentStep('main');
-    setCurrentTab('home');
-  };
-
-  const handleFAQMore = () => {
-    setCurrentStep('faq-more');
-  };
-
-  const handleFAQBack = () => {
-    setCurrentStep('main');
-    setCurrentTab('ai-spend');
-  };
-
-  const handleSelectQuestion = (question: string) => {
-    console.log('Selected question:', question);
-  };
-
-  const handleReDiagnosis = () => {
-    setCurrentStep('re-diagnosis');
-  };
-
-  const handleReAnalysis = () => {
-    setCurrentStep('re-analysis');
-  };
-
-  const handleBackToHome = () => {
-    setCurrentStep('main');
-    setCurrentTab('home');
-  };
-
-  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report') => {
-    if (page === 'subscription') {
-      setCurrentStep('subscription');
-    } else if (page === 'consulting') {
-      setCurrentStep('consulting');
-    } else if (page === 'monthly-report') {
-      setCurrentStep('monthly-report');
-    }
-  };
-
-  // 홈페이지에서 강의상담 이동 핸들러
   const handleHomeNavigate = (page: string) => {
-    if (page === 'consulting') {
-      setCurrentStep('consulting');
-    }
+    if (page === 'consulting') setCurrentStep('consulting');
   };
 
-  const handleSubscriptionBack = () => {
-    setCurrentStep('main');
-    setCurrentTab('mypage');
-  };
-
-  const handleConsultingBack = () => {
-    setCurrentStep('main');
-    setCurrentTab('mypage');
-  };
+  const handleSubscriptionBack = () => { setCurrentStep('main'); setCurrentTab('mypage'); };
+  const handleConsultingBack = () => { setCurrentStep('main'); setCurrentTab('mypage'); };
 
   const handleConsultingApply = (product: ConsultingProduct) => {
     setSelectedProduct(product);
@@ -268,9 +293,7 @@ function App() {
     setCurrentStep('consulting');
   };
 
-  const handleLogout = () => {
-    auth.signOut();
-  };
+  const handleLogout = () => auth.signOut();
 
   const handleRestart = () => {
     if (user) {
@@ -283,175 +306,161 @@ function App() {
       localStorage.removeItem(`budgetConfirmed_${user.uid}`);
       localStorage.removeItem(`moneya_spend_${user.uid}`);
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
+      localStorage.removeItem(`financialHouseDisclaimerAgreed_${user.uid}`);
+      localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
+      localStorage.removeItem('financialHouseBasicDraft');
+      // ★★★ 추가: uid 없는 키도 삭제 ★★★
+      localStorage.removeItem('financialHouseCompleted');
+      localStorage.removeItem('financialHouseData');
       
       setFinancialResult(null);
       setIncomeExpenseData(null);
       setAdjustedBudget(null);
       setFinancialHouseStep('disclaimer');
+      setDesignInitialTab('retire');
+      setBasicInitialStep(1);
       setCurrentStep('onboarding');
       setCurrentTab('home');
     }
   };
 
-  // 금융집짓기 완성 핸들러
+  const handleDisclaimerAgree = () => {
+    if (user) localStorage.setItem(`financialHouseDisclaimerAgreed_${user.uid}`, 'true');
+    setBasicInitialStep(1);
+    setFinancialHouseStep('basic');
+  };
+
+  const handleBasicComplete = () => {
+    if (user) localStorage.setItem(`financialHouseDesignStarted_${user.uid}`, 'true');
+    setDesignInitialTab('retire');
+    setFinancialHouseStep('design');
+  };
+
   const handleFinancialHouseComplete = () => {
-    if (user) {
-      localStorage.setItem(`financialHouseCompleted_${user.uid}`, 'true');
-    }
+    if (user) localStorage.setItem(`financialHouseCompleted_${user.uid}`, 'true');
+    // ★★★ 추가: uid 없는 키도 함께 저장 (호환성) ★★★
+    localStorage.setItem('financialHouseCompleted', 'true');
     setFinancialHouseStep('result');
   };
 
-  // 금융집짓기 다시 설계하기 핸들러
   const handleFinancialHouseRestart = () => {
     if (user) {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
+      localStorage.removeItem(`financialHouseDesignStarted_${user.uid}`);
+      localStorage.removeItem('financialHouseBasicDraft');
+      // ★★★ 추가: uid 없는 키도 삭제 ★★★
+      localStorage.removeItem('financialHouseCompleted');
+      localStorage.removeItem('financialHouseData');
     }
-    setFinancialHouseStep('disclaimer');
+    setBasicInitialStep(1);
+    setFinancialHouseStep('basic');
   };
+
+  const handleOnlineCourseBack = () => { setCurrentStep('main'); setCurrentTab('mypage'); };
+
+  const handleLessonSelect = (lesson: Lesson, lessons: Lesson[]) => {
+    setSelectedLesson(lesson);
+    setAllLessons(lessons);
+    setCurrentStep('video-player');
+  };
+
+  const handleVideoPlayerBack = () => {
+    setSelectedLesson(null);
+    setCurrentStep('online-course');
+  };
+
+  const handlePrevLesson = () => {
+    if (!selectedLesson || allLessons.length === 0) return;
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    if (currentIndex > 0) setSelectedLesson(allLessons[currentIndex - 1]);
+  };
+
+  const handleNextLesson = () => {
+    if (!selectedLesson || allLessons.length === 0) return;
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    if (currentIndex < allLessons.length - 1) setSelectedLesson(allLessons[currentIndex + 1]);
+  };
+
+  const showTicker = user && currentStep === 'main' && (currentTab === 'ai-spend' || currentTab === 'financial-house');
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-green-50 flex items-center justify-center">
         <div className="text-center">
-          <img 
-            src={LOGO_URL}
-            alt="AI머니야 로고"
-            className="w-16 h-16 mx-auto mb-4 animate-pulse"
-          />
+          <img src={LOGO_URL} alt="AI머니야 로고" className="w-16 h-16 mx-auto mb-4 animate-pulse" />
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <LoginPage onLogin={() => {}} />;
-  }
-
-  if (currentStep === 'onboarding') {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
-  }
-
-  if (currentStep === 'financial-check') {
-    return <FinancialCheckPage onComplete={handleFinancialCheckComplete} />;
-  }
-
+  if (!user) return <LoginPage onLogin={() => {}} />;
+  if (currentStep === 'onboarding') return <OnboardingPage onComplete={handleOnboardingComplete} />;
+  if (currentStep === 'financial-check') return <FinancialCheckPage onComplete={handleFinancialCheckComplete} />;
+  
   if (currentStep === 'financial-result' && financialResult) {
-    return (
-      <FinancialResultPage
-        result={financialResult}
-        onRetry={handleFinancialRetry}
-        onNext={handleFinancialNext}
-      />
-    );
+    return <FinancialResultPage result={financialResult} onRetry={handleFinancialRetry} onNext={handleFinancialNext} />;
   }
 
   if (currentStep === 'income-expense-input') {
-    return (
-      <IncomeExpenseInputPage
-        initialIncome={financialResult?.income || 0}
-        onComplete={handleIncomeExpenseComplete}
-        onBack={() => setCurrentStep('financial-result')}
-      />
-    );
+    return <IncomeExpenseInputPage initialIncome={financialResult?.income || 0} onComplete={handleIncomeExpenseComplete} onBack={() => setCurrentStep('financial-result')} />;
   }
 
   if (currentStep === 'income-expense-result' && incomeExpenseData) {
-    return (
-      <IncomeExpenseResultPage
-        data={incomeExpenseData}
-        onBack={handleIncomeExpenseResultBack}
-        onNext={handleIncomeExpenseResultNext}
-      />
-    );
+    return <IncomeExpenseResultPage data={incomeExpenseData} onBack={handleIncomeExpenseResultBack} onNext={handleIncomeExpenseResultNext} />;
   }
 
   if (currentStep === 'budget-adjust' && incomeExpenseData) {
-    return (
-      <BudgetAdjustPage
-        incomeExpenseData={incomeExpenseData}
-        onConfirm={handleBudgetAdjustConfirm}
-        onBack={handleBudgetAdjustBack}
-      />
-    );
+    return <BudgetAdjustPage incomeExpenseData={incomeExpenseData} onConfirm={handleBudgetAdjustConfirm} onBack={handleBudgetAdjustBack} />;
   }
 
   if (currentStep === 'budget-confirm' && adjustedBudget) {
-    return (
-      <BudgetConfirmPage
-        adjustedBudget={adjustedBudget}
-        onStart={handleBudgetConfirmStart}
-      />
-    );
+    return <BudgetConfirmPage adjustedBudget={adjustedBudget} onStart={handleBudgetConfirmStart} />;
   }
 
   if (currentStep === 'detail-report') {
-    return (
-      <DetailReportPage
-        adjustedBudget={adjustedBudget}
-        onBack={handleDetailReportBack}
-      />
-    );
+    return <DetailReportPage adjustedBudget={adjustedBudget} onBack={handleDetailReportBack} />;
   }
 
   if (currentStep === 'faq-more') {
-    return (
-      <FAQMorePage
-        onBack={handleFAQBack}
-        onSelectQuestion={handleSelectQuestion}
-      />
-    );
+    return <FAQMorePage onBack={handleFAQBack} onSelectQuestion={handleSelectQuestion} />;
   }
 
   if (currentStep === 'subscription') {
-    return (
-      <SubscriptionPage
-        onBack={handleSubscriptionBack}
-      />
-    );
+    return <SubscriptionPage onBack={handleSubscriptionBack} />;
   }
 
   if (currentStep === 'consulting') {
-    return (
-      <ConsultingPage
-        onBack={handleConsultingBack}
-        onApply={handleConsultingApply}
-      />
-    );
+    return <ConsultingPage onBack={handleConsultingBack} onApply={handleConsultingApply} />;
   }
 
   if (currentStep === 'consulting-apply' && selectedProduct) {
-    return (
-      <ConsultingApplyPage
-        product={selectedProduct}
-        onBack={handleConsultingApplyBack}
-      />
-    );
+    return <ConsultingApplyPage product={selectedProduct} onBack={handleConsultingApplyBack} />;
   }
 
   if (currentStep === 'monthly-report') {
     return (
       <SpendProvider userId={user.uid}>
-        <MonthlyReportPage
-          onBack={() => {
-            setCurrentStep('main');
-            setCurrentTab('mypage');
-          }}
-          adjustedBudget={adjustedBudget}
-        />
+        <MonthlyReportPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} adjustedBudget={adjustedBudget} />
       </SpendProvider>
     );
   }
 
+  if (currentStep === 'online-course') {
+    return <OnlineCoursePage onBack={handleOnlineCourseBack} onLessonSelect={(lesson) => handleLessonSelect(lesson, [])} isSubscribed={isSubscribed} />;
+  }
+
+  if (currentStep === 'podcast') {
+    return <PodcastPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} />;
+  }
+
+  if (currentStep === 'video-player' && selectedLesson) {
+    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+    return <VideoPlayerPage lesson={selectedLesson} onBack={handleVideoPlayerBack} onPrevLesson={handlePrevLesson} onNextLesson={handleNextLesson} hasPrev={currentIndex > 0} hasNext={currentIndex < allLessons.length - 1} />;
+  }
+
   if (currentStep === 're-diagnosis' && financialResult) {
-    return (
-      <FinancialResultPage
-        result={financialResult}
-        onRetry={handleFinancialRetry}
-        onNext={handleBackToHome}
-        isFromHome={true}
-      />
-    );
+    return <FinancialResultPage result={financialResult} onRetry={handleFinancialRetry} onNext={handleBackToHome} isFromHome={true} />;
   }
 
   if (currentStep === 're-analysis' && incomeExpenseData) {
@@ -460,9 +469,7 @@ function App() {
         incomeExpenseData={incomeExpenseData}
         onConfirm={(budget) => {
           setAdjustedBudget(budget);
-          if (user) {
-            localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
-          }
+          if (user) localStorage.setItem(`adjustedBudget_${user.uid}`, JSON.stringify(budget));
           handleBackToHome();
         }}
         onBack={handleBackToHome}
@@ -478,9 +485,7 @@ function App() {
         initialIncome={financialResult?.income || 0}
         onComplete={(data) => {
           setIncomeExpenseData(data);
-          if (user) {
-            localStorage.setItem(`incomeExpenseData_${user.uid}`, JSON.stringify(data));
-          }
+          if (user) localStorage.setItem(`incomeExpenseData_${user.uid}`, JSON.stringify(data));
           setCurrentStep('income-expense-result');
         }}
         onBack={() => setCurrentStep('re-analysis')}
@@ -491,7 +496,9 @@ function App() {
   if (currentStep === 'main') {
     return (
       <SpendProvider userId={user.uid}>
-        <div className="relative">
+        {showTicker && <FinancialTicker />}
+        
+        <div className={showTicker ? 'pt-9' : ''}>
           {currentTab === 'home' && (
             <HomePage 
               userName={financialResult?.name || user.displayName || '사용자'} 
@@ -514,44 +521,37 @@ function App() {
           {currentTab === 'financial-house' && (
             <FinancialHouseProvider userId={user.uid}>
               {financialHouseStep === 'disclaimer' && (
-                <FinancialHouseDisclaimer
-                  userName={financialResult?.name || user.displayName || '사용자'}
-                  onStart={() => setFinancialHouseStep('basic')}
-                />
+                <FinancialHouseDisclaimer userName={financialResult?.name || user.displayName || '사용자'} onStart={handleDisclaimerAgree} />
               )}
               {financialHouseStep === 'basic' && (
                 <FinancialHouseBasic
                   userName={financialResult?.name || user.displayName || '사용자'}
-                  onComplete={() => {
-                    setFinancialHouseStep('design');
-                  }}
-                  onBack={() => setFinancialHouseStep('disclaimer')}
+                  onComplete={handleBasicComplete}
+                  onBack={() => setCurrentTab('home')}
                   existingFinancialResult={financialResult}
                   existingIncomeExpense={incomeExpenseData}
+                  initialStep={basicInitialStep}
                 />
               )}
               {financialHouseStep === 'design' && (
                 <FinancialHouseDesign
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onComplete={handleFinancialHouseComplete}
-                  onBack={() => setFinancialHouseStep('basic')}
+                  onBack={() => { setBasicInitialStep(5); setFinancialHouseStep('basic'); }}
+                  initialTab={designInitialTab}
                 />
               )}
               {financialHouseStep === 'result' && (
                 <FinancialHouseResult
                   userName={financialResult?.name || user.displayName || '사용자'}
                   onRestart={handleFinancialHouseRestart}
-                  onBack={() => setFinancialHouseStep('design')}
+                  onBack={() => { setDesignInitialTab('insurance'); setFinancialHouseStep('design'); }}
+                  onTabClick={(tabId) => { setDesignInitialTab(tabId); setFinancialHouseStep('design'); }}
                   onNavigate={(path) => {
-                    if (path === 'mypage-consulting') {
-                      setCurrentStep('consulting');
-                    } else if (path === 'ai-spend') {
-                      setCurrentTab('ai-spend');
-                    } else if (path === 'home') {
-                      setCurrentTab('home');
-                    } else if (path === 'mypage') {
-                      setCurrentTab('mypage');
-                    }
+                    if (path === 'mypage-consulting') setCurrentStep('consulting');
+                    else if (path === 'ai-spend') setCurrentTab('ai-spend');
+                    else if (path === 'home') setCurrentTab('home');
+                    else if (path === 'mypage') setCurrentTab('mypage');
                   }}
                 />
               )}
