@@ -43,7 +43,7 @@ const HOUSE_IMAGES = [
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzngzqwukIs-TGUAjEHzj_rQwkjO-0Om-ptAPuwWtmAmrsnkd4b4WAPm5aqnLGuJaX_/exec';
 
 // ★★★ 추가: 카카오 채널 URL ★★★
-const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_vxfmfxj';
+const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_vxfmfxj/chat';
 
 interface FinancialResult {
   name: string;
