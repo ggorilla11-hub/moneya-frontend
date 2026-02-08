@@ -101,6 +101,9 @@ function App() {
   const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [isSubscribed] = useState<boolean>(false);
 
+  // ★★★ 추가: 딥링크 모드 (카카오 챗봇 등 외부에서 직접 진입) ★★★
+  const [isDeepLink, setIsDeepLink] = useState<boolean>(false);
+
   // ★★★ 추가: URL 경로 기반 계정 삭제 페이지 감지 ★★★
   const isDeleteAccountPage = window.location.pathname === '/delete-account';
 
@@ -110,11 +113,33 @@ function App() {
       return;
     }
 
+    // ★★★ 추가: URL 파라미터 확인 (딥링크) ★★★
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetPage = urlParams.get('page');
+
+    // ★★★ 추가: 비로그인 딥링크 - 카카오 챗봇에서 로그인 없이 바로 재무진단 ★★★
+    if (targetPage === 'financial-check') {
+      setIsDeepLink(true);
+      setCurrentStep('financial-check');
+      setLoading(false);
+      // 로그인 상태도 계속 감시 (로그인되면 데이터 저장 가능)
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
       
       if (currentUser) {
+        // ★★★ 추가: 로그인된 사용자의 딥링크 처리 ★★★
+        if (targetPage === 'financial-check') {
+          setIsDeepLink(true);
+          setCurrentStep('financial-check');
+          return; // 다른 라우팅 로직 건너뛰기
+        } else if (targetPage === 'consulting') {
+          setCurrentStep('consulting');
+          return;
+        }
+
         const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
         if (budgetConfirmed) {
           const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
@@ -152,8 +177,11 @@ function App() {
           setCurrentStep('onboarding');
         }
       } else {
-        setCurrentStep('login');
-        setCurrentTab('home');
+        // ★★★ 수정: 딥링크가 아닌 경우에만 로그인 화면으로 ★★★
+        if (!targetPage) {
+          setCurrentStep('login');
+          setCurrentTab('home');
+        }
       }
     });
 
@@ -186,6 +214,11 @@ function App() {
   };
 
   const handleFinancialNext = () => {
+    // ★★★ 추가: 딥링크 모드에서는 결과 화면에서 앱 다운로드/강의 안내로 연결 ★★★
+    if (isDeepLink && !user) {
+      // 비로그인 딥링크 사용자는 결과만 보여주고 앱 가입 유도
+      return;
+    }
     if (user) {
       localStorage.setItem(`financial_${user.uid}`, 'true');
       setCurrentStep('income-expense-input');
@@ -392,6 +425,14 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  // ★★★ 추가: 비로그인 딥링크 - 카카오 챗봇에서 로그인 없이 재무진단 ★★★
+  if (!user && isDeepLink && currentStep === 'financial-check') {
+    return <FinancialCheckPage onComplete={handleFinancialCheckComplete} />;
+  }
+  if (!user && isDeepLink && currentStep === 'financial-result' && financialResult) {
+    return <FinancialResultPage result={financialResult} onRetry={handleFinancialRetry} onNext={handleFinancialNext} />;
   }
 
   if (!user) return <LoginPage onLogin={() => {}} />;
