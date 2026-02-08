@@ -39,6 +39,12 @@ const HOUSE_IMAGES = [
   }
 ];
 
+// ★★★ 추가: Google Apps Script URL (기존 랜딩페이지와 동일한 DB에 저장) ★★★
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzngzqwukIs-TGUAjEHzj_rQwkjO-0Om-ptAPuwWtmAmrsnkd4b4WAPm5aqnLGuJaX_/exec';
+
+// ★★★ 추가: 카카오 채널 URL ★★★
+const KAKAO_CHANNEL_URL = 'https://pf.kakao.com/_vxfmfxj';
+
 interface FinancialResult {
   name: string;
   age: number;
@@ -60,26 +66,30 @@ interface FinancialResultPageProps {
 }
 
 function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: FinancialResultPageProps) {
-  // 현재 보여줄 집 레벨 (1-5)
   const [displayLevel, setDisplayLevel] = useState(result.level);
-  
-  // 자동 복귀 타이머 ref 사용 (타입 에러 방지)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 현재 표시할 집 정보
   const currentHouse = HOUSE_IMAGES[displayLevel - 1];
 
-  // 점 클릭 시 해당 집으로 전환
+  // ★★★ 추가: 딥링크 여부 감지 ★★★
+  const urlParams = new URLSearchParams(window.location.search);
+  const isDeepLink = urlParams.get('page') === 'financial-check';
+
+  // ★★★ 추가: 리포트 신청 폼 상태 ★★★
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportForm, setReportForm] = useState({
+    nickname: result.name || '',
+    phone: '',
+    email: '',
+    familyCount: '1'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitDone, setSubmitDone] = useState(false);
+
   const handleDotClick = (level: number) => {
-    // 기존 타이머 제거
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-
-    // 해당 레벨로 전환
     setDisplayLevel(level);
-
-    // 본인 집이 아닌 경우에만 1초 후 자동 복귀
     if (level !== result.level) {
       timerRef.current = setTimeout(() => {
         setDisplayLevel(result.level);
@@ -87,7 +97,6 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
     }
   };
 
-  // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -96,14 +105,61 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
     };
   }, []);
 
-  // result.level이 변경되면 displayLevel도 업데이트
   useEffect(() => {
     setDisplayLevel(result.level);
   }, [result.level]);
 
-  // 금액을 만원 단위로 표시하는 함수
   const formatManwon = (value: number): string => {
     return `${value.toLocaleString()}만원`;
+  };
+
+  // ★★★ 추가: 리포트 신청 제출 함수 ★★★
+  const handleReportSubmit = async () => {
+    // 유효성 검사
+    if (!reportForm.nickname.trim()) {
+      alert('이름을 입력해주세요');
+      return;
+    }
+    if (!reportForm.phone.trim() || reportForm.phone.length < 10) {
+      alert('전화번호를 정확히 입력해주세요');
+      return;
+    }
+    if (!reportForm.email.trim() || !reportForm.email.includes('@')) {
+      alert('이메일을 정확히 입력해주세요');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 기존 랜딩페이지와 동일한 형식으로 Google Sheets에 저장
+      const data = {
+        nickname: reportForm.nickname,
+        phone: reportForm.phone,
+        email: reportForm.email,
+        age: result.age,
+        income: result.income,
+        assets: result.assets,
+        debt: result.debt,
+        wealth_index: result.wealthIndex,
+        house_type: result.houseName,
+        family_count: parseInt(reportForm.familyCount)
+      };
+
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      setSubmitDone(true);
+    } catch (error) {
+      console.error('리포트 신청 오류:', error);
+      alert('신청 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -158,7 +214,7 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
           </p>
         </div>
 
-        {/* 단계 인디케이터 (클릭 가능) */}
+        {/* 단계 인디케이터 */}
         <div className="flex justify-center gap-2 mt-6">
           {[1, 2, 3, 4, 5].map((level) => (
             <button
@@ -176,7 +232,6 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
           ))}
         </div>
         
-        {/* 안내 텍스트 */}
         <p className="text-center text-xs text-gray-400 mt-2">
           점을 클릭하면 다른 단계의 집을 볼 수 있어요
         </p>
@@ -213,43 +268,203 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
         </div>
       </div>
 
-      {/* 버튼들 */}
-      <div className="space-y-3">
-        {isFromHome ? (
-          <>
+      {/* ★★★ 추가: 딥링크 사용자용 — 리포트 신청 & 채널 돌아가기 ★★★ */}
+      {isDeepLink && !submitDone && (
+        <div className="space-y-3 mb-6">
+          {/* 리포트 신청 버튼 또는 폼 */}
+          {!showReportForm ? (
             <button
-              onClick={onNext}
-              className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
+              onClick={() => setShowReportForm(true)}
+              className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 font-bold rounded-2xl shadow-lg shadow-yellow-400/30 flex items-center justify-center gap-2"
             >
-              ✓ 홈으로 돌아가기
+              📊 카카오톡으로 맞춤 리포트 받기
             </button>
-            <button
-              onClick={onRetry}
-              className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+          ) : (
+            <div className="bg-white rounded-2xl p-5 shadow-lg border-2 border-yellow-300">
+              <h3 className="font-bold text-gray-800 mb-2 text-center">📊 맞춤 재무리포트 신청</h3>
+              <p className="text-sm text-gray-500 mb-4 text-center">
+                가족수별 수입지출 예산표를 포함한<br/>맞춤 리포트를 카카오톡으로 보내드려요!
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">이름</label>
+                  <input
+                    type="text"
+                    value={reportForm.nickname}
+                    onChange={(e) => setReportForm({...reportForm, nickname: e.target.value})}
+                    placeholder="홍길동"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">전화번호</label>
+                  <input
+                    type="tel"
+                    value={reportForm.phone}
+                    onChange={(e) => setReportForm({...reportForm, phone: e.target.value})}
+                    placeholder="01012345678"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">이메일</label>
+                  <input
+                    type="email"
+                    value={reportForm.email}
+                    onChange={(e) => setReportForm({...reportForm, email: e.target.value})}
+                    placeholder="example@email.com"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">가족수</label>
+                  <select
+                    value={reportForm.familyCount}
+                    onChange={(e) => setReportForm({...reportForm, familyCount: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 focus:outline-none bg-white"
+                  >
+                    <option value="1">1인 (미혼/1인가구)</option>
+                    <option value="2">2인 (부부)</option>
+                    <option value="3">3인 (부부+자녀1)</option>
+                    <option value="4">4인 (부부+자녀2)</option>
+                    <option value="5">5인 이상</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleReportSubmit}
+                  disabled={isSubmitting}
+                  className={`w-full py-4 font-bold rounded-2xl flex items-center justify-center gap-2 ${
+                    isSubmitting 
+                      ? 'bg-gray-300 text-gray-500' 
+                      : 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 shadow-lg shadow-yellow-400/30'
+                  }`}
+                >
+                  {isSubmitting ? '신청 중...' : '📨 리포트 신청하기'}
+                </button>
+
+                <button
+                  onClick={() => setShowReportForm(false)}
+                  className="w-full py-2 text-gray-400 text-sm"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 카카오 채널로 돌아가기 */}
+          <a
+            href={KAKAO_CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-4 bg-gradient-to-r from-yellow-300 to-yellow-400 text-gray-800 font-semibold rounded-2xl flex items-center justify-center gap-2 border-2 border-yellow-400"
+          >
+            💬 카카오 채널로 돌아가기
+          </a>
+
+          {/* 다시 진단하기 */}
+          <button
+            onClick={onRetry}
+            className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+          >
+            🔄 다시 진단하기
+          </button>
+        </div>
+      )}
+
+      {/* ★★★ 추가: 리포트 신청 완료 화면 ★★★ */}
+      {isDeepLink && submitDone && (
+        <div className="space-y-3 mb-6">
+          <div className="bg-green-50 rounded-2xl p-6 text-center border-2 border-green-200">
+            <p className="text-4xl mb-3">✅</p>
+            <h3 className="text-lg font-bold text-green-700 mb-2">리포트 신청 완료!</h3>
+            <p className="text-sm text-green-600 mb-1">
+              {reportForm.nickname}님의 맞춤 재무리포트를
+            </p>
+            <p className="text-sm text-green-600 mb-3">
+              카카오톡과 이메일로 보내드리겠습니다 📨
+            </p>
+            <div className="bg-white rounded-xl p-3 text-sm text-gray-500">
+              <p>📱 카카오톡: {reportForm.phone}</p>
+              <p>📧 이메일: {reportForm.email}</p>
+            </div>
+          </div>
+
+          <div className="bg-purple-50 rounded-2xl p-5 text-center border-2 border-purple-200">
+            <p className="text-sm text-purple-700 mb-2 font-medium">
+              💡 더 자세한 재무관리를 원하시면
+            </p>
+            <p className="text-sm text-purple-600 mb-3">
+              AI머니야 앱에서 매일 지출을 음성으로 관리하고<br/>
+              궁전을 향한 여정을 시작하세요!
+            </p>
+            <a
+              href="https://moneya-develop.vercel.app"
+              className="inline-block bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg"
             >
-              🔄 다시 진단하기
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={onNext}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
-            >
-              💰 예산 수립하러 가기
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <button
-              onClick={onRetry}
-              className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
-            >
-              🔄 다시 진단하기
-            </button>
-          </>
-        )}
-      </div>
+              🚀 AI머니야 앱 시작하기
+            </a>
+          </div>
+
+          <a
+            href={KAKAO_CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-4 bg-gradient-to-r from-yellow-300 to-yellow-400 text-gray-800 font-semibold rounded-2xl flex items-center justify-center gap-2 border-2 border-yellow-400"
+          >
+            💬 카카오 채널로 돌아가기
+          </a>
+
+          <button
+            onClick={onRetry}
+            className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+          >
+            🔄 다시 진단하기
+          </button>
+        </div>
+      )}
+
+      {/* 기존 버튼들 (딥링크가 아닌 일반 사용자용) */}
+      {!isDeepLink && (
+        <div className="space-y-3">
+          {isFromHome ? (
+            <>
+              <button
+                onClick={onNext}
+                className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
+              >
+                ✓ 홈으로 돌아가기
+              </button>
+              <button
+                onClick={onRetry}
+                className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+              >
+                🔄 다시 진단하기
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onNext}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+              >
+                💰 예산 수립하러 가기
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={onRetry}
+                className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-2xl flex items-center justify-center gap-2"
+              >
+                🔄 다시 진단하기
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
