@@ -84,6 +84,7 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
   const handleDotClick = (level: number) => {
     if (timerRef.current) {
@@ -126,6 +127,10 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
     }
     if (!reportForm.email.trim() || !reportForm.email.includes('@')) {
       alert('이메일을 정확히 입력해주세요');
+      return;
+    }
+    if (!privacyAgreed) {
+      alert('개인정보 수집·이용에 동의해주세요');
       return;
     }
 
@@ -332,11 +337,34 @@ function FinancialResultPage({ result, onRetry, onNext, isFromHome = false }: Fi
                   </select>
                 </div>
 
+                {/* 개인정보 수집·이용 동의 */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={privacyAgreed}
+                      onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                      className="w-5 h-5 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-600 leading-relaxed">
+                      <span className="font-semibold text-gray-800">[필수] 개인정보 수집·이용 동의</span>
+                      <br/>
+                      수집항목: 이름, 전화번호, 이메일, 재무정보
+                      <br/>
+                      수집목적: 맞춤 재무리포트 발송 및 서비스 안내
+                      <br/>
+                      보유기간: 동의 철회 시까지
+                      <br/>
+                      <span className="text-xs text-gray-400">※ 동의를 거부할 수 있으며, 거부 시 리포트 발송이 제한됩니다.</span>
+                    </span>
+                  </label>
+                </div>
+
                 <button
                   onClick={handleReportSubmit}
-                  disabled={isSubmitting}
-                  className={`w-full py-4 font-bold rounded-2xl flex items-center justify-center gap-2 ${
-                    isSubmitting 
+                  disabled={isSubmitting || !privacyAgreed}
+                  className={`w-full py-4 text-lg font-bold rounded-2xl flex items-center justify-center gap-3 ${
+                    isSubmitting || !privacyAgreed
                       ? 'bg-gray-300 text-gray-500' 
                       : 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 shadow-lg shadow-yellow-400/30'
                   }`}
