@@ -138,6 +138,13 @@ function App() {
         } else if (targetPage === 'consulting') {
           setCurrentStep('consulting');
           return;
+        } else if (targetPage === 'mypage') {
+          setCurrentStep('main');
+          setCurrentTab('mypage');
+          return;
+        } else if (targetPage === 'mypage-consulting') {
+          setCurrentStep('consulting');
+          return;
         }
 
         const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
@@ -181,6 +188,8 @@ function App() {
         if (!targetPage) {
           setCurrentStep('login');
           setCurrentTab('home');
+        } else if (targetPage === 'mypage' || targetPage === 'mypage-consulting') {
+          setCurrentStep('login');
         }
       }
     });
