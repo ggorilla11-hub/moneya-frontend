@@ -1,19 +1,24 @@
-// PinSetupScreen.tsx v1.0: PIN 설정/변경/해제 화면 컴포넌트
-// ★★★ 신규 파일 - 기존 코드 영향 없음 ★★★
+// PinSetupScreen.tsx v1.1: PIN 설정/변경/해제 화면 컴포넌트
+// ★★★ v1.1: userId/onClose prop 호환성 추가 ★★★
 // 위치: src/components/PinSetupScreen.tsx
 
 import React, { useState, useCallback } from 'react';
 
 type PinMode = 'setup' | 'change' | 'disable';
 
-interface PinSetupScreenProps {
-  uid: string;
+export interface PinSetupScreenProps {
+  uid?: string;
+  userId?: string;        // ★ v1.1 추가: MyPage에서 userId로 전달
   mode: PinMode;
   onComplete: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;   // ★ v1.1 추가: MyPage에서 onClose로 전달
 }
 
-const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, onCancel }) => {
+const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, userId, mode, onComplete, onCancel, onClose }) => {
+  const resolvedUid = uid || userId || 'default';
+  const handleCancel = onCancel || onClose || (() => {});
+
   const [phase, setPhase] = useState<'verify' | 'enter' | 'confirm'>(
     mode === 'setup' ? 'enter' : 'verify'
   );
@@ -24,21 +29,21 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
   const [toast, setToast] = useState('');
 
   const hashPin = (input: string): string => {
-    return btoa(input + '_moneya_pin_salt_' + uid);
+    return btoa(input + '_moneya_pin_salt_' + resolvedUid);
   };
 
   const getStoredPinHash = (): string | null => {
-    return localStorage.getItem(`moneya_pin_${uid}`);
+    return localStorage.getItem(`moneya_pin_${resolvedUid}`);
   };
 
   const savePinHash = (pinValue: string) => {
-    localStorage.setItem(`moneya_pin_${uid}`, hashPin(pinValue));
-    localStorage.setItem(`moneya_pin_enabled_${uid}`, 'true');
+    localStorage.setItem(`moneya_pin_${resolvedUid}`, hashPin(pinValue));
+    localStorage.setItem(`moneya_pin_enabled_${resolvedUid}`, 'true');
   };
 
   const removePinData = () => {
-    localStorage.removeItem(`moneya_pin_${uid}`);
-    localStorage.removeItem(`moneya_pin_enabled_${uid}`);
+    localStorage.removeItem(`moneya_pin_${resolvedUid}`);
+    localStorage.removeItem(`moneya_pin_enabled_${resolvedUid}`);
   };
 
   const triggerShake = () => {
@@ -51,7 +56,7 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
     setTimeout(() => setToast(''), 2500);
   };
 
-  const processPin = useCallback((inputPin: string) => {
+  const processPin = (inputPin: string) => {
     if (phase === 'verify') {
       const storedHash = getStoredPinHash();
       if (storedHash && hashPin(inputPin) === storedHash) {
@@ -97,7 +102,7 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         }, 300);
       }
     }
-  }, [phase, newPin, mode, uid, onComplete]);
+  };
 
   const handleKey = useCallback((key: string) => {
     if (key === 'delete') {
@@ -113,7 +118,7 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
     if (currentPin.length === 4) {
       setTimeout(() => processPin(currentPin), 200);
     }
-  }, [pin, processPin]);
+  }, [pin, phase, newPin, mode, resolvedUid]);
 
   const getScreenInfo = () => {
     if (phase === 'verify') {
@@ -141,7 +146,25 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
   };
 
   const info = getScreenInfo();
-  const showStepDots = phase === 'enter' || phase === 'confirm';
+
+  const renderDots = () => (
+    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 32 }}>
+      {[0, 1, 2, 3].map(i => (
+        <div
+          key={i}
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            border: `2px solid ${i < pin.length ? (success ? '#10B981' : '#00C853') : '#D1D5DB'}`,
+            background: i < pin.length ? (success ? '#10B981' : '#00C853') : 'transparent',
+            transition: 'all 0.15s ease',
+            transform: i < pin.length ? 'scale(1.2)' : 'scale(1)',
+          }}
+        />
+      ))}
+    </div>
+  );
 
   const keys = [
     ['1', '2', '3'],
@@ -149,6 +172,41 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
     ['7', '8', '9'],
     ['', '0', 'delete'],
   ];
+
+  const renderKeypad = () => (
+    <div style={{ padding: '0 32px' }}>
+      {keys.map((row, ri) => (
+        <div key={ri} style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 12 }}>
+          {row.map((key, ki) => (
+            <button
+              key={ki}
+              onClick={() => key && handleKey(key)}
+              disabled={!key}
+              style={{
+                width: 72,
+                height: 56,
+                borderRadius: 12,
+                border: 'none',
+                background: !key ? 'transparent' : '#F3F4F6',
+                fontSize: key === 'delete' ? 18 : 22,
+                fontWeight: 600,
+                color: '#1A1A2E',
+                cursor: key ? 'pointer' : 'default',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {key === 'delete' ? '⌫' : key}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+
+  const showStepDots = phase === 'enter' || phase === 'confirm';
 
   return (
     <div
@@ -164,7 +222,6 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         flexDirection: 'column',
       }}
     >
-      {/* 헤더 */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -173,7 +230,7 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         background: 'white',
       }}>
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           style={{
             background: 'none',
             border: 'none',
@@ -189,7 +246,6 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         </span>
       </div>
 
-      {/* 콘텐츠 */}
       <div style={{
         flex: 1,
         display: 'flex',
@@ -205,59 +261,12 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
           {info.sub}
         </div>
 
-        {/* PIN 도트 */}
         <div style={{ animation: shake ? 'pinSetupShake 0.5s ease' : 'none' }}>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 32 }}>
-            {[0, 1, 2, 3].map(i => (
-              <div
-                key={i}
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  border: `2px solid ${i < pin.length ? (success ? '#10B981' : '#00C853') : '#D1D5DB'}`,
-                  background: i < pin.length ? (success ? '#10B981' : '#00C853') : 'transparent',
-                  transition: 'all 0.15s ease',
-                  transform: i < pin.length ? 'scale(1.2)' : 'scale(1)',
-                }}
-              />
-            ))}
-          </div>
+          {renderDots()}
         </div>
 
-        {/* 키패드 */}
-        <div style={{ padding: '0 32px' }}>
-          {keys.map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 12 }}>
-              {row.map((key, ki) => (
-                <button
-                  key={ki}
-                  onClick={() => key && handleKey(key)}
-                  disabled={!key}
-                  style={{
-                    width: 72,
-                    height: 56,
-                    borderRadius: 12,
-                    border: 'none',
-                    background: !key ? 'transparent' : '#F3F4F6',
-                    fontSize: key === 'delete' ? 18 : 22,
-                    fontWeight: 600,
-                    color: '#1A1A2E',
-                    cursor: key ? 'pointer' : 'default',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  {key === 'delete' ? '⌫' : key}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
+        {renderKeypad()}
 
-        {/* 단계 도트 */}
         {showStepDots && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <div style={{
@@ -272,7 +281,6 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         )}
       </div>
 
-      {/* 토스트 */}
       {toast && (
         <div style={{
           position: 'fixed',
@@ -292,7 +300,6 @@ const PinSetupScreen: React.FC<PinSetupScreenProps> = ({ uid, mode, onComplete, 
         </div>
       )}
 
-      {/* 흔들림 애니메이션 CSS */}
       <style>{`
         @keyframes pinSetupShake {
           0%, 100% { transform: translateX(0); }
