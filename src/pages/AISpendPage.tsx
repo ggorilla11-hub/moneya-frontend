@@ -1,10 +1,10 @@
 // src/pages/AISpendPage.tsx
-// v3.0: SpendTimeline 헤더에서 탭 전환
+// v3.1: 달력/통계 탭일 때 AIConversation 숨기기
 // ★★★ 변경사항 ★★★
 // 1. 상단 별도 탭 바 제거
 // 2. SpendTimeline 헤더의 오늘/달력/통계 탭으로 화면 전환
-// 3. 오늘 = 기존 AI대화 + 타임라인 (100% 유지)
-// 4. 달력/통계 = CalendarView 컴포넌트
+// 3. 오늘 = AI대화 + 타임라인 (100% 유지)
+// 4. 달력/통계 = SpendTimeline 헤더(탭) + CalendarView만 표시
 // ★★★ AIConversation.tsx는 절대 수정하지 않음 ★★★
 
 import { useState, useEffect } from 'react';
@@ -39,7 +39,7 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
   const [autoExpandTimeline, setAutoExpandTimeline] = useState(false);
   
-  // ★★★ v3.0: 탭 상태 (SpendTimeline 헤더에서 전환) ★★★
+  // ★★★ v3.0: 탭 상태 ★★★
   const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'stats'>('today');
 
   // Context에서 실제 데이터 가져오기
@@ -68,36 +68,70 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      {/* AI 대화 컴포넌트 (항상 표시 - 상단 파란색 배너 영역) */}
-      <AIConversation
-        userName={userName}
-        displayName={displayName}
-        adjustedBudget={adjustedBudget}
-        financialResult={financialResult}
-        dailyBudget={dailyBudget}
-        todaySpent={todaySpent}
-        todaySaved={todaySaved}
-        todayInvestment={todayInvestment}
-        remainingBudget={remainingBudget}
-        onFAQMore={onFAQMore}
-        onPlusClick={() => setIsInputMethodOpen(true)}
-      >
-        {/* ★★★ v3.0: SpendTimeline에 탭 전환 기능 전달 ★★★ */}
-        <SpendTimeline 
-          autoExpand={autoExpandTimeline} 
-          onExpandComplete={handleExpandComplete}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      </AIConversation>
-
-      {/* ★★★ v3.0: 달력/통계 탭일 때 CalendarView 표시 ★★★ */}
-      {activeTab !== 'today' && (
-        <CalendarView
+      
+      {/* ★★★ v3.1: 오늘 탭일 때만 AI대화 표시 ★★★ */}
+      {activeTab === 'today' && (
+        <AIConversation
+          userName={userName}
+          displayName={displayName}
+          adjustedBudget={adjustedBudget}
+          financialResult={financialResult}
           dailyBudget={dailyBudget}
-          monthlyBudget={monthlyBudget}
-          initialSubTab={activeTab === 'calendar' ? 'calendar' : 'stats'}
-        />
+          todaySpent={todaySpent}
+          todaySaved={todaySaved}
+          todayInvestment={todayInvestment}
+          remainingBudget={remainingBudget}
+          onFAQMore={onFAQMore}
+          onPlusClick={() => setIsInputMethodOpen(true)}
+        >
+          {/* SpendTimeline with tab switching */}
+          <SpendTimeline 
+            autoExpand={autoExpandTimeline} 
+            onExpandComplete={handleExpandComplete}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        </AIConversation>
+      )}
+
+      {/* ★★★ v3.1: 달력/통계 탭일 때 - 탭 헤더 + CalendarView만 표시 ★★★ */}
+      {activeTab !== 'today' && (
+        <>
+          {/* 탭 헤더만 독립적으로 표시 */}
+          <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+            <div className="p-3 flex items-center">
+              <button
+                onClick={() => setActiveTab('today')}
+                className="font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95 text-gray-500 bg-gray-100"
+              >
+                📊 오늘
+              </button>
+              <button
+                onClick={() => setActiveTab('calendar')}
+                className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
+                  ${activeTab === 'calendar' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
+                `}
+              >
+                📅 달력
+              </button>
+              <button
+                onClick={() => setActiveTab('stats')}
+                className={`font-bold text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
+                  ${activeTab === 'stats' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
+                `}
+              >
+                📊 통계
+              </button>
+            </div>
+          </div>
+
+          {/* CalendarView */}
+          <CalendarView
+            dailyBudget={dailyBudget}
+            monthlyBudget={monthlyBudget}
+            initialSubTab={activeTab === 'calendar' ? 'calendar' : 'stats'}
+          />
+        </>
       )}
 
       {/* 지출 입력 모달 */}
