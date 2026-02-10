@@ -1,5 +1,8 @@
 // src/pages/spend/ManualInputModal.tsx
-// 수동 입력 모달 - 지출/감정저축 직접 입력 + 고정지출 카테고리 추가
+// v1.1: 감정저축 카테고리 버그 수정
+// ★★★ 변경사항 ★★★
+// 1. 감정저축(saved) 입력 시 category를 '감정저축'으로 고정 (기존: 'food' → '식비'로 잘못 표시)
+// 2. 그 외 모든 기능 100% 동일
 
 import { useState } from 'react';
 import { useSpend } from '../../context/SpendContext';
@@ -54,8 +57,11 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
       spendType = 'investment';
     }
 
-    let categoryName = category;
-    if (isFixedCategory) {
+    // ★★★ v1.1: 감정저축일 때 카테고리를 '감정저축'으로 고정 ★★★
+    let categoryName: string;
+    if (activeTab === 'saved') {
+      categoryName = '감정저축';
+    } else if (isFixedCategory) {
       const fixedCat = SPEND_CATEGORIES.fixed.find(c => c.id === category);
       categoryName = fixedCat?.name || category;
     } else {
@@ -205,7 +211,7 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {type === '충동' ? '🔥' : type === '선택' ? '🤔' : '✅'} {type}
+                    {type === '충동' ? '🔥' : type === '🤔' ? '🤔' : '✅'} {type}
                   </button>
                 ))}
               </div>
