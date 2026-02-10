@@ -1,5 +1,10 @@
 // src/pages/spend/SpendTimeline.tsx
-// 지출 타임라인 - A+B 방식 (내부 스크롤 + 전체보기) + 자동 펼침 + 카테고리 아이콘/색상
+// v2.0: 헤더를 오늘/달력/통계 탭으로 변경
+// ★★★ 변경사항 ★★★
+// 1. 헤더의 "지출/감정저축/저축" 뱃지 → "오늘/달력/통계" 탭으로 변경
+// 2. 오늘 탭 = 기존 타임라인 펼침/접힘 (기능 100% 유지)
+// 3. 달력/통계 클릭 시 onTabChange 콜백으로 부모에 알림
+// 4. ∨ 꺽쇠 기존 기능 그대로 유지
 
 import { useState, useEffect } from 'react';
 import { useSpend } from '../../context/SpendContext';
@@ -8,10 +13,13 @@ import { inferCategory, getCategoryInfo, getEmotionColor } from '../../utils/cat
 interface SpendTimelineProps {
   autoExpand?: boolean;
   onExpandComplete?: () => void;
+  // ★★★ v2.0: 탭 전환 콜백 추가 ★★★
+  activeTab?: 'today' | 'calendar' | 'stats';
+  onTabChange?: (tab: 'today' | 'calendar' | 'stats') => void;
 }
 
-function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
-  const { spendItems, todaySpent, todaySaved, todayInvestment, deleteSpendItem } = useSpend();
+function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTabChange }: SpendTimelineProps) {
+  const { spendItems, deleteSpendItem } = useSpend();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullView, setShowFullView] = useState(false);
 
@@ -84,6 +92,17 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
     }
   };
 
+  // ★★★ v2.0: 탭 클릭 핸들러 ★★★
+  const handleTabClick = (tab: 'today' | 'calendar' | 'stats') => {
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+    // 오늘 탭이면 타임라인 펼침 토글
+    if (tab === 'today' && activeTab === 'today') {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   // 7일 합계 계산
   const weekSpent = weekItems.filter(item => item.type === 'spent').reduce((sum, item) => sum + item.amount, 0);
   const weekSaved = weekItems.filter(item => item.type === 'saved').reduce((sum, item) => sum + item.amount, 0);
@@ -104,7 +123,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
   // 아이템 렌더링 컴포넌트
   const renderItem = (item: typeof spendItems[0], isNew: boolean = false) => {
     const style = getTypeStyle(item.type);
-    // 자동 카테고리 추론
     const category = inferCategory(item.memo, item.category);
     const categoryInfo = getCategoryInfo(category);
     const emotionColor = item.emotionType ? getEmotionColor(item.emotionType) : null;
@@ -114,7 +132,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
         key={item.id}
         className={`flex items-center gap-3 py-2 px-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-lg transition-colors group ${isNew ? 'bg-blue-50 animate-pulse' : ''}`}
       >
-        {/* 카테고리 아이콘 + 색상 배경 */}
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${categoryInfo.bgColor}`}>
           <span className="text-lg">{categoryInfo.icon}</span>
         </div>
@@ -124,7 +141,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
           <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-0.5">
             <span>{formatTime(new Date(item.timestamp))}</span>
             <span>·</span>
-            {/* 감정유형 태그 (색상 통일) */}
             {emotionColor ? (
               <span className={`px-1.5 py-0.5 rounded font-medium ${emotionColor.bg} ${emotionColor.text}`}>
                 {item.emotionType}
@@ -158,56 +174,81 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
     <>
       {/* 메인 타임라인 */}
       <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-        {/* 헤더 */}
-        <div
-          className="p-3 flex items-center cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <span className="font-bold text-gray-800 mr-2 text-sm">📊 오늘</span>
-          <div className="flex gap-1.5 flex-1 overflow-x-auto">
-            <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md whitespace-nowrap">
-              지출 -₩{todaySpent.toLocaleString()}
-            </span>
-            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md whitespace-nowrap">
-              감정저축 +₩{todaySaved.toLocaleString()}
-            </span>
-            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md whitespace-nowrap">
-              저축 +₩{todayInvestment.toLocaleString()}
-            </span>
-          </div>
-          <div className={`w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+        {/* ★★★ v2.0: 헤더 - 오늘/달력/통계 탭 ★★★ */}
+        <div className="p-3 flex items-center">
+          {/* 오늘 탭 */}
+          <button
+            onClick={() => handleTabClick('today')}
+            className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
+              ${activeTab === 'today' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
+            `}
+          >
+            📊 오늘
+          </button>
+          
+          {/* 달력 탭 */}
+          <button
+            onClick={() => handleTabClick('calendar')}
+            className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
+              ${activeTab === 'calendar' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
+            `}
+          >
+            📅 달력
+          </button>
+          
+          {/* 통계 탭 */}
+          <button
+            onClick={() => handleTabClick('stats')}
+            className={`font-bold text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
+              ${activeTab === 'stats' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
+            `}
+          >
+            📊 통계
+          </button>
+          
+          <div className="flex-1" />
+          
+          {/* ∨ 꺽쇠 - 오늘 탭일 때만 동작 */}
+          <div
+            onClick={() => { if (activeTab === 'today') setIsExpanded(!isExpanded); }}
+            className={`w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center transition-transform cursor-pointer active:scale-95
+              ${isExpanded && activeTab === 'today' ? 'rotate-180' : ''}
+              ${activeTab !== 'today' ? 'opacity-30' : ''}
+            `}
+          >
             <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
             </svg>
           </div>
         </div>
 
-        {/* 펼쳐지는 목록 */}
-        <div className={`border-t border-gray-100 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96' : 'max-h-0'}`}>
-          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-            {displayItems.length === 0 ? (
-              <div className="text-center py-6 text-gray-400">
-                <div className="text-2xl mb-2">📝</div>
-                <p className="text-sm">아직 오늘 기록이 없어요</p>
-                <p className="text-xs mt-1">+ 버튼을 눌러 지출을 기록해보세요</p>
-              </div>
-            ) : (
-              <>
-                {displayItems.map((item, index) => renderItem(item, index === 0 && autoExpand))}
-                
-                {/* 전체 내역 보기 버튼 */}
-                {(hasMoreToday || weekItems.length > 0) && (
-                  <button
-                    onClick={() => setShowFullView(true)}
-                    className="w-full py-2 mt-2 text-sm font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    📋 전체 내역 보기 ({weekItems.length}건) &gt;
-                  </button>
-                )}
-              </>
-            )}
+        {/* 펼쳐지는 목록 (오늘 탭일 때만 표시) */}
+        {activeTab === 'today' && (
+          <div className={`border-t border-gray-100 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96' : 'max-h-0'}`}>
+            <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+              {displayItems.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">
+                  <div className="text-2xl mb-2">📝</div>
+                  <p className="text-sm">아직 오늘 기록이 없어요</p>
+                  <p className="text-xs mt-1">+ 버튼을 눌러 지출을 기록해보세요</p>
+                </div>
+              ) : (
+                <>
+                  {displayItems.map((item, index) => renderItem(item, index === 0 && autoExpand))}
+                  
+                  {(hasMoreToday || weekItems.length > 0) && (
+                    <button
+                      onClick={() => setShowFullView(true)}
+                      className="w-full py-2 mt-2 text-sm font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      📋 전체 내역 보기 ({weekItems.length}건) &gt;
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 전체 내역 모달 (7일) */}
@@ -218,7 +259,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
             onClick={(e) => e.stopPropagation()}
             style={{ height: '80vh' }}
           >
-            {/* 헤더 */}
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">📋 최근 7일 내역</h2>
@@ -231,7 +271,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
               </button>
             </div>
 
-            {/* 스크롤 가능한 목록 */}
             <div className="overflow-y-auto p-4" style={{ height: 'calc(80vh - 80px)' }}>
               {weekItems.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
@@ -241,7 +280,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
               ) : (
                 Object.entries(groupByDate(weekItems)).map(([date, items]) => (
                   <div key={date} className="mb-4">
-                    {/* 날짜 헤더 */}
                     <div className="sticky top-0 bg-white py-2 border-b border-gray-100 mb-2">
                       <span className="text-sm font-bold text-gray-700">{date}</span>
                       <span className="text-xs text-gray-400 ml-2">
@@ -249,7 +287,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
                       </span>
                     </div>
                     
-                    {/* 해당 날짜 항목들 */}
                     <div className="space-y-2">
                       {items.map((item) => {
                         const style = getTypeStyle(item.type);
@@ -262,7 +299,6 @@ function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
                             key={item.id}
                             className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded-xl"
                           >
-                            {/* 카테고리 아이콘 */}
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${categoryInfo.bgColor}`}>
                               <span className="text-lg">{categoryInfo.icon}</span>
                             </div>
