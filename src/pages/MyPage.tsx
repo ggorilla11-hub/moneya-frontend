@@ -395,8 +395,8 @@ export default function MyPage({ userName, userEmail, userPhoto: _userPhoto, fin
           mode={pinMode}
           userId={userId}
           onClose={() => setShowPinSetup(false)}
-          onComplete={(enabled: boolean) => {
-            setPinEnabledState(enabled);
+          onComplete={() => {
+            const pe = userId ? localStorage.getItem(`moneya_pin_enabled_${userId}`) === 'true' : false; setPinEnabledState(pe);
             setShowPinSetup(false);
           }}
         />
