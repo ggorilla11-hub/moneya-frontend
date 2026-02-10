@@ -1,10 +1,10 @@
 // src/pages/AISpendPage.tsx
-// v3.3: 방법 B - CSS display:none 방식
+// v4.0: 부모 레벨 탭 바 + Visibility 패턴
 // ★★★ 변경사항 ★★★
-// 1. AIConversation을 항상 렌더링 (WebSocket 유지)
-// 2. 달력/통계 탭일 때 AIConversation을 display:none으로 숨김
-// 3. CalendarView를 별도로 표시
-// 4. AIConversation.tsx 절대 수정 안 함
+// 1. 탭 바(오늘/달력/통계)를 AIConversation 바깥 최상단에 배치
+// 2. AIConversation은 항상 렌더링, visibility로만 숨김 (WebSocket 유지)
+// 3. AIConversation.tsx 수정 0줄
+// 4. CalendarView.tsx 수정 0줄
 
 import { useState, useEffect } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
@@ -62,8 +62,48 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      {/* ★★★ AIConversation: 항상 렌더링, 달력/통계일 때 숨김 ★★★ */}
-      <div style={{ display: isToday ? 'block' : 'none' }}>
+
+      {/* ★★★ v4.0: 부모 레벨 탭 바 — AIConversation 바깥, 항상 표시 ★★★ */}
+      <div className="mx-4 mt-2 bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="p-2 flex items-center gap-1.5">
+          <button
+            onClick={() => setActiveTab('today')}
+            className={`font-bold text-sm px-3 py-1.5 rounded-lg transition-all active:scale-95
+              ${activeTab === 'today' ? 'text-white bg-blue-500 shadow-sm' : 'text-gray-500 bg-gray-100 hover:bg-gray-200'}
+            `}
+          >
+            📊 오늘
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`font-bold text-sm px-3 py-1.5 rounded-lg transition-all active:scale-95
+              ${activeTab === 'calendar' ? 'text-white bg-blue-500 shadow-sm' : 'text-gray-500 bg-gray-100 hover:bg-gray-200'}
+            `}
+          >
+            📅 달력
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`font-bold text-sm px-3 py-1.5 rounded-lg transition-all active:scale-95
+              ${activeTab === 'stats' ? 'text-white bg-blue-500 shadow-sm' : 'text-gray-500 bg-gray-100 hover:bg-gray-200'}
+            `}
+          >
+            📊 통계
+          </button>
+        </div>
+      </div>
+
+      {/* ★★★ v4.0: "오늘" 영역 — visibility로 숨김 (DOM 유지, WebSocket 유지) ★★★ */}
+      <div
+        style={{
+          visibility: isToday ? 'visible' : 'hidden',
+          position: isToday ? 'relative' : 'absolute',
+          width: isToday ? 'auto' : '100%',
+          height: isToday ? 'auto' : '0',
+          overflow: isToday ? 'visible' : 'hidden',
+          pointerEvents: isToday ? 'auto' : 'none',
+        }}
+      >
         <AIConversation
           userName={userName}
           displayName={displayName}
@@ -80,13 +120,11 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
           <SpendTimeline
             autoExpand={autoExpandTimeline}
             onExpandComplete={handleExpandComplete}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
           />
         </AIConversation>
       </div>
 
-      {/* ★★★ 달력/통계 탭: AIConversation 숨겨진 상태에서 독립 표시 ★★★ */}
+      {/* ★★★ v4.0: "달력/통계" 영역 — 탭이 달력 또는 통계일 때만 표시 ★★★ */}
       {!isToday && (
         <>
           {/* 간소화 파란배너 */}
@@ -108,35 +146,7 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
             </div>
           </div>
 
-          {/* 탭 헤더 (오늘로 돌아가기 포함) */}
-          <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-            <div className="p-3 flex items-center">
-              <button
-                onClick={() => setActiveTab('today')}
-                className="font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95 text-gray-500 bg-gray-100"
-              >
-                📊 오늘
-              </button>
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
-                  ${activeTab === 'calendar' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
-                `}
-              >
-                📅 달력
-              </button>
-              <button
-                onClick={() => setActiveTab('stats')}
-                className={`font-bold text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
-                  ${activeTab === 'stats' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
-                `}
-              >
-                📊 통계
-              </button>
-            </div>
-          </div>
-
-          {/* CalendarView 콘텐츠 */}
+          {/* CalendarView (내부에 달력/통계 서브탭 있음) */}
           <CalendarView
             dailyBudget={dailyBudget}
             monthlyBudget={monthlyBudget}
