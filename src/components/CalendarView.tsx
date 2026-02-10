@@ -7,12 +7,13 @@
 // - 예산 소진률 프로그레스 바
 // - 통계: 종합현황, 일별추이, 카테고리별, 주간비교, AI인사이트
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSpend } from '../context/SpendContext';
 
 interface CalendarViewProps {
   dailyBudget: number;
   monthlyBudget: number;
+  initialSubTab?: 'calendar' | 'stats';
 }
 
 // ★ 요일 이름
@@ -38,15 +39,20 @@ function getCatMeta(cat: string) {
   return CAT_META[cat] || CAT_META['기타'];
 }
 
-function CalendarView({ dailyBudget, monthlyBudget }: CalendarViewProps) {
+function CalendarView({ dailyBudget, monthlyBudget, initialSubTab = 'calendar' }: CalendarViewProps) {
   const { spendItems } = useSpend();
   
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1);
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
-  const [activeSubTab, setActiveSubTab] = useState<'calendar' | 'stats'>('calendar');
+  const [activeSubTab, setActiveSubTab] = useState<'calendar' | 'stats'>(initialSubTab);
   const [statsPeriod, setStatsPeriod] = useState<'week' | 'month' | 'lastMonth'>('month');
+
+  // ★★★ v1.3: 외부에서 탭 변경 시 동기화 ★★★
+  useEffect(() => {
+    setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
 
   const isCurrentMonth = currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1;
   const todayDate = isCurrentMonth ? today.getDate() : 0;
