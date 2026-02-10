@@ -211,7 +211,7 @@ function ManualInputModal({ isOpen, onClose }: ManualInputModalProps) {
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {type === '충동' ? '🔥' : type === '🤔' ? '🤔' : '✅'} {type}
+                    {type === '충동' ? '🔥' : type === '선택' ? '🤔' : '✅'} {type}
                   </button>
                 ))}
               </div>
