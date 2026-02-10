@@ -1,7 +1,11 @@
 // src/pages/BudgetAdjustPage.tsx
-// v2.0: 슬라이더 단위 1만원(10000원)으로 수정 - 미세 조정 방지
+// v3.0: 슬라이더 중앙 시작 + 직접 금액 입력 + 민감도 50% 감소
+// ★★★ 변경사항 ★★★
+// 1. 슬라이더 바가 각 항목별 현재값 기준으로 중앙에 위치 (동적 min/max 범위)
+// 2. 금액 터치 시 직접 입력 모드 (만원 단위 숫자 입력)
+// 3. 커스텀 터치 핸들러로 민감도 50% 감소 (최소 8px 이동 필요)
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { IncomeExpenseData } from '../types/incomeExpense';
 import { BUDGET_RATIOS } from '../types/incomeExpense';
 
@@ -72,6 +76,11 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   // 스냅 효과 상태
   const [snappedFields, setSnappedFields] = useState<Set<string>>(new Set());
   
+  // ★★★ v3.0: 직접 입력 모드 상태 ★★★
+  const [editingField, setEditingField] = useState<BudgetField | null>(null);
+  const [editInputValue, setEditInputValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+  
   // 예산 시작일 설정
   const [budgetStartDate, setBudgetStartDate] = useState(() => {
     const today = new Date();
@@ -85,24 +94,39 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const isValidBudget = surplus >= 0;
   const canStart = allConfirmed && isValidBudget;
 
-  // ★★★ v2.0 수정: 1만원 단위 조정 (10000원) ★★★
+  // ★★★ v3.0: 1만원 단위 유지 ★★★
   const STEP = 10000;
   
   // 스냅 허용 오차: 5만원 (원 단위이므로 50000)
   const SNAP_TOLERANCE = 50000;
+
+  // ★★★ v3.0: 슬라이더 동적 범위 계산 (중앙 배치용) ★★★
+  const getSliderRange = useCallback((field: BudgetField) => {
+    const currentVal = budget[field];
+    // 현재값, 권장값, 현재지출값 중 가장 큰 값 기준으로 범위 설정
+    const refValue = Math.max(currentVal, recommendedBudget[field], currentExpense[field], STEP);
+    // 범위: 참조값의 2배 또는 수입의 60% 중 큰 값 (최소 50만원 보장)
+    const rangeMax = Math.max(refValue * 2, income * 0.6, 500000);
+    // 최대값은 수입을 넘지 않도록
+    const clampedMax = Math.min(rangeMax, income);
+    // 1만원 단위로 정렬
+    return {
+      min: 0,
+      max: Math.ceil(clampedMax / STEP) * STEP,
+    };
+  }, [budget, recommendedBudget, currentExpense, income]);
 
   // AudioContext 초기화 (터치 시점에 호출)
   const initAudio = useCallback(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    // suspended 상태면 resume
     if (audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
     }
   }, []);
 
-  // 스냅 소리 재생 (더 길고 명쾌한 소리)
+  // 스냅 소리 재생
   const playSnapSound = useCallback(() => {
     try {
       const ctx = audioContextRef.current;
@@ -114,11 +138,9 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
       
-      // 더 높고 명쾌한 소리
       oscillator.frequency.value = 1200;
       oscillator.type = 'sine';
       
-      // 볼륨 강화, 더 긴 지속시간
       gainNode.gain.setValueAtTime(0.6, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
       
@@ -132,22 +154,20 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   const handleSliderChange = (field: BudgetField, newValue: number) => {
     if (confirmed[field]) return;
     
-    // ★★★ v2.0: 1만원 단위로 반올림 ★★★
+    // 1만원 단위로 반올림
     newValue = Math.round(newValue / STEP) * STEP;
     newValue = Math.max(0, Math.min(newValue, income));
     
     const recommended = recommendedBudget[field];
     
-    // 권장값에 스냅 (허용 오차 5만원 = 50000원)
+    // 권장값에 스냅
     if (Math.abs(newValue - recommended) <= SNAP_TOLERANCE) {
       newValue = recommended;
       
-      // 스냅 효과 (처음 스냅될 때만)
       if (!snappedFields.has(field)) {
         setSnappedFields(prev => new Set(prev).add(field));
         playSnapSound();
         
-        // 0.8초 후 스냅 효과 제거
         setTimeout(() => {
           setSnappedFields(prev => {
             const newSet = new Set(prev);
@@ -157,7 +177,6 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
         }, 800);
       }
     } else {
-      // 권장값에서 벗어나면 스냅 상태 제거
       setSnappedFields(prev => {
         const newSet = new Set(prev);
         newSet.delete(field);
@@ -166,6 +185,40 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
     }
     
     setBudget(prev => ({ ...prev, [field]: newValue }));
+  };
+
+  // ★★★ v3.0: 직접 금액 입력 핸들러 ★★★
+  const handleEditStart = (field: BudgetField) => {
+    if (confirmed[field]) return;
+    const manwonValue = Math.round(budget[field] / 10000);
+    setEditingField(field);
+    setEditInputValue(manwonValue > 0 ? String(manwonValue) : '');
+    // 다음 렌더 후 포커스
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const handleEditConfirm = () => {
+    if (!editingField) return;
+    const manwonInput = parseInt(editInputValue) || 0;
+    const wonValue = manwonInput * 10000;
+    // 수입 이하로 제한
+    const clampedValue = Math.max(0, Math.min(wonValue, income));
+    handleSliderChange(editingField, clampedValue);
+    setEditingField(null);
+    setEditInputValue('');
+  };
+
+  const handleEditCancel = () => {
+    setEditingField(null);
+    setEditInputValue('');
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleEditConfirm();
+    } else if (e.key === 'Escape') {
+      handleEditCancel();
+    }
   };
 
   const handleConfirmToggle = (field: BudgetField) => {
@@ -198,8 +251,90 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
 
   const confirmedCount = Object.values(confirmed).filter(v => v).length;
 
+  // ★★★ v3.0: 직접 입력 모달 오버레이 ★★★
+  const renderEditModal = () => {
+    if (!editingField) return null;
+    
+    const fieldLabels: Record<BudgetField, string> = {
+      livingExpense: '🏠 생활비',
+      savings: '💰 저축/투자',
+      pension: '🏦 노후연금',
+      insurance: '🛡️ 보장성보험',
+      loanPayment: '💳 대출원리금',
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/40 z-[100] flex items-end justify-center" onClick={handleEditCancel}>
+        <div 
+          className="w-full max-w-md bg-white rounded-t-3xl p-6 pb-8 animate-slide-up"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">{fieldLabels[editingField]} 금액 직접 입력</h3>
+          <p className="text-xs text-gray-400 mb-4">만원 단위로 입력해주세요 (예: 335 → 335만원)</p>
+          
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 relative">
+              <input
+                ref={editInputRef}
+                type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={editInputValue}
+                onChange={(e) => setEditInputValue(e.target.value)}
+                onKeyDown={handleEditKeyDown}
+                placeholder="금액 입력"
+                className="w-full px-4 py-4 text-2xl font-bold text-gray-800 border-2 border-blue-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-right pr-16"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-gray-400">만원</span>
+            </div>
+          </div>
+          
+          {/* 미리보기 */}
+          {editInputValue && (
+            <div className="bg-blue-50 rounded-xl p-3 mb-4 text-center">
+              <span className="text-sm text-blue-600">적용 금액: </span>
+              <span className="text-lg font-bold text-blue-700">
+                ₩{((parseInt(editInputValue) || 0) * 10000).toLocaleString()}원
+              </span>
+            </div>
+          )}
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleEditCancel}
+              className="flex-1 py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl text-lg"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleEditConfirm}
+              className="flex-1 py-4 bg-blue-500 text-white font-bold rounded-2xl text-lg active:scale-95 transition-all"
+            >
+              적용
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-green-50 to-amber-50 flex flex-col">
+      
+      {/* 직접 입력 모달 */}
+      {renderEditModal()}
+
+      {/* slide-up 애니메이션 스타일 */}
+      <style>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
       
       <div className="flex items-center gap-3 p-4 pt-6">
         <button onClick={onBack} className="w-10 h-10 bg-white border border-gray-200 rounded-xl flex items-center justify-center shadow-sm">
@@ -234,7 +369,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             </div>
             <p className="text-sm leading-relaxed opacity-95">
               {familySize}인 가구 기준으로 예산을 추천해드려요.<br/>
-              <span className="bg-white/20 px-2 py-0.5 rounded font-bold">각 항목을 조정한 후 [확정/조정] 버튼</span>을 눌러주세요!
+              <span className="bg-white/20 px-2 py-0.5 rounded font-bold">슬라이더 조정 또는 금액을 터치하여 직접 입력</span> 후 [확정/조정] 버튼을 눌러주세요!
             </p>
           </div>
         )}
@@ -256,7 +391,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             <div>
               <h2 className="font-bold text-gray-800">🎯 예산 조정 (월 기준)</h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                {isFromHome ? '수정하려면 확정을 해제하고 조정하세요' : '슬라이더 조정 후 [확정/조정] 버튼을 눌러주세요'}
+                {isFromHome ? '수정하려면 확정을 해제하고 조정하세요' : '슬라이더 또는 금액 터치로 조정 후 [확정/조정]'}
               </p>
             </div>
             <div className="text-right">
@@ -266,12 +401,12 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
           </div>
 
           <SliderItem 
-            icon="🏠" 
-            label="생활비" 
+            icon="🏠" label="생활비" field="livingExpense"
             value={budget.livingExpense} 
             currentValue={currentExpense.livingExpense}
             recommended={recommendedBudget.livingExpense} 
-            maxValue={income} 
+            sliderRange={getSliderRange('livingExpense')}
+            income={income}
             percent={getPercent(budget.livingExpense)} 
             onChange={(v) => handleSliderChange('livingExpense', v)} 
             isConfirmed={confirmed.livingExpense} 
@@ -285,15 +420,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             step={STEP}
             isSnapped={snappedFields.has('livingExpense')}
             onTouchInit={initAudio}
+            onEditClick={() => handleEditStart('livingExpense')}
           />
 
           <SliderItem 
-            icon="💰" 
-            label="저축/투자" 
+            icon="💰" label="저축/투자" field="savings"
             value={budget.savings} 
             currentValue={currentExpense.savings}
             recommended={recommendedBudget.savings} 
-            maxValue={income} 
+            sliderRange={getSliderRange('savings')}
+            income={income}
             percent={getPercent(budget.savings)} 
             onChange={(v) => handleSliderChange('savings', v)} 
             isConfirmed={confirmed.savings} 
@@ -307,15 +443,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             step={STEP}
             isSnapped={snappedFields.has('savings')}
             onTouchInit={initAudio}
+            onEditClick={() => handleEditStart('savings')}
           />
 
           <SliderItem 
-            icon="🏦" 
-            label="노후연금" 
+            icon="🏦" label="노후연금" field="pension"
             value={budget.pension} 
             currentValue={currentExpense.pension}
             recommended={recommendedBudget.pension} 
-            maxValue={income} 
+            sliderRange={getSliderRange('pension')}
+            income={income}
             percent={getPercent(budget.pension)} 
             onChange={(v) => handleSliderChange('pension', v)} 
             isConfirmed={confirmed.pension} 
@@ -329,15 +466,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             step={STEP}
             isSnapped={snappedFields.has('pension')}
             onTouchInit={initAudio}
+            onEditClick={() => handleEditStart('pension')}
           />
 
           <SliderItem 
-            icon="🛡️" 
-            label="보장성보험" 
+            icon="🛡️" label="보장성보험" field="insurance"
             value={budget.insurance} 
             currentValue={currentExpense.insurance}
             recommended={recommendedBudget.insurance} 
-            maxValue={income} 
+            sliderRange={getSliderRange('insurance')}
+            income={income}
             percent={getPercent(budget.insurance)} 
             onChange={(v) => handleSliderChange('insurance', v)} 
             isConfirmed={confirmed.insurance} 
@@ -351,15 +489,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             step={STEP}
             isSnapped={snappedFields.has('insurance')}
             onTouchInit={initAudio}
+            onEditClick={() => handleEditStart('insurance')}
           />
 
           <SliderItem 
-            icon="💳" 
-            label="대출원리금" 
+            icon="💳" label="대출원리금" field="loanPayment"
             value={budget.loanPayment} 
             currentValue={currentExpense.loanPayment}
             recommended={recommendedBudget.loanPayment} 
-            maxValue={income} 
+            sliderRange={getSliderRange('loanPayment')}
+            income={income}
             percent={getPercent(budget.loanPayment)} 
             onChange={(v) => handleSliderChange('loanPayment', v)} 
             isConfirmed={confirmed.loanPayment} 
@@ -373,6 +512,7 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
             step={STEP}
             isSnapped={snappedFields.has('loanPayment')}
             onTouchInit={initAudio}
+            onEditClick={() => handleEditStart('loanPayment')}
           />
 
           <div className="pt-2">
@@ -477,13 +617,16 @@ function BudgetAdjustPage({ incomeExpenseData, onConfirm, onBack, isFromHome = f
   );
 }
 
+// ★★★ v3.0: 커스텀 터치 슬라이더 컴포넌트 (민감도 50% 감소) ★★★
 interface SliderItemProps {
   icon: string;
   label: string;
+  field: BudgetField;
   value: number;
   currentValue: number;
   recommended: number;
-  maxValue: number;
+  sliderRange: { min: number; max: number };
+  income: number;
   percent: number;
   onChange: (value: number) => void;
   isConfirmed: boolean;
@@ -497,52 +640,129 @@ interface SliderItemProps {
   step: number;
   isSnapped: boolean;
   onTouchInit: () => void;
+  onEditClick: () => void;
 }
 
 function SliderItem({ 
-  icon, 
-  label, 
-  value, 
-  currentValue,
-  recommended, 
-  maxValue, 
-  percent, 
-  onChange, 
-  isConfirmed, 
-  onConfirmToggle, 
-  isActive, 
-  onFocus, 
-  onBlur, 
-  color, 
-  formatManwon,
-  formatWonDiff,
-  step,
-  isSnapped,
-  onTouchInit
+  icon, label, field, value, currentValue, recommended, sliderRange, income,
+  percent, onChange, isConfirmed, onConfirmToggle, isActive, onFocus, onBlur, 
+  color, formatManwon, formatWonDiff, step, isSnapped, onTouchInit, onEditClick
 }: SliderItemProps) {
   const colorMap = {
-    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600', bg: '#22c55e' },
-    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600', bg: '#f59e0b' },
-    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', bg: '#3b82f6' },
-    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600', bg: '#a855f7' },
-    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600', bg: '#6b7280' },
+    green: { fill: 'bg-green-500', border: 'border-green-500', text: 'text-green-600', bg: '#22c55e', track: '#22c55e' },
+    amber: { fill: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-600', bg: '#f59e0b', track: '#f59e0b' },
+    blue: { fill: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', bg: '#3b82f6', track: '#3b82f6' },
+    purple: { fill: 'bg-purple-500', border: 'border-purple-500', text: 'text-purple-600', bg: '#a855f7', track: '#a855f7' },
+    gray: { fill: 'bg-gray-500', border: 'border-gray-500', text: 'text-gray-600', bg: '#6b7280', track: '#6b7280' },
   };
   const colors = colorMap[color];
   const difference = value - recommended;
-  const recommendedPercent = maxValue > 0 ? (recommended / maxValue) * 100 : 0;
+  
+  // ★★★ v3.0: 슬라이더 범위 내에서의 퍼센트 계산 (중앙 배치) ★★★
+  const { min: sliderMin, max: sliderMax } = sliderRange;
+  const sliderPercent = sliderMax > sliderMin ? ((value - sliderMin) / (sliderMax - sliderMin)) * 100 : 0;
+  const clampedSliderPercent = Math.max(0, Math.min(100, sliderPercent));
+  
+  // 권장값의 슬라이더 범위 내 위치
+  const recommendedSliderPercent = sliderMax > sliderMin ? ((recommended - sliderMin) / (sliderMax - sliderMin)) * 100 : 0;
+  const clampedRecommendedPercent = Math.max(0, Math.min(100, recommendedSliderPercent));
 
-  // 슬라이더 터치/클릭 시 AudioContext 초기화
-  const handleInteractionStart = () => {
+  // ★★★ v3.0: 커스텀 터치 핸들러 (민감도 50% 감소) ★★★
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartValue = useRef(0);
+  const hasMoved = useRef(false);
+  // ★★★ v3.0: 최소 이동 거리 임계값 8px ★★★
+  const DRAG_THRESHOLD = 8;
+
+  const getValueFromPosition = useCallback((clientX: number) => {
+    if (!trackRef.current) return value;
+    const rect = trackRef.current.getBoundingClientRect();
+    const trackWidth = rect.width;
+    // ★★★ v3.0: 터치 위치 → 값 변환 시 2배 스케일링 (민감도 50% 감소) ★★★
+    // 실제 이동 거리의 절반만 반영
+    const deltaX = clientX - dragStartX.current;
+    const effectiveDelta = deltaX / 2; // 민감도 절반
+    const deltaRatio = effectiveDelta / trackWidth;
+    const range = sliderMax - sliderMin;
+    let newValue = dragStartValue.current + (deltaRatio * range);
+    // 1만원 단위로 반올림
+    newValue = Math.round(newValue / step) * step;
+    return Math.max(sliderMin, Math.min(sliderMax, newValue));
+  }, [value, sliderMin, sliderMax, step]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isConfirmed) return;
     onTouchInit();
     onFocus();
-  };
+    isDragging.current = true;
+    hasMoved.current = false;
+    dragStartX.current = e.touches[0].clientX;
+    dragStartValue.current = value;
+  }, [isConfirmed, onTouchInit, onFocus, value]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current || isConfirmed) return;
+    const deltaX = Math.abs(e.touches[0].clientX - dragStartX.current);
+    // ★★★ v3.0: 임계값 미만이면 무시 ★★★
+    if (deltaX < DRAG_THRESHOLD && !hasMoved.current) return;
+    hasMoved.current = true;
+    e.preventDefault();
+    const newValue = getValueFromPosition(e.touches[0].clientX);
+    onChange(newValue);
+  }, [isConfirmed, getValueFromPosition, onChange]);
+
+  const handleTouchEnd = useCallback(() => {
+    isDragging.current = false;
+    hasMoved.current = false;
+    onBlur();
+  }, [onBlur]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (isConfirmed) return;
+    onTouchInit();
+    onFocus();
+    isDragging.current = true;
+    hasMoved.current = false;
+    dragStartX.current = e.clientX;
+    dragStartValue.current = value;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDragging.current) return;
+      const deltaX = Math.abs(moveEvent.clientX - dragStartX.current);
+      if (deltaX < DRAG_THRESHOLD && !hasMoved.current) return;
+      hasMoved.current = true;
+      const newValue = getValueFromPosition(moveEvent.clientX);
+      onChange(newValue);
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+      hasMoved.current = false;
+      onBlur();
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [isConfirmed, onTouchInit, onFocus, value, getValueFromPosition, onChange, onBlur]);
 
   return (
     <div className={`mb-4 pb-4 border-b border-gray-100 ${isConfirmed ? 'opacity-75' : ''}`}>
       <div className="flex justify-between items-center mb-1">
         <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><span>{icon}</span> {label}</span>
         <div className="flex items-center gap-2">
-          <span className={`font-extrabold transition-all duration-200 ${colors.text} ${isActive && !isConfirmed ? 'text-2xl' : 'text-xl'}`}>{formatManwon(value)}</span>
+          {/* ★★★ v3.0: 금액 터치 시 직접 입력 모드 ★★★ */}
+          <button 
+            onClick={onEditClick}
+            className={`font-extrabold transition-all duration-200 ${colors.text} ${isActive && !isConfirmed ? 'text-2xl' : 'text-xl'} ${!isConfirmed ? 'underline decoration-dotted underline-offset-4 decoration-1' : ''}`}
+            disabled={isConfirmed}
+            title="터치하여 금액 직접 입력"
+          >
+            {formatManwon(value)}
+          </button>
           <span className="text-sm text-gray-400">({percent}%)</span>
           <button onClick={onConfirmToggle} className={`px-2 py-1 text-xs font-bold rounded-lg transition-all ${isConfirmed ? 'bg-green-100 text-green-600 border border-green-300' : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'}`}>
             {isConfirmed ? '✓ 확정됨' : '확정/조정'}
@@ -550,50 +770,50 @@ function SliderItem({
         </div>
       </div>
       
-      {/* 현재 지출 금액 표시 */}
-      <div className="text-xs text-gray-400 mb-2 text-right">
-        현재 지출: <span className="font-semibold text-gray-600">{formatManwon(currentValue)}</span>
+      {/* 현재 지출 금액 + 직접입력 안내 */}
+      <div className="flex justify-between text-xs text-gray-400 mb-2">
+        <span>현재 지출: <span className="font-semibold text-gray-600">{formatManwon(currentValue)}</span></span>
+        {!isConfirmed && <span className="text-blue-400">💡 금액 터치→직접입력</span>}
       </div>
       
-      <div className="relative h-10">
+      {/* ★★★ v3.0: 커스텀 터치 슬라이더 (네이티브 input range 제거) ★★★ */}
+      <div 
+        ref={trackRef}
+        className="relative h-12 cursor-pointer select-none touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+      >
+        {/* 트랙 배경 */}
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 bg-gray-200 rounded-full"></div>
-        <div className={`absolute top-1/2 -translate-y-1/2 left-0 h-3 rounded-full transition-all ${isConfirmed ? 'bg-gray-400' : colors.fill}`} style={{ width: `${percent}%` }}></div>
         
-        {/* 권장값 세로 라인 - 더 두껍게 */}
-        {!isConfirmed && (
-          <div 
-            className="absolute top-1/2 w-1 h-10 bg-gray-600 -translate-y-1/2 rounded-full" 
-            style={{ left: `${recommendedPercent}%` }}
-          />
-        )}
-        
-        {!isConfirmed && (
-          <input 
-            type="range" 
-            min={0} 
-            max={maxValue} 
-            step={step} 
-            value={value} 
-            onChange={(e) => onChange(Number(e.target.value))} 
-            onFocus={handleInteractionStart} 
-            onBlur={onBlur} 
-            onTouchStart={handleInteractionStart} 
-            onTouchEnd={onBlur}
-            onMouseDown={handleInteractionStart}
-            className="absolute top-0 left-0 w-full h-10 opacity-0 cursor-pointer z-10" 
-          />
-        )}
-        
-        {/* 슬라이더 동그라미 - 스냅 효과 강화 */}
+        {/* 채워진 트랙 */}
         <div 
-          className={`absolute top-1/2 w-7 h-7 border-4 rounded-full shadow-lg pointer-events-none transition-all duration-200 ${isConfirmed ? 'border-gray-400 bg-white' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150' : ''}`} 
+          className={`absolute top-1/2 -translate-y-1/2 left-0 h-3 rounded-full transition-all duration-100 ${isConfirmed ? 'bg-gray-400' : ''}`} 
           style={{ 
-            left: `${percent}%`, 
+            width: `${clampedSliderPercent}%`,
+            backgroundColor: isConfirmed ? undefined : colors.track,
+          }}
+        ></div>
+        
+        {/* 권장값 세로 라인 */}
+        {!isConfirmed && clampedRecommendedPercent > 0 && clampedRecommendedPercent < 100 && (
+          <div 
+            className="absolute top-1/2 w-1 h-12 bg-gray-600 -translate-y-1/2 rounded-full z-[5]" 
+            style={{ left: `${clampedRecommendedPercent}%` }}
+          />
+        )}
+        
+        {/* 슬라이더 동그라미 (thumb) */}
+        <div 
+          className={`absolute top-1/2 w-8 h-8 border-4 rounded-full shadow-lg pointer-events-none transition-all duration-150 z-[6] ${isConfirmed ? 'border-gray-400 bg-white' : colors.border} ${isActive && !isConfirmed ? 'scale-125' : ''} ${isSnapped ? 'scale-150' : ''}`} 
+          style={{ 
+            left: `${clampedSliderPercent}%`, 
             transform: 'translate(-50%, -50%)',
             backgroundColor: isSnapped ? colors.bg : 'white',
           }}
         >
-          {/* 스냅 시 펄스 애니메이션 */}
           {isSnapped && (
             <div 
               className="absolute inset-0 rounded-full animate-ping"
