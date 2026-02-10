@@ -1,10 +1,10 @@
 // src/pages/spend/SpendTimeline.tsx
-// v2.0: 헤더를 오늘/달력/통계 탭으로 변경
+// v2.1: 탭 버튼 제거, 순수 타임라인 컴포넌트로 복원
 // ★★★ 변경사항 ★★★
-// 1. 헤더의 "지출/감정저축/저축" 뱃지 → "오늘/달력/통계" 탭으로 변경
-// 2. 오늘 탭 = 기존 타임라인 펼침/접힘 (기능 100% 유지)
-// 3. 달력/통계 클릭 시 onTabChange 콜백으로 부모에 알림
-// 4. ∨ 꺽쇠 기존 기능 그대로 유지
+// 1. activeTab, onTabChange props 제거 (탭은 부모 AISpendPage가 담당)
+// 2. 헤더의 탭 버튼 제거 → 기존 "오늘 지출" 헤더 + 꺽쇠 구조로 복원
+// 3. 타임라인 펼침/접힘, 전체내역 모달 등 기존 기능 100% 유지
+// 4. 삭제, 카테고리, 감정타입 등 모든 기능 그대로
 
 import { useState, useEffect } from 'react';
 import { useSpend } from '../../context/SpendContext';
@@ -13,12 +13,9 @@ import { inferCategory, getCategoryInfo, getEmotionColor } from '../../utils/cat
 interface SpendTimelineProps {
   autoExpand?: boolean;
   onExpandComplete?: () => void;
-  // ★★★ v2.0: 탭 전환 콜백 추가 ★★★
-  activeTab?: 'today' | 'calendar' | 'stats';
-  onTabChange?: (tab: 'today' | 'calendar' | 'stats') => void;
 }
 
-function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTabChange }: SpendTimelineProps) {
+function SpendTimeline({ autoExpand, onExpandComplete }: SpendTimelineProps) {
   const { spendItems, deleteSpendItem } = useSpend();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullView, setShowFullView] = useState(false);
@@ -59,6 +56,11 @@ function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTa
   const displayItems = todayItems.slice(0, 5);
   const hasMoreToday = todayItems.length > 5;
 
+  // 오늘 합계
+  const todaySpent = todayItems.filter(i => i.type === 'spent').reduce((s, i) => s + i.amount, 0);
+  const todaySaved = todayItems.filter(i => i.type === 'saved').reduce((s, i) => s + i.amount, 0);
+  const todayInvestment = todayItems.filter(i => i.type === 'investment').reduce((s, i) => s + i.amount, 0);
+
   const formatTime = (date: Date) => {
     const d = new Date(date);
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
@@ -89,17 +91,6 @@ function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTa
   const handleDelete = (id: string, memo: string) => {
     if (window.confirm(`"${memo}" 기록을 삭제하시겠습니까?`)) {
       deleteSpendItem(id);
-    }
-  };
-
-  // ★★★ v2.0: 탭 클릭 핸들러 ★★★
-  const handleTabClick = (tab: 'today' | 'calendar' | 'stats') => {
-    if (onTabChange) {
-      onTabChange(tab);
-    }
-    // 오늘 탭이면 타임라인 펼침 토글
-    if (tab === 'today' && activeTab === 'today') {
-      setIsExpanded(!isExpanded);
     }
   };
 
@@ -174,46 +165,25 @@ function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTa
     <>
       {/* 메인 타임라인 */}
       <div className="mx-4 mt-3 bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-        {/* ★★★ v2.0: 헤더 - 오늘/달력/통계 탭 ★★★ */}
+        {/* ★★★ v2.1: 헤더 — 지출/감정저축/저축 뱃지 + 꺽쇠 (원래 구조 복원) ★★★ */}
         <div className="p-3 flex items-center">
-          {/* 오늘 탭 */}
-          <button
-            onClick={() => handleTabClick('today')}
-            className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
-              ${activeTab === 'today' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
-            `}
-          >
-            📊 오늘
-          </button>
+          <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-500">
+              지출 -₩{todaySpent.toLocaleString()}
+            </span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-600">
+              감정저축 +₩{todaySaved.toLocaleString()}
+            </span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+              저축 +₩{todayInvestment.toLocaleString()}
+            </span>
+          </div>
           
-          {/* 달력 탭 */}
-          <button
-            onClick={() => handleTabClick('calendar')}
-            className={`font-bold mr-2 text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
-              ${activeTab === 'calendar' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
-            `}
-          >
-            📅 달력
-          </button>
-          
-          {/* 통계 탭 */}
-          <button
-            onClick={() => handleTabClick('stats')}
-            className={`font-bold text-sm px-2.5 py-1 rounded-lg transition-all active:scale-95
-              ${activeTab === 'stats' ? 'text-white bg-blue-500' : 'text-gray-500 bg-gray-100'}
-            `}
-          >
-            📊 통계
-          </button>
-          
-          <div className="flex-1" />
-          
-          {/* ∨ 꺽쇠 - 오늘 탭일 때만 동작 */}
+          {/* ∨ 꺽쇠 */}
           <div
-            onClick={() => { if (activeTab === 'today') setIsExpanded(!isExpanded); }}
+            onClick={() => setIsExpanded(!isExpanded)}
             className={`w-7 h-7 bg-gray-100 rounded-lg flex items-center justify-center transition-transform cursor-pointer active:scale-95
-              ${isExpanded && activeTab === 'today' ? 'rotate-180' : ''}
-              ${activeTab !== 'today' ? 'opacity-30' : ''}
+              ${isExpanded ? 'rotate-180' : ''}
             `}
           >
             <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
@@ -222,33 +192,31 @@ function SpendTimeline({ autoExpand, onExpandComplete, activeTab = 'today', onTa
           </div>
         </div>
 
-        {/* 펼쳐지는 목록 (오늘 탭일 때만 표시) */}
-        {activeTab === 'today' && (
-          <div className={`border-t border-gray-100 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96' : 'max-h-0'}`}>
-            <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-              {displayItems.length === 0 ? (
-                <div className="text-center py-6 text-gray-400">
-                  <div className="text-2xl mb-2">📝</div>
-                  <p className="text-sm">아직 오늘 기록이 없어요</p>
-                  <p className="text-xs mt-1">+ 버튼을 눌러 지출을 기록해보세요</p>
-                </div>
-              ) : (
-                <>
-                  {displayItems.map((item, index) => renderItem(item, index === 0 && autoExpand))}
-                  
-                  {(hasMoreToday || weekItems.length > 0) && (
-                    <button
-                      onClick={() => setShowFullView(true)}
-                      className="w-full py-2 mt-2 text-sm font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      📋 전체 내역 보기 ({weekItems.length}건) &gt;
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+        {/* 펼쳐지는 목록 */}
+        <div className={`border-t border-gray-100 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96' : 'max-h-0'}`}>
+          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+            {displayItems.length === 0 ? (
+              <div className="text-center py-6 text-gray-400">
+                <div className="text-2xl mb-2">📝</div>
+                <p className="text-sm">아직 오늘 기록이 없어요</p>
+                <p className="text-xs mt-1">+ 버튼을 눌러 지출을 기록해보세요</p>
+              </div>
+            ) : (
+              <>
+                {displayItems.map((item, index) => renderItem(item, index === 0 && autoExpand))}
+                
+                {(hasMoreToday || weekItems.length > 0) && (
+                  <button
+                    onClick={() => setShowFullView(true)}
+                    className="w-full py-2 mt-2 text-sm font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    📋 전체 내역 보기 ({weekItems.length}건) &gt;
+                  </button>
+                )}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* 전체 내역 모달 (7일) */}
