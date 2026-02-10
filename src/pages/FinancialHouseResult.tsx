@@ -8,6 +8,7 @@
 //       - import FinancialReport from '../components/FinancialReport'
 //       - 기존 showReportModal 내부의 인라인 JSX 전체를 <FinancialReport /> 한 줄로 대체
 //       - 기존 데이터 로직/슬라이드/탭/저작권 등은 모두 유지
+// ★★★ v5.7: 은퇴 영역에 임대소득(rentalIncome), 금융소득(financialIncome) 반영 ★★★
 
 import { useState, useRef, useEffect } from 'react';
 import FinancialReport from '../components/FinancialReport';
@@ -140,9 +141,13 @@ const FinancialHouseResult = ({
   const retireMonthlyExpense = retireDesign?.monthlyLivingExpense || retireDesign?.monthlyExpense || 300;
   const retireNationalPension = retireDesign?.expectedNationalPension || retireDesign?.nationalPension || 80;
   const retirePersonalPension = retireDesign?.currentPersonalPension || retireDesign?.personalPension || 50;
+  // ★★★ v5.7 추가: 임대소득, 금융소득 읽기 ★★★
+  const retireRentalIncome = retireDesign?.rentalIncome ?? 0;
+  const retireFinancialIncome = retireDesign?.financialIncome ?? 0;
   const retireExpectedLumpSum = retireDesign?.expectedRetirementLumpSum || 10000;
   const requiredMonthly = financialData.requiredMonthly || retireMonthlyExpense;
-  const preparedMonthly = financialData.preparedMonthly || (retireNationalPension + retirePersonalPension);
+  // ★★★ v5.7 수정: 준비자금에 임대소득 + 금융소득 포함 ★★★
+  const preparedMonthly = financialData.preparedMonthly || (retireNationalPension + retirePersonalPension + retireRentalIncome + retireFinancialIncome);
   const shortfallMonthly = financialData.shortfallMonthly
     || (requiredMonthly - preparedMonthly > 0 ? requiredMonthly - preparedMonthly : 0);
   const retirePeriod = lifeExpectancy - retirementAge;
