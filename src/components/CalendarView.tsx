@@ -110,7 +110,6 @@ function CalendarView({ dailyBudget, monthlyBudget }: CalendarViewProps) {
   const statsData = useMemo(() => {
     const catTotals: Record<string, number> = {};
     let totalAll = 0;
-    let daysWithSpend = 0;
     let daysUnderBudget = 0;
     let daysOverBudget = 0;
     const dailyAmounts: { day: number; amount: number }[] = [];
@@ -121,7 +120,6 @@ function CalendarView({ dailyBudget, monthlyBudget }: CalendarViewProps) {
       dailyAmounts.push({ day: d, amount: spent });
       
       if (spent > 0) {
-        daysWithSpend++;
         if (spent <= dailyBudget) daysUnderBudget++;
         else daysOverBudget++;
         
