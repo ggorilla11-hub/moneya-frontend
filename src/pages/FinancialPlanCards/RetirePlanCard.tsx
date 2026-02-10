@@ -1,6 +1,7 @@
 // src/pages/FinancialPlanCards/RetirePlanCard.tsx
 // 은퇴설계 카드 - FinancialPlanCards.tsx v4.4에서 분리
 // v4.5: 1단계 인적사항 나이/은퇴예정나이 자동 연동
+// v4.6: 임대소득(월세)/금융소득(이자,배당) 필드 추가 + 계산 로직 수정 + "현재 퇴직연금 일시금" 레이블 변경
 
 import { useState, useEffect } from 'react';
 import { saveDesignData, loadDesignData } from '../FinancialHouseDesign';
@@ -10,7 +11,9 @@ import { DisclaimerBox } from './shared';
 export function RetirePlanCard({ onNext, onPrev }: CardProps) {
   const [formData, setFormData] = useState({
     currentAge: 37, retireAge: 65, monthlyLivingExpense: 300,
-    expectedNationalPension: 80, currentPersonalPension: 50, expectedRetirementLumpSum: 10000,
+    expectedNationalPension: 80, currentPersonalPension: 50,
+    rentalIncome: 0, financialIncome: 0,
+    expectedRetirementLumpSum: 10000,
   });
   const [showFormula, setShowFormula] = useState(false);
 
@@ -37,6 +40,9 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
       monthlyLivingExpense: saved?.monthlyLivingExpense ?? saved?.monthlyExpense ?? 300,
       expectedNationalPension: saved?.expectedNationalPension ?? saved?.nationalPension ?? 80,
       currentPersonalPension: saved?.currentPersonalPension ?? saved?.personalPension ?? 50,
+      // ★★★ v4.6 추가: 임대소득, 금융소득 ★★★
+      rentalIncome: saved?.rentalIncome ?? 0,
+      financialIncome: saved?.financialIncome ?? 0,
       expectedRetirementLumpSum: saved?.expectedRetirementLumpSum ?? 10000,
     });
   }, []);
@@ -44,7 +50,8 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
   useEffect(() => { saveDesignData('retire', formData); }, [formData]);
 
   const economicYears = formData.retireAge - formData.currentAge;
-  const monthlyGap = formData.monthlyLivingExpense - formData.expectedNationalPension - formData.currentPersonalPension;
+  // ★★★ v4.6 수정: 월 부족액 계산에 임대소득, 금융소득 차감 ★★★
+  const monthlyGap = formData.monthlyLivingExpense - formData.expectedNationalPension - formData.currentPersonalPension - formData.rentalIncome - formData.financialIncome;
   const retirementYears = 90 - formData.retireAge;
   const totalRetirementNeeded = monthlyGap * 12 * retirementYears;
   const netRetirementNeeded = totalRetirementNeeded - formData.expectedRetirementLumpSum;
@@ -67,7 +74,12 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
         <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">예상 노후생활비 (월)</label><div className="flex items-center gap-2"><input type="number" value={formData.monthlyLivingExpense} onChange={(e) => setFormData({...formData, monthlyLivingExpense: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
         <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">예상 국민연금 (월)</label><div className="flex items-center gap-2"><input type="number" value={formData.expectedNationalPension} onChange={(e) => setFormData({...formData, expectedNationalPension: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
         <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">납입중인 개인연금 (월)</label><div className="flex items-center gap-2"><input type="number" value={formData.currentPersonalPension} onChange={(e) => setFormData({...formData, currentPersonalPension: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
-        <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">예상 퇴직연금 일시금</label><div className="flex items-center gap-2"><input type="number" value={formData.expectedRetirementLumpSum} onChange={(e) => setFormData({...formData, expectedRetirementLumpSum: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+        {/* ★★★ v4.6 추가: 임대소득(월세) ★★★ */}
+        <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">임대소득 - 월세 (월)</label><div className="flex items-center gap-2"><input type="number" value={formData.rentalIncome} onChange={(e) => setFormData({...formData, rentalIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+        {/* ★★★ v4.6 추가: 금융소득(이자,배당) ★★★ */}
+        <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">금융소득 - 이자,배당 (월)</label><div className="flex items-center gap-2"><input type="number" value={formData.financialIncome} onChange={(e) => setFormData({...formData, financialIncome: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
+        {/* ★★★ v4.6 수정: "예상 퇴직연금 일시금" → "현재 퇴직연금 일시금" ★★★ */}
+        <div className="space-y-1"><label className="text-sm font-semibold text-gray-700">현재 퇴직연금 일시금</label><div className="flex items-center gap-2"><input type="number" value={formData.expectedRetirementLumpSum} onChange={(e) => setFormData({...formData, expectedRetirementLumpSum: Number(e.target.value)})} onFocus={handleFocus} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none" /><span className="text-sm text-gray-500 font-medium w-10">만원</span></div></div>
       </div>
       
       <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 space-y-2 border border-teal-200">
@@ -76,14 +88,16 @@ export function RetirePlanCard({ onNext, onPrev }: CardProps) {
         <div className="flex justify-between text-sm py-1"><span className="text-gray-700">은퇴 후 기간</span><span className="font-bold text-teal-700">{retirementYears}년</span></div>
         <div className="flex justify-between text-sm py-1"><span className="text-gray-700">월 부족액</span><span className="font-bold text-red-600">{monthlyGap.toLocaleString()}만원</span></div>
         <div className="flex justify-between text-sm py-1"><span className="text-gray-700">은퇴일시금 필요액</span><span className="font-bold text-red-600">{(totalRetirementNeeded / 10000).toFixed(1)}억원</span></div>
-        <div className="flex justify-between text-sm py-1"><span className="text-gray-700">예상 퇴직연금 일시금</span><span className="font-bold text-teal-700">{(formData.expectedRetirementLumpSum / 10000).toFixed(1)}억원</span></div>
+        {/* ★★★ v4.6 수정: "예상 퇴직연금 일시금" → "현재 퇴직연금 일시금" ★★★ */}
+        <div className="flex justify-between text-sm py-1"><span className="text-gray-700">현재 퇴직연금 일시금</span><span className="font-bold text-teal-700">{(formData.expectedRetirementLumpSum / 10000).toFixed(1)}억원</span></div>
         <div className="flex justify-between text-sm py-1 border-t border-teal-200 pt-2"><span className="text-gray-700 font-bold">순 은퇴일시금</span><span className="font-bold text-red-600">{(netRetirementNeeded / 10000).toFixed(1)}억원</span></div>
         <div className="bg-white rounded-lg p-3 mt-2 border border-teal-300"><div className="flex justify-between items-center"><span className="text-sm text-gray-700 font-bold"> 월 저축연금액</span><span className="font-bold text-teal-600 text-lg">{monthlyRequiredSaving.toLocaleString()}만원</span></div></div>
         <button onClick={() => setShowFormula(!showFormula)} className="w-full text-left text-xs text-teal-600 font-medium mt-2 flex items-center gap-1 hover:text-teal-800 transition-colors"><span> 계산 방법 보기</span><span className="text-sm">{showFormula ? '▲' : '▼'}</span></button>
         {showFormula && (
           <div className="bg-white/70 rounded-lg p-3 mt-1 text-xs text-gray-600 space-y-1 border border-teal-200">
             <p><strong>공식:</strong></p>
-            <p>① 월 부족액 = 노후생활비 - 국민연금 - 개인연금 = {monthlyGap}만원</p>
+            {/* ★★★ v4.6 수정: 공식에 임대소득, 금융소득 포함 ★★★ */}
+            <p>① 월 부족액 = 노후생활비 - 국민연금 - 개인연금 - 임대소득 - 금융소득 = {monthlyGap}만원</p>
             <p>② 은퇴일시금 = {monthlyGap}만원 × 12개월 × {retirementYears}년 = {(totalRetirementNeeded / 10000).toFixed(1)}억원</p>
             <p>③ 순 은퇴일시금 = {(totalRetirementNeeded / 10000).toFixed(1)}억 - {(formData.expectedRetirementLumpSum / 10000).toFixed(1)}억 = {(netRetirementNeeded / 10000).toFixed(1)}억원</p>
             <p>④ 월 저축연금액 = {(netRetirementNeeded / 10000).toFixed(1)}억 ÷ {economicYears}년 ÷ 12 = {monthlyRequiredSaving}만원</p>
