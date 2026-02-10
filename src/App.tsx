@@ -1,3 +1,7 @@
+// App.tsx v5.2: PIN 잠금 기능 추가
+// ★★★ v5.2 변경사항: PinLockScreen import + pinUnlocked 상태 + PIN 체크 로직 ★★★
+// ★★★ 기존 라우팅/로직 일절 변경 없음 ★★★
+
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './config/firebase';
@@ -29,6 +33,8 @@ import DeleteAccountPage from './pages/DeleteAccountPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import FinancialTicker from './components/FinancialTicker';
+// ★★★ v5.2 추가: PIN 잠금 화면 import ★★★
+import PinLockScreen from './components/PinLockScreen';
 import { SpendProvider } from './context/SpendContext';
 import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
@@ -104,6 +110,9 @@ function App() {
   // ★★★ 추가: 딥링크 모드 (카카오 챗봇 등 외부에서 직접 진입) ★★★
   const [isDeepLink, setIsDeepLink] = useState<boolean>(false);
 
+  // ★★★ v5.2 추가: PIN 잠금 해제 상태 ★★★
+  const [pinUnlocked, setPinUnlocked] = useState<boolean>(false);
+
   // ★★★ 추가: URL 경로 기반 계정 삭제 페이지 감지 ★★★
   const isDeleteAccountPage = window.location.pathname === '/delete-account';
 
@@ -130,6 +139,13 @@ function App() {
       setLoading(false);
       
       if (currentUser) {
+        // ★★★ v5.2 추가: PIN 설정 여부 확인 → 미설정이면 자동 unlock ★★★
+        const pinEnabled = localStorage.getItem(`moneya_pin_enabled_${currentUser.uid}`);
+        if (!pinEnabled || pinEnabled !== 'true') {
+          setPinUnlocked(true);
+        }
+        // PIN 설정되어 있으면 pinUnlocked = false 유지 → PinLockScreen 표시
+
         // ★★★ 추가: 로그인된 사용자의 딥링크 처리 ★★★
         if (targetPage === 'financial-check') {
           setIsDeepLink(true);
@@ -445,6 +461,20 @@ function App() {
   }
 
   if (!user) return <LoginPage onLogin={() => {}} />;
+
+  // ★★★ v5.2 추가: PIN 잠금 화면 (로그인 완료 후, 메인 진입 전) ★★★
+  if (!pinUnlocked) {
+    const pinEnabled = localStorage.getItem(`moneya_pin_enabled_${user.uid}`);
+    if (pinEnabled === 'true') {
+      return (
+        <PinLockScreen
+          uid={user.uid}
+          onSuccess={() => setPinUnlocked(true)}
+        />
+      );
+    }
+  }
+
   if (currentStep === 'onboarding') return <OnboardingPage onComplete={handleOnboardingComplete} />;
   if (currentStep === 'financial-check') return <FinancialCheckPage onComplete={handleFinancialCheckComplete} />;
   
@@ -616,6 +646,7 @@ function App() {
               onNavigate={handleMyPageNavigate}
               onLogout={handleLogout}
               onReset={handleRestart}
+              userId={user.uid}
             />
           )}
           
