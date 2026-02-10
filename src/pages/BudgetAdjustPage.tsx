@@ -1,11 +1,11 @@
 // src/pages/BudgetAdjustPage.tsx
-// v3.0: 슬라이더 중앙 시작 + 직접 금액 입력 + 민감도 50% 감소
+// v3.1: 빌드 에러 수정 (미사용 변수 제거)
 // ★★★ 변경사항 ★★★
 // 1. 슬라이더 바가 각 항목별 현재값 기준으로 중앙에 위치 (동적 min/max 범위)
 // 2. 금액 터치 시 직접 입력 모드 (만원 단위 숫자 입력)
 // 3. 커스텀 터치 핸들러로 민감도 50% 감소 (최소 8px 이동 필요)
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { IncomeExpenseData } from '../types/incomeExpense';
 import { BUDGET_RATIOS } from '../types/incomeExpense';
 
@@ -644,7 +644,7 @@ interface SliderItemProps {
 }
 
 function SliderItem({ 
-  icon, label, field, value, currentValue, recommended, sliderRange, income,
+  icon, label, value, currentValue, recommended, sliderRange, 
   percent, onChange, isConfirmed, onConfirmToggle, isActive, onFocus, onBlur, 
   color, formatManwon, formatWonDiff, step, isSnapped, onTouchInit, onEditClick
 }: SliderItemProps) {
