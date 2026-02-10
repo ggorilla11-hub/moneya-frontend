@@ -1,9 +1,10 @@
 // src/pages/AISpendPage.tsx
-// v2.0: 오늘/달력 탭 전환 추가
+// v3.0: SpendTimeline 헤더에서 탭 전환
 // ★★★ 변경사항 ★★★
-// 1. 상단에 "오늘" / "달력" 탭 추가
-// 2. "오늘" 탭 = 기존 AIConversation + SpendTimeline (기존 기능 100% 유지)
-// 3. "달력" 탭 = CalendarView 컴포넌트 (달력+통계 서브탭 포함)
+// 1. 상단 별도 탭 바 제거
+// 2. SpendTimeline 헤더의 오늘/달력/통계 탭으로 화면 전환
+// 3. 오늘 = 기존 AI대화 + 타임라인 (100% 유지)
+// 4. 달력/통계 = CalendarView 컴포넌트
 // ★★★ AIConversation.tsx는 절대 수정하지 않음 ★★★
 
 import { useState, useEffect } from 'react';
@@ -38,8 +39,8 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
   const [isInputMethodOpen, setIsInputMethodOpen] = useState(false);
   const [autoExpandTimeline, setAutoExpandTimeline] = useState(false);
   
-  // ★★★ v2.0: 탭 상태 추가 ★★★
-  const [activeTab, setActiveTab] = useState<'today' | 'calendar'>('today');
+  // ★★★ v3.0: 탭 상태 (SpendTimeline 헤더에서 전환) ★★★
+  const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'stats'>('today');
 
   // Context에서 실제 데이터 가져오기
   const { todaySpent, todaySaved, todayInvestment, spendItems } = useSpend();
@@ -67,66 +68,39 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      
-      {/* ★★★ v2.0: 상단 탭 바 ★★★ */}
-      <div className="flex bg-white border-b border-gray-200 sticky top-0 z-20">
-        <button
-          onClick={() => setActiveTab('today')}
-          className={`flex-1 text-center py-3 text-sm font-semibold border-b-3 transition-all
-            ${activeTab === 'today' 
-              ? 'text-blue-600 border-blue-600' 
-              : 'text-gray-400 border-transparent'}
-          `}
-          style={{ borderBottomWidth: '3px' }}
-        >
-          📋 오늘
-        </button>
-        <button
-          onClick={() => setActiveTab('calendar')}
-          className={`flex-1 text-center py-3 text-sm font-semibold border-b-3 transition-all
-            ${activeTab === 'calendar' 
-              ? 'text-blue-600 border-blue-600' 
-              : 'text-gray-400 border-transparent'}
-          `}
-          style={{ borderBottomWidth: '3px' }}
-        >
-          📅 달력/통계
-        </button>
-      </div>
+      {/* AI 대화 컴포넌트 (항상 표시 - 상단 파란색 배너 영역) */}
+      <AIConversation
+        userName={userName}
+        displayName={displayName}
+        adjustedBudget={adjustedBudget}
+        financialResult={financialResult}
+        dailyBudget={dailyBudget}
+        todaySpent={todaySpent}
+        todaySaved={todaySaved}
+        todayInvestment={todayInvestment}
+        remainingBudget={remainingBudget}
+        onFAQMore={onFAQMore}
+        onPlusClick={() => setIsInputMethodOpen(true)}
+      >
+        {/* ★★★ v3.0: SpendTimeline에 탭 전환 기능 전달 ★★★ */}
+        <SpendTimeline 
+          autoExpand={autoExpandTimeline} 
+          onExpandComplete={handleExpandComplete}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      </AIConversation>
 
-      {/* ★★★ v2.0: 탭 콘텐츠 ★★★ */}
-      {activeTab === 'today' ? (
-        <>
-          {/* 기존 오늘 탭 (100% 기존 코드 유지) */}
-          <AIConversation
-            userName={userName}
-            displayName={displayName}
-            adjustedBudget={adjustedBudget}
-            financialResult={financialResult}
-            dailyBudget={dailyBudget}
-            todaySpent={todaySpent}
-            todaySaved={todaySaved}
-            todayInvestment={todayInvestment}
-            remainingBudget={remainingBudget}
-            onFAQMore={onFAQMore}
-            onPlusClick={() => setIsInputMethodOpen(true)}
-          >
-            {/* 지출 타임라인 - 자동 펼침 연동 */}
-            <SpendTimeline 
-              autoExpand={autoExpandTimeline} 
-              onExpandComplete={handleExpandComplete}
-            />
-          </AIConversation>
-        </>
-      ) : (
-        /* ★★★ v2.0: 달력/통계 탭 (신규) ★★★ */
+      {/* ★★★ v3.0: 달력/통계 탭일 때 CalendarView 표시 ★★★ */}
+      {activeTab !== 'today' && (
         <CalendarView
           dailyBudget={dailyBudget}
           monthlyBudget={monthlyBudget}
+          initialSubTab={activeTab === 'calendar' ? 'calendar' : 'stats'}
         />
       )}
 
-      {/* 지출 입력 모달 (양쪽 탭 모두 사용 가능) */}
+      {/* 지출 입력 모달 */}
       <SpendInput
         isInputMethodOpen={isInputMethodOpen}
         setIsInputMethodOpen={setIsInputMethodOpen}
