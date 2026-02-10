@@ -123,7 +123,6 @@ function AISpendPage({ userName, adjustedBudget, financialResult, onFAQMore }: A
         <CalendarView
           dailyBudget={dailyBudget}
           monthlyBudget={monthlyBudget}
-          displayName={displayName}
         />
       )}
 
