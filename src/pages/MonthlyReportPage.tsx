@@ -1,10 +1,12 @@
 // MonthlyReportPage.tsx
 // 월간 리포트 페이지 - PDF oklch 색상 에러 수정
+// v2.0: AI 코멘트 OpenAI API 연동 (getMonthlyAIComment)
 // html2canvas가 oklch를 지원하지 않아 RGB 색상으로 직접 지정
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { AdjustedBudget } from './BudgetAdjustPage';
 import { useSpend } from '../context/SpendContext';
+import { getMonthlyAIComment } from '../services/aiService';
 
 interface MonthlyReportPageProps {
   onBack: () => void;
@@ -24,6 +26,10 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
   const [showShareModal, setShowShareModal] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  
+  // ★★★ v2.0: AI 코멘트 상태 ★★★
+  const [aiComment, setAiComment] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
@@ -150,37 +156,54 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
     { id: 'etc', name: '기타', icon: '📦', color: '#EC4899', bgColor: '#FCE7F3', amount: Math.round(budgetLivingExpense * 0.07), percent: 7, count: 0 },
   ];
 
-  const getAIComment = (): string => {
+  // ★★★ v2.0: 로컬 AI코멘트 (폴백용) ★★★
+  const getLocalAIComment = (): string => {
     const messages: string[] = [];
-
     if (actualSpentItems.length > 0) {
       const topCategory = displayCategories[0];
-      if (topCategory) {
-        messages.push(`이번 달 ${topCategory.name} 비중이 ${topCategory.percent}%로 가장 높았어요.`);
-      }
-
-      if (budgetDiff > 0) {
-        messages.push(`예산 대비 ${budgetDiff}만원 초과했어요. 다음 달에는 지출을 줄여보는 건 어떨까요?`);
-      } else if (budgetDiff < 0) {
-        messages.push(`예산 대비 ${Math.abs(budgetDiff)}만원 절약했어요! 훌륭해요! 🎉`);
-      } else {
-        messages.push('예산을 정확히 지켰어요! 대단해요! 👏');
-      }
-
+      if (topCategory) messages.push(`이번 달 ${topCategory.name} 비중이 ${topCategory.percent}%로 가장 높았어요.`);
+      if (budgetDiff > 0) messages.push(`예산 대비 ${budgetDiff}만원 초과했어요. 다음 달에는 지출을 줄여보는 건 어떨까요?`);
+      else if (budgetDiff < 0) messages.push(`예산 대비 ${Math.abs(budgetDiff)}만원 절약했어요! 훌륭해요! 🎉`);
+      else messages.push('예산을 정확히 지켰어요! 대단해요! 👏');
       if (lastMonthDiff !== 0 && lastMonthSpentInManwon > 0) {
-        if (lastMonthDiff > 0) {
-          messages.push(`지난달보다 ${lastMonthDiff}만원 더 썼어요.`);
-        } else {
-          messages.push(`지난달보다 ${Math.abs(lastMonthDiff)}만원 절약했어요! 💪`);
-        }
+        if (lastMonthDiff > 0) messages.push(`지난달보다 ${lastMonthDiff}만원 더 썼어요.`);
+        else messages.push(`지난달보다 ${Math.abs(lastMonthDiff)}만원 절약했어요! 💪`);
       }
     } else {
       messages.push('아직 이번 달 지출 기록이 없어요.');
       messages.push('AI지출탭에서 지출을 기록하면 상세한 분석을 받을 수 있어요! 📝');
     }
-
     return messages.join(' ');
   };
+
+  // ★★★ v2.0: OpenAI AI코멘트 로드 ★★★
+  const loadAIComment = async () => {
+    setIsLoadingAI(true);
+    try {
+      const result = await getMonthlyAIComment({
+        month: formatMonth(currentMonth),
+        totalIncome,
+        totalExpense: displaySpent,
+        totalSaving: displaySaved,
+        budgetTotal,
+        budgetDiff,
+        lastMonthDiff,
+        categories: displayCategories.map(c => ({ name: c.name, amount: c.amount, percent: c.percent })),
+      });
+      setAiComment(result);
+    } catch (e) {
+      setAiComment(getLocalAIComment());
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  // ★★★ v2.0: 월 변경 시 AI코멘트 자동 로드 ★★★
+  useEffect(() => {
+    loadAIComment();
+  }, [currentMonth.getMonth(), currentMonth.getFullYear()]);
+
+  const displayAIComment = aiComment || getLocalAIComment();
 
   const formatAmount = (amount: number) => {
     return amount.toLocaleString() + '만원';
@@ -205,42 +228,25 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         return;
       }
 
-      // oklch 색상을 RGB로 변환하기 위해 클론 생성
       const clonedElement = reportRef.current.cloneNode(true) as HTMLElement;
       clonedElement.style.position = 'absolute';
       clonedElement.style.left = '-9999px';
       clonedElement.style.top = '0';
       document.body.appendChild(clonedElement);
 
-      // 모든 요소의 computed style에서 oklch를 RGB로 변환
       const allElements = clonedElement.querySelectorAll('*');
       allElements.forEach((el) => {
         const htmlEl = el as HTMLElement;
         const computed = window.getComputedStyle(htmlEl);
-        
-        // 배경색 변환
-        if (computed.backgroundColor && computed.backgroundColor.includes('oklch')) {
-          htmlEl.style.backgroundColor = '#f9fafb';
-        }
-        // 텍스트 색상 변환
-        if (computed.color && computed.color.includes('oklch')) {
-          htmlEl.style.color = '#1f2937';
-        }
-        // 테두리 색상 변환
-        if (computed.borderColor && computed.borderColor.includes('oklch')) {
-          htmlEl.style.borderColor = '#e5e7eb';
-        }
+        if (computed.backgroundColor && computed.backgroundColor.includes('oklch')) htmlEl.style.backgroundColor = '#f9fafb';
+        if (computed.color && computed.color.includes('oklch')) htmlEl.style.color = '#1f2937';
+        if (computed.borderColor && computed.borderColor.includes('oklch')) htmlEl.style.borderColor = '#e5e7eb';
       });
 
       const canvas = await html2canvas(clonedElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#f9fafb',
+        scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#f9fafb',
       });
 
-      // 클론 제거
       document.body.removeChild(clonedElement);
 
       const imgData = canvas.toDataURL('image/png');
@@ -279,7 +285,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
       `🎯 잉여자금: ${formatAmount(surplus)}\n\n` +
       `📊 카테고리별 지출:\n` +
       displayCategories.map(cat => `- ${cat.name}: ${formatAmount(cat.amount)} (${cat.percent}%)`).join('\n') +
-      `\n\n🤖 AI 코멘트:\n${getAIComment()}\n\n` +
+      `\n\n🤖 AI 코멘트:\n${displayAIComment}\n\n` +
       `---\n` +
       `AI머니야 - 당신의 AI 지출 코치`;
 
@@ -313,7 +319,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
       `🎯 잉여자금: ${formatAmount(surplus)}\n\n` +
       `📊 카테고리별 지출:\n` +
       displayCategories.map(cat => `- ${cat.name}: ${formatAmount(cat.amount)} (${cat.percent}%)`).join('\n') +
-      `\n\n🤖 AI 코멘트:\n${getAIComment()}\n\n` +
+      `\n\n🤖 AI 코멘트:\n${displayAIComment}\n\n` +
       `---\n` +
       `AI머니야 - 당신의 AI 지출 코치\n` +
       `https://moneya-frontend.vercel.app`
@@ -327,10 +333,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
 
       if (navigator.share) {
         try {
-          await navigator.share({
-            title: subject,
-            text: body,
-          });
+          await navigator.share({ title: subject, text: body });
           setShowShareModal(false);
           return;
         } catch (err) {
@@ -364,32 +367,14 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
 
   // RGB 색상 직접 지정 (oklch 대신)
   const colors = {
-    teal500: '#14b8a6',
-    teal600: '#0d9488',
-    teal400: '#2dd4bf',
-    gray50: '#f9fafb',
-    gray100: '#f3f4f6',
-    gray200: '#e5e7eb',
-    gray400: '#9ca3af',
-    gray500: '#6b7280',
-    gray700: '#374151',
-    gray900: '#111827',
-    white: '#ffffff',
-    red500: '#ef4444',
-    red400: '#f87171',
-    red600: '#dc2626',
-    green500: '#22c55e',
-    green600: '#16a34a',
-    blue600: '#2563eb',
-    amber50: '#fffbeb',
-    amber200: '#fde68a',
-    amber600: '#d97706',
-    amber700: '#b45309',
-    amber800: '#92400e',
+    teal500: '#14b8a6', teal600: '#0d9488', teal400: '#2dd4bf',
+    gray50: '#f9fafb', gray100: '#f3f4f6', gray200: '#e5e7eb', gray400: '#9ca3af',
+    gray500: '#6b7280', gray700: '#374151', gray900: '#111827', white: '#ffffff',
+    red500: '#ef4444', red400: '#f87171', red600: '#dc2626',
+    green500: '#22c55e', green600: '#16a34a', blue600: '#2563eb',
+    amber50: '#fffbeb', amber200: '#fde68a', amber600: '#d97706', amber700: '#b45309', amber800: '#92400e',
     yellow50: '#fefce8',
-    purple50: '#faf5ff',
-    purple100: '#f3e8ff',
-    purple700: '#7c3aed',
+    purple50: '#faf5ff', purple100: '#f3e8ff', purple400: '#c084fc', purple500: '#a855f7', purple700: '#7c3aed',
     indigo50: '#eef2ff',
   };
 
@@ -425,13 +410,12 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         </div>
       </div>
 
-      {/* 리포트 내용 (PDF 캡처 영역) - 인라인 스타일 사용 */}
+      {/* 리포트 내용 (PDF 캡처 영역) */}
       <div ref={reportRef} style={{ padding: '0 20px', marginTop: '-16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {/* 총 지출 카드 */}
         <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <p style={{ color: colors.gray500, fontSize: '14px', marginBottom: '4px' }}>이번 달 총 지출</p>
           <p style={{ fontSize: '30px', fontWeight: 'bold', color: colors.gray900, margin: 0 }}>{formatAmount(displaySpent)}</p>
-          
           <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: budgetDiff > 0 ? colors.red500 : colors.green500 }}>
               <span>{budgetDiff > 0 ? '▲' : budgetDiff < 0 ? '▼' : '•'}</span>
@@ -452,24 +436,17 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
             <p style={{ fontWeight: '600', color: colors.gray900, margin: 0 }}>예산 현황</p>
             <p style={{ fontWeight: 'bold', color: budgetRate <= 100 ? colors.teal600 : colors.red500, margin: 0 }}>{budgetRate}% 사용</p>
           </div>
-          
           <div style={{ height: '12px', backgroundColor: colors.gray100, borderRadius: '9999px', overflow: 'hidden' }}>
-            <div 
-              style={{ 
-                height: '100%', 
-                borderRadius: '9999px',
-                background: budgetRate <= 100 
-                  ? `linear-gradient(to right, ${colors.teal400}, ${colors.teal600})` 
-                  : `linear-gradient(to right, ${colors.red400}, ${colors.red600})`,
-                width: `${Math.min(budgetRate, 100)}%`,
-                transition: 'width 0.5s'
-              }}
-            />
+            <div style={{ 
+              height: '100%', borderRadius: '9999px',
+              background: budgetRate <= 100 
+                ? `linear-gradient(to right, ${colors.teal400}, ${colors.teal600})` 
+                : `linear-gradient(to right, ${colors.red400}, ${colors.red600})`,
+              width: `${Math.min(budgetRate, 100)}%`, transition: 'width 0.5s'
+            }} />
           </div>
-          
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '14px', color: colors.gray500 }}>
-            <span>0</span>
-            <span>예산 {formatAmount(budgetTotal)}</span>
+            <span>0</span><span>예산 {formatAmount(budgetTotal)}</span>
           </div>
         </div>
 
@@ -495,9 +472,7 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         {/* 잉여자금 카드 */}
         <div style={{ 
           background: `linear-gradient(to right, ${colors.amber50}, ${colors.yellow50})`, 
-          borderRadius: '16px', 
-          padding: '20px', 
-          border: `1px solid ${colors.amber200}` 
+          borderRadius: '16px', padding: '20px', border: `1px solid ${colors.amber200}` 
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -513,43 +488,20 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
         {/* 카테고리별 지출 */}
         <div style={{ backgroundColor: colors.white, borderRadius: '16px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <p style={{ fontWeight: '600', color: colors.gray900, marginBottom: '16px' }}>카테고리별 지출</p>
-          
           {actualSpentItems.length === 0 && (
             <p style={{ fontSize: '14px', color: colors.gray400, textAlign: 'center', padding: '16px 0' }}>아직 지출 기록이 없습니다</p>
           )}
-          
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {displayCategories.map((cat) => (
               <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div 
-                  style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: '12px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '18px',
-                    backgroundColor: cat.bgColor 
-                  }}
-                >
-                  {cat.icon}
-                </div>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', backgroundColor: cat.bgColor }}>{cat.icon}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '500', color: colors.gray700 }}>{cat.name}</span>
                     <span style={{ fontSize: '14px', fontWeight: '600', color: colors.gray900 }}>{formatAmount(cat.amount)}</span>
                   </div>
                   <div style={{ height: '8px', backgroundColor: colors.gray100, borderRadius: '9999px', overflow: 'hidden' }}>
-                    <div 
-                      style={{ 
-                        height: '100%', 
-                        borderRadius: '9999px',
-                        backgroundColor: cat.color,
-                        width: `${cat.percent}%`,
-                        transition: 'width 0.5s'
-                      }}
-                    />
+                    <div style={{ height: '100%', borderRadius: '9999px', backgroundColor: cat.color, width: `${cat.percent}%`, transition: 'width 0.5s' }} />
                   </div>
                 </div>
                 <span style={{ fontSize: '12px', color: colors.gray400, width: '32px', textAlign: 'right' }}>{cat.percent}%</span>
@@ -558,19 +510,30 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
           </div>
         </div>
 
-        {/* AI 코멘트 */}
+        {/* ★★★ v2.0: AI 코멘트 - OpenAI 연동 ★★★ */}
         <div style={{ 
           background: `linear-gradient(to right, ${colors.purple50}, ${colors.indigo50})`, 
-          borderRadius: '16px', 
-          padding: '20px', 
-          border: `1px solid ${colors.purple100}` 
+          borderRadius: '16px', padding: '20px', border: `1px solid ${colors.purple100}` 
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '20px' }}>🤖</span>
-            <span style={{ fontWeight: '600', color: colors.purple700 }}>AI 머니야 코멘트</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>🤖</span>
+              <span style={{ fontWeight: '600', color: colors.purple700 }}>AI 머니야 코멘트</span>
+            </div>
+            <button 
+              onClick={loadAIComment}
+              disabled={isLoadingAI}
+              style={{ 
+                padding: '4px 12px', borderRadius: '12px', border: `1px solid ${colors.purple400}`,
+                backgroundColor: colors.white, color: colors.purple700, fontSize: '12px', fontWeight: '600',
+                cursor: isLoadingAI ? 'not-allowed' : 'pointer', opacity: isLoadingAI ? 0.5 : 1
+              }}
+            >
+              {isLoadingAI ? '분석 중...' : '🔄 새로고침'}
+            </button>
           </div>
-          <p style={{ color: colors.gray700, fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
-            {getAIComment()}
+          <p style={{ color: colors.gray700, fontSize: '14px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-line', minHeight: '40px' }}>
+            {isLoadingAI ? '🤖 AI가 이번 달 지출을 분석하고 있습니다...' : displayAIComment}
           </p>
         </div>
       </div>
@@ -582,44 +545,20 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
             onClick={handleDownloadPdf}
             disabled={isPdfLoading}
             style={{ 
-              flex: 1, 
-              padding: '14px', 
-              backgroundColor: colors.white, 
-              border: `1px solid ${colors.gray200}`, 
-              borderRadius: '12px', 
-              fontSize: '14px', 
-              fontWeight: 'bold', 
-              color: colors.gray700, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              cursor: isPdfLoading ? 'not-allowed' : 'pointer',
-              opacity: isPdfLoading ? 0.5 : 1
+              flex: 1, padding: '14px', backgroundColor: colors.white, border: `1px solid ${colors.gray200}`, 
+              borderRadius: '12px', fontSize: '14px', fontWeight: 'bold', color: colors.gray700, 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              cursor: isPdfLoading ? 'not-allowed' : 'pointer', opacity: isPdfLoading ? 0.5 : 1
             }}
           >
-            {isPdfLoading ? (
-              <>⏳ 생성 중...</>
-            ) : (
-              <>📄 PDF 다운로드</>
-            )}
+            {isPdfLoading ? <>⏳ 생성 중...</> : <>📄 PDF 다운로드</>}
           </button>
           <button
             onClick={() => setShowShareModal(true)}
             style={{ 
-              flex: 1, 
-              padding: '14px', 
-              backgroundColor: colors.teal500, 
-              border: 'none', 
-              borderRadius: '12px', 
-              fontSize: '14px', 
-              fontWeight: 'bold', 
-              color: colors.white, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              cursor: 'pointer'
+              flex: 1, padding: '14px', backgroundColor: colors.teal500, border: 'none', 
+              borderRadius: '12px', fontSize: '14px', fontWeight: 'bold', color: colors.white, 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer'
             }}
           >
             📤 공유하기
@@ -629,23 +568,8 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
 
       {/* 공유 모달 */}
       {showShareModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', 
-          alignItems: 'flex-end', 
-          justifyContent: 'center', 
-          zIndex: 50 
-        }}>
-          <div style={{ 
-            backgroundColor: colors.white, 
-            borderRadius: '24px 24px 0 0', 
-            width: '100%', 
-            maxWidth: '512px', 
-            padding: '24px',
-            animation: 'slideUp 0.3s ease-out'
-          }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: colors.white, borderRadius: '24px 24px 0 0', width: '100%', maxWidth: '512px', padding: '24px', animation: 'slideUp 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>공유하기</h3>
               <button onClick={() => setShowShareModal(false)} style={{ padding: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -654,31 +578,17 @@ export default function MonthlyReportPage({ onBack, adjustedBudget }: MonthlyRep
                 </svg>
               </button>
             </div>
-            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
               {shareChannels.map((channel) => (
                 <button
                   key={channel.id}
                   onClick={() => handleShare(channel.id)}
                   disabled={!channel.enabled}
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    gap: '8px', 
-                    padding: '16px', 
-                    borderRadius: '12px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    cursor: channel.enabled ? 'pointer' : 'not-allowed',
-                    opacity: channel.enabled ? 1 : 0.4
-                  }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: 'transparent', cursor: channel.enabled ? 'pointer' : 'not-allowed', opacity: channel.enabled ? 1 : 0.4 }}
                 >
                   <span style={{ fontSize: '30px' }}>{channel.icon}</span>
                   <span style={{ fontSize: '12px', color: colors.gray700 }}>{channel.name}</span>
-                  {!channel.enabled && (
-                    <span style={{ fontSize: '10px', color: colors.gray400 }}>준비중</span>
-                  )}
+                  {!channel.enabled && <span style={{ fontSize: '10px', color: colors.gray400 }}>준비중</span>}
                 </button>
               ))}
             </div>
