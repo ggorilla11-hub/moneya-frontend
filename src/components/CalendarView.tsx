@@ -13,7 +13,6 @@ import { useSpend } from '../context/SpendContext';
 interface CalendarViewProps {
   dailyBudget: number;
   monthlyBudget: number;
-  displayName: string;
 }
 
 // ★ 요일 이름
@@ -39,7 +38,7 @@ function getCatMeta(cat: string) {
   return CAT_META[cat] || CAT_META['기타'];
 }
 
-function CalendarView({ dailyBudget, monthlyBudget, displayName }: CalendarViewProps) {
+function CalendarView({ dailyBudget, monthlyBudget }: CalendarViewProps) {
   const { spendItems } = useSpend();
   
   const today = new Date();
