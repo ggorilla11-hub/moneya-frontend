@@ -37,6 +37,10 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const handleChange = (field: string, value: string) => {
+    // 숫자 필드는 숫자만 허용
+    if (field !== 'name') {
+      value = value.replace(/[^0-9]/g, '');
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -164,7 +168,9 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
             </label>
             <div className="relative">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.age}
                 onChange={(e) => handleChange('age', e.target.value)}
                 placeholder="37"
@@ -189,7 +195,9 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
           </label>
           <div className="relative">
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={formData.income}
               onChange={(e) => handleChange('income', e.target.value)}
               placeholder="520"
@@ -208,7 +216,9 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
             </label>
             <div className="relative">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.assets}
                 onChange={(e) => handleChange('assets', e.target.value)}
                 placeholder="65000"
@@ -225,7 +235,9 @@ function FinancialCheckPage({ onComplete }: FinancialCheckPageProps) {
             </label>
             <div className="relative">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.debt}
                 onChange={(e) => handleChange('debt', e.target.value)}
                 placeholder="40000"
