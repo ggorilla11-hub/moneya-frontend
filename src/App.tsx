@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { auth } from './config/firebase';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -88,47 +88,69 @@ function App() {
   const [financialHouseStep, setFinancialHouseStep] = useState<'disclaimer' | 'basic' | 'design' | 'result'>('disclaimer');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      
-      if (currentUser) {
-        const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
-        if (budgetConfirmed) {
-          const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
-          if (savedFinancialData) {
-            setFinancialResult(JSON.parse(savedFinancialData));
-          }
-          const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
-          if (savedBudget) {
-            setAdjustedBudget(JSON.parse(savedBudget));
-          }
-          const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
-          if (savedIncomeExpense) {
-            setIncomeExpenseData(JSON.parse(savedIncomeExpense));
-          }
-          // 금융집짓기 완성 여부 확인
-          const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
-          if (financialHouseCompleted) {
-            setFinancialHouseStep('result');
-          } else {
-            // 수정: 완성되지 않은 경우 명시적으로 disclaimer로 초기화
-            setFinancialHouseStep('disclaimer');
-          }
-          setCurrentStep('main');
-          setCurrentTab('home');
-        } else {
-          setCurrentStep('onboarding');
+    // 리다이렉트 로그인 결과를 먼저 처리한 후 onAuthStateChanged 등록
+    const init = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log('리다이렉트 로그인 성공:', result.user);
         }
-      } else {
-        setCurrentStep('login');
-        setCurrentTab('home');
-        // 수정: 로그아웃 시 금융집짓기 스텝 초기화
-        setFinancialHouseStep('disclaimer');
+      } catch (error) {
+        console.error('리다이렉트 결과 처리 에러:', error);
       }
+
+      // 리다이렉트 결과 처리 후 onAuthStateChanged 등록
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+        
+        if (currentUser) {
+          const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
+          if (budgetConfirmed) {
+            const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
+            if (savedFinancialData) {
+              setFinancialResult(JSON.parse(savedFinancialData));
+            }
+            const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
+            if (savedBudget) {
+              setAdjustedBudget(JSON.parse(savedBudget));
+            }
+            const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
+            if (savedIncomeExpense) {
+              setIncomeExpenseData(JSON.parse(savedIncomeExpense));
+            }
+            // 금융집짓기 완성 여부 확인
+            const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+            if (financialHouseCompleted) {
+              setFinancialHouseStep('result');
+            } else {
+              // 수정: 완성되지 않은 경우 명시적으로 disclaimer로 초기화
+              setFinancialHouseStep('disclaimer');
+            }
+            setCurrentStep('main');
+            setCurrentTab('home');
+          } else {
+            setCurrentStep('onboarding');
+          }
+        } else {
+          setCurrentStep('login');
+          setCurrentTab('home');
+          // 수정: 로그아웃 시 금융집짓기 스텝 초기화
+          setFinancialHouseStep('disclaimer');
+        }
+      });
+
+      return unsubscribe;
+    };
+
+    let unsubscribe: (() => void) | undefined;
+    init().then((unsub) => {
+      unsubscribe = unsub;
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const handleOnboardingComplete = () => {
