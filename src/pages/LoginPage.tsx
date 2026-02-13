@@ -11,13 +11,30 @@ interface LoginPageProps {
 function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
 
+  // 인앱브라우저 감지
   const isInAppBrowser = () => {
     const ua = navigator.userAgent || navigator.vendor;
     return /KAKAOTALK|NAVER|LINE|Instagram|FBAN|FBAV/i.test(ua);
   };
 
+  // iOS 감지
   const isIOS = () => {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  };
+
+  // WKWebView(앱스토어 앱) 감지
+  // 일반 Safari가 아니면서 iOS인 경우 = WKWebView
+  const isWKWebView = () => {
+    const ua = navigator.userAgent;
+    const isIOSDevice = /iPhone|iPad|iPod/i.test(ua);
+    const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS/i.test(ua);
+    const isStandalone = (window.navigator as any).standalone === true;
+    
+    // iOS이면서 Safari가 아닌 경우 = WKWebView (앱스토어 앱)
+    // 또는 standalone 모드 (홈화면 추가)
+    if (isIOSDevice && !isSafari) return true;
+    if (isIOSDevice && isStandalone) return true;
+    return false;
   };
 
   const handleGoogleLogin = async () => {
@@ -65,27 +82,34 @@ function LoginPage({ onLogin }: LoginPageProps) {
     provider.addScope('name');
     provider.setCustomParameters({ locale: 'ko' });
 
+    // WKWebView(앱스토어 앱)에서는 바로 redirect 방식 사용
+    if (isWKWebView()) {
+      try {
+        console.log('WKWebView 감지 - redirect 방식 사용');
+        await signInWithRedirect(auth, provider);
+      } catch (error: any) {
+        console.error('Apple redirect 로그인 에러:', error);
+        alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // 일반 브라우저에서는 popup 방식 사용
     try {
-      // 먼저 signInWithPopup 시도
       await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       onLogin();
     } catch (error: any) {
-      console.error('Apple 팝업 로그인 시도:', error.code);
-      
-      // 팝업이 차단되거나 실패하면 redirect 방식으로 전환
-      if (error.code === 'auth/popup-blocked' || 
-          error.code === 'auth/popup-closed-by-user' ||
-          error.code === 'auth/operation-not-supported-in-this-environment' ||
-          error.code === 'auth/internal-error') {
+      console.error('Apple 팝업 로그인 에러:', error);
+      if (error.code === 'auth/popup-blocked') {
+        // 팝업 차단 시 redirect로 전환
         try {
-          console.log('Redirect 방식으로 전환...');
           await signInWithRedirect(auth, provider);
-          // redirect 후에는 페이지가 새로고침되므로 여기 도달하지 않음
         } catch (redirectError: any) {
-          console.error('Apple redirect 로그인 에러:', redirectError);
+          console.error('Apple redirect 전환 에러:', redirectError);
           alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
         }
-      } else if (error.code !== 'auth/cancelled-popup-request') {
+      } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
         alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
     } finally {
