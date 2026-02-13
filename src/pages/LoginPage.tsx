@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, browserPopupRedirectResolver } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 // AI머니야 로고 URL (Firebase Storage)
@@ -10,11 +9,6 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
-  // 모바일 기기 감지
-  const isMobile = () => {
-    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  };
-
   // 인앱브라우저 감지 (카카오톡, 네이버, 인스타그램 등)
   const isInAppBrowser = () => {
     const ua = navigator.userAgent || navigator.vendor;
@@ -25,22 +19,6 @@ function LoginPage({ onLogin }: LoginPageProps) {
   const isIOS = () => {
     return /iPhone|iPad|iPod/i.test(navigator.userAgent);
   };
-
-  // 리다이렉트 결과 처리 (모바일용)
-  useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          console.log('리다이렉트 로그인 성공:', result.user);
-          onLogin();
-        }
-      } catch (error: any) {
-        console.error('리다이렉트 결과 처리 에러:', error);
-      }
-    };
-    handleRedirectResult();
-  }, [onLogin]);
 
   const handleGoogleLogin = async () => {
     // 인앱브라우저 처리 (Google이 차단하므로 외부 브라우저 안내)
@@ -66,30 +44,17 @@ function LoginPage({ onLogin }: LoginPageProps) {
       prompt: 'select_account'
     });
 
-    // 모바일 (앱스토어 앱, Safari, Chrome 등): 리다이렉트 방식
-    if (isMobile()) {
-      try {
-        await signInWithRedirect(auth, provider);
-      } catch (error: any) {
-        console.error('리다이렉트 로그인 에러:', error);
-        alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
-      }
-      return;
-    }
-
-    // 데스크톱 PC: 팝업 방식
+    // 모든 환경에서 signInWithPopup + browserPopupRedirectResolver 사용
+    // (sessionStorage 파티셔닝 문제를 우회)
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       onLogin();
     } catch (error: any) {
       console.error('로그인 에러:', error);
       if (error.code === 'auth/popup-blocked') {
-        try {
-          await signInWithRedirect(auth, provider);
-        } catch (redirectError) {
-          console.error('리다이렉트 로그인 에러:', redirectError);
-          alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
-        }
+        alert('팝업이 차단되었습니다. 팝업을 허용한 후 다시 시도해주세요.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log('로그인 팝업이 닫혔습니다.');
       } else if (error.code === 'auth/cancelled-popup-request') {
         console.log('로그인 취소됨');
       } else {
