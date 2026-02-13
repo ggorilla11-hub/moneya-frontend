@@ -1,4 +1,4 @@
-import { signInWithPopup, GoogleAuthProvider, browserPopupRedirectResolver } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, OAuthProvider, browserPopupRedirectResolver } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 // AI머니야 로고 URL (Firebase Storage)
@@ -21,10 +21,8 @@ function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   const handleGoogleLogin = async () => {
-    // 인앱브라우저 처리 (Google이 차단하므로 외부 브라우저 안내)
     if (isInAppBrowser()) {
       const currentUrl = window.location.href;
-      
       if (isIOS()) {
         window.location.href = currentUrl;
         setTimeout(() => {
@@ -32,25 +30,42 @@ function LoginPage({ onLogin }: LoginPageProps) {
         }, 100);
         return;
       }
-      
-      // 안드로이드 인앱브라우저: Chrome으로 열기 시도
       const externalUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
       window.location.href = externalUrl;
       return;
     }
 
     const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
+    provider.setCustomParameters({ prompt: 'select_account' });
 
-    // 모든 환경에서 signInWithPopup + browserPopupRedirectResolver 사용
-    // (sessionStorage 파티셔닝 문제를 우회)
     try {
       await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       onLogin();
     } catch (error: any) {
-      console.error('로그인 에러:', error);
+      console.error('Google 로그인 에러:', error);
+      if (error.code === 'auth/popup-blocked') {
+        alert('팝업이 차단되었습니다. 팝업을 허용한 후 다시 시도해주세요.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log('로그인 팝업이 닫혔습니다.');
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        console.log('로그인 취소됨');
+      } else {
+        alert('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+      }
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    const provider = new OAuthProvider('apple.com');
+    provider.addScope('email');
+    provider.addScope('name');
+    provider.setCustomParameters({ locale: 'ko' });
+
+    try {
+      await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+      onLogin();
+    } catch (error: any) {
+      console.error('Apple 로그인 에러:', error);
       if (error.code === 'auth/popup-blocked') {
         alert('팝업이 차단되었습니다. 팝업을 허용한 후 다시 시도해주세요.');
       } else if (error.code === 'auth/popup-closed-by-user') {
@@ -78,6 +93,18 @@ function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         <div className="space-y-3">
+          {/* Apple 로그인 버튼 */}
+          <button
+            onClick={handleAppleLogin}
+            className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-black text-white rounded-2xl hover:bg-gray-900 transition-all shadow-sm"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+            </svg>
+            <span className="font-semibold">Apple로 계속하기</span>
+          </button>
+
+          {/* Google 로그인 버튼 */}
           <button
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-white border-2 border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
