@@ -10,24 +10,23 @@ interface LoginPageProps {
 }
 
 function LoginPage({ onLogin }: LoginPageProps) {
-  // iOS Safari 감지
-  const isIOS = () => {
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // 모바일 기기 감지
+  const isMobile = () => {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   };
 
-  // Safari 브라우저 감지
-  const isSafari = () => {
-    const ua = navigator.userAgent;
-    return /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(ua);
-  };
-
-  // 인앱브라우저 감지
+  // 인앱브라우저 감지 (카카오톡, 네이버, 인스타그램 등)
   const isInAppBrowser = () => {
     const ua = navigator.userAgent || navigator.vendor;
     return /KAKAOTALK|NAVER|LINE|Instagram|FBAN|FBAV/i.test(ua);
   };
 
-  // 리다이렉트 결과 처리 (iOS Safari용)
+  // iOS 감지
+  const isIOS = () => {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  };
+
+  // 리다이렉트 결과 처리 (모바일용)
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
@@ -44,7 +43,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
   }, [onLogin]);
 
   const handleGoogleLogin = async () => {
-    // 인앱브라우저 처리
+    // 인앱브라우저 처리 (Google이 차단하므로 외부 브라우저 안내)
     if (isInAppBrowser()) {
       const currentUrl = window.location.href;
       
@@ -56,6 +55,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
         return;
       }
       
+      // 안드로이드 인앱브라우저: Chrome으로 열기 시도
       const externalUrl = `intent://${currentUrl.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
       window.location.href = externalUrl;
       return;
@@ -66,8 +66,8 @@ function LoginPage({ onLogin }: LoginPageProps) {
       prompt: 'select_account'
     });
 
-    // iOS Safari는 리다이렉트 방식 사용 (팝업 차단 문제 해결)
-    if (isIOS() && isSafari()) {
+    // 모바일 (앱스토어 앱, Safari, Chrome 등): 리다이렉트 방식
+    if (isMobile()) {
       try {
         await signInWithRedirect(auth, provider);
       } catch (error: any) {
@@ -77,14 +77,13 @@ function LoginPage({ onLogin }: LoginPageProps) {
       return;
     }
 
-    // 그 외 브라우저는 팝업 방식 사용
+    // 데스크톱 PC: 팝업 방식
     try {
       await signInWithPopup(auth, provider);
       onLogin();
     } catch (error: any) {
       console.error('로그인 에러:', error);
       if (error.code === 'auth/popup-blocked') {
-        // 팝업 차단 시 리다이렉트 방식으로 재시도
         try {
           await signInWithRedirect(auth, provider);
         } catch (redirectError) {
