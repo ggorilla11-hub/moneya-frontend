@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { auth } from './config/firebase';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -30,7 +30,6 @@ import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
 import type { AdjustedBudget } from './pages/BudgetAdjustPage';
 
-// AI머니야 로고 URL (Firebase Storage)
 const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a";
 
 interface FinancialResult {
@@ -70,7 +69,6 @@ type AppStep =
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'mypage';
 
 function App() {
-  // URL path가 /delete-account인 경우 바로 계정삭제 페이지 표시
   if (window.location.pathname === '/delete-account') {
     return <DeleteAccountPage />;
   }
@@ -83,52 +81,68 @@ function App() {
   const [incomeExpenseData, setIncomeExpenseData] = useState<IncomeExpenseData | null>(null);
   const [adjustedBudget, setAdjustedBudget] = useState<AdjustedBudget | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ConsultingProduct | null>(null);
-  
-  // 금융집짓기 스텝 관리
   const [financialHouseStep, setFinancialHouseStep] = useState<'disclaimer' | 'basic' | 'design' | 'result'>('disclaimer');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      
-      if (currentUser) {
-        const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
-        if (budgetConfirmed) {
-          const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
-          if (savedFinancialData) {
-            setFinancialResult(JSON.parse(savedFinancialData));
-          }
-          const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
-          if (savedBudget) {
-            setAdjustedBudget(JSON.parse(savedBudget));
-          }
-          const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
-          if (savedIncomeExpense) {
-            setIncomeExpenseData(JSON.parse(savedIncomeExpense));
-          }
-          // 금융집짓기 완성 여부 확인
-          const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
-          if (financialHouseCompleted) {
-            setFinancialHouseStep('result');
-          } else {
-            // 수정: 완성되지 않은 경우 명시적으로 disclaimer로 초기화
-            setFinancialHouseStep('disclaimer');
-          }
-          setCurrentStep('main');
-          setCurrentTab('home');
-        } else {
-          setCurrentStep('onboarding');
+    const init = async () => {
+      // Apple redirect 로그인 결과를 먼저 처리
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          console.log('리다이렉트 로그인 성공:', result.user);
         }
-      } else {
-        setCurrentStep('login');
-        setCurrentTab('home');
-        // 수정: 로그아웃 시 금융집짓기 스텝 초기화
-        setFinancialHouseStep('disclaimer');
+      } catch (error) {
+        console.error('리다이렉트 결과 처리 에러:', error);
       }
+
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+        
+        if (currentUser) {
+          const budgetConfirmed = localStorage.getItem(`budgetConfirmed_${currentUser.uid}`);
+          if (budgetConfirmed) {
+            const savedFinancialData = localStorage.getItem(`financialData_${currentUser.uid}`);
+            if (savedFinancialData) {
+              setFinancialResult(JSON.parse(savedFinancialData));
+            }
+            const savedBudget = localStorage.getItem(`adjustedBudget_${currentUser.uid}`);
+            if (savedBudget) {
+              setAdjustedBudget(JSON.parse(savedBudget));
+            }
+            const savedIncomeExpense = localStorage.getItem(`incomeExpenseData_${currentUser.uid}`);
+            if (savedIncomeExpense) {
+              setIncomeExpenseData(JSON.parse(savedIncomeExpense));
+            }
+            const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${currentUser.uid}`);
+            if (financialHouseCompleted) {
+              setFinancialHouseStep('result');
+            } else {
+              setFinancialHouseStep('disclaimer');
+            }
+            setCurrentStep('main');
+            setCurrentTab('home');
+          } else {
+            setCurrentStep('onboarding');
+          }
+        } else {
+          setCurrentStep('login');
+          setCurrentTab('home');
+          setFinancialHouseStep('disclaimer');
+        }
+      });
+
+      return unsubscribe;
+    };
+
+    let unsubscribe: (() => void) | undefined;
+    init().then((unsub) => {
+      unsubscribe = unsub;
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const handleOnboardingComplete = () => {
@@ -199,13 +213,11 @@ function App() {
 
   const handleTabChange = (tab: MainTab) => {
     setCurrentTab(tab);
-    // 수정: 금융집짓기 탭 클릭 시 완성 여부에 따라 스텝 설정
     if (tab === 'financial-house' && user) {
       const financialHouseCompleted = localStorage.getItem(`financialHouseCompleted_${user.uid}`);
       if (financialHouseCompleted) {
         setFinancialHouseStep('result');
       } else {
-        // 수정: 완성되지 않은 경우 disclaimer로 초기화
         setFinancialHouseStep('disclaimer');
       }
     }
@@ -258,7 +270,6 @@ function App() {
     }
   };
 
-  // 홈페이지에서 강의상담 이동 핸들러
   const handleHomeNavigate = (page: string) => {
     if (page === 'consulting') {
       setCurrentStep('consulting');
@@ -310,7 +321,6 @@ function App() {
     }
   };
 
-  // 금융집짓기 완성 핸들러
   const handleFinancialHouseComplete = () => {
     if (user) {
       localStorage.setItem(`financialHouseCompleted_${user.uid}`, 'true');
@@ -318,7 +328,6 @@ function App() {
     setFinancialHouseStep('result');
   };
 
-  // 금융집짓기 다시 설계하기 핸들러
   const handleFinancialHouseRestart = () => {
     if (user) {
       localStorage.removeItem(`financialHouseCompleted_${user.uid}`);
