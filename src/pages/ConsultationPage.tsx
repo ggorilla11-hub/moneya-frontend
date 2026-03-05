@@ -11,7 +11,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-interface Message { role: 'user' | 'assistant'; content: string; timestamp: number; }
 interface ConsultationDoc { docType: string; fileName: string; fileUrl: string; }
 interface ConsultationPageProps { user: any; }
 
@@ -175,7 +174,7 @@ function MyFinance({ userData }: { userData: any }) {
 }
 
 // ── 머니야 탭 (3번째) - Claude AI 음성상담 ─────────
-function MoneyaConsult({ user, userData }: { user: any; userData: any }) {
+function MoneyaConsult({ user }: { user: any }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
@@ -576,7 +575,7 @@ function ConsultationHub({ user }: { user: any }) {
       <div className="flex-1 overflow-hidden bg-gray-50">
         {activeSubTab === 'dashboard' && <HubDashboard userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
-        {activeSubTab === 'chat'      && <MoneyaConsult user={user} userData={userData} />}
+        {activeSubTab === 'chat'      && <MoneyaConsult user={user} />}
         {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
