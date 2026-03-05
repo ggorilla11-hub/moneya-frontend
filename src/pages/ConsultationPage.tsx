@@ -411,7 +411,7 @@ function ConsultationHub({ user }: { user: any }) {
 }
 
 export default function ConsultationPage({ user }: ConsultationPageProps) {
-  const [isSubscriber] = useState(false);
+  const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -426,3 +426,8 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
     </div>
   );
 }
+```
+
+**GitHub URL:**
+```
+https://github.com/ggorilla11-hub/moneya-frontend/edit/develop/src/pages/ConsultationPage.tsx
