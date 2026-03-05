@@ -10,8 +10,11 @@ import {
 import {
   ref, uploadBytes, getDownloadURL
 } from 'firebase/storage';
-import { db, storage } from '../config/firebase';
+import { db } from '../config/firebase';
+import { getStorage } from 'firebase/storage';
 import { useSubscription } from '../hooks/useSubscription';
+
+const storage = getStorage();
 
 interface Message {
   role: 'user' | 'assistant';
@@ -209,13 +212,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-function HubDashboard({
-  userData, onNav, onToast,
-}: {
-  userData: any;
-  onNav: (tab: string) => void;
-  onToast: (msg: string) => void;
-}) {
+function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab: string) => void; onToast: (msg: string) => void }) {
   const scores = userData.consultationScores || {};
   const latestScore = userData.latestScore || 0;
   const nextConsult = userData.nextConsultDate || null;
@@ -225,9 +222,7 @@ function HubDashboard({
   const floorScores = [scores.f1 || 0, scores.f2 || 0, scores.f3 || 0, scores.f4 || 0, scores.f5 || 0, scores.f6 || 0];
   let weakestIdx = 0;
   let weakestScore = 100;
-  floorScores.forEach((s, i) => {
-    if (s < weakestScore) { weakestScore = s; weakestIdx = i; }
-  });
+  floorScores.forEach((s, i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
 
   let dDay: number | null = null;
   let isZoomActive = false;
@@ -238,9 +233,7 @@ function HubDashboard({
     const diff = consult.getTime() - now.getTime();
     dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
     isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', {
-      year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
-    });
+    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
   }
 
   return (
@@ -251,27 +244,15 @@ function HubDashboard({
           <>
             <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
             {dDay !== null && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>
-                D-{dDay}
-              </span>
+              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>D-{dDay}</span>
             )}
             <div className="flex gap-2 mt-3">
               <button
-                onClick={() => {
-                  if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank');
-                  else onToast('상담 시작 10분 전에 활성화됩니다');
-                }}
+                onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
                 style={isZoomActive ? { background: '#c9a53e' } : {}}
-              >
-                💻 줌 입장하기
-              </button>
-              <button
-                onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200"
-              >
-                📅 일정변경
-              </button>
+              >💻 줌 입장하기</button>
+              <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200">📅 일정변경</button>
             </div>
           </>
         ) : (
@@ -290,14 +271,7 @@ function HubDashboard({
             </div>
           </div>
         </div>
-        {([
-          ['1층 기초체력', floorScores[0]],
-          ['2층 안전장치', floorScores[1]],
-          ['3층 부동산', floorScores[2]],
-          ['4층 보장자산', floorScores[3]],
-          ['5층 은퇴설계', floorScores[4]],
-          ['6층 투자성장', floorScores[5]],
-        ] as [string, number][]).map(([label, score]) => (
+        {([['1층 기초체력', floorScores[0]], ['2층 안전장치', floorScores[1]], ['3층 부동산', floorScores[2]], ['4층 보장자산', floorScores[3]], ['5층 은퇴설계', floorScores[4]], ['6층 투자성장', floorScores[5]]] as [string, number][]).map(([label, score]) => (
           <div key={label} className="flex items-center gap-2 mb-2">
             <span className="text-xs">{getScoreIcon(score)}</span>
             <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
@@ -305,9 +279,7 @@ function HubDashboard({
             <span className={`text-xs font-bold w-6 text-right ${getScoreColor(score)}`}>{score}</span>
           </div>
         ))}
-        <button onClick={() => onNav('finance')} className="mt-3 w-full py-2 rounded-xl text-sm text-gray-500 bg-gray-50 border border-gray-100">
-          상세 보기 →
-        </button>
+        <button onClick={() => onNav('finance')} className="mt-3 w-full py-2 rounded-xl text-sm text-gray-500 bg-gray-50 border border-gray-100">상세 보기 →</button>
       </div>
 
       <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -320,13 +292,7 @@ function HubDashboard({
               : `${userName}님, 안녕하세요! 첫 상담을 예약해보세요. 금융집짓기 6단계로 재무를 체계적으로 분석해드립니다.`}
           </div>
         </div>
-        <button
-          onClick={() => onNav('chat')}
-          className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold text-white"
-          style={{ background: '#c9a53e' }}
-        >
-          대화하기 →
-        </button>
+        <button onClick={() => onNav('chat')} className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: '#c9a53e' }}>대화하기 →</button>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -380,14 +346,7 @@ function MyFinance({ userData }: { userData: any }) {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">금융집짓기 6단계 점수</p>
-        {([
-          ['1층 기초체력', scores.f1 || 0],
-          ['2층 안전장치', scores.f2 || 0],
-          ['3층 부동산', scores.f3 || 0],
-          ['4층 보장자산', scores.f4 || 0],
-          ['5층 은퇴설계', scores.f5 || 0],
-          ['6층 투자성장', scores.f6 || 0],
-        ] as [string, number][]).map(([label, score]) => (
+        {([['1층 기초체력', scores.f1 || 0], ['2층 안전장치', scores.f2 || 0], ['3층 부동산', scores.f3 || 0], ['4층 보장자산', scores.f4 || 0], ['5층 은퇴설계', scores.f5 || 0], ['6층 투자성장', scores.f6 || 0]] as [string, number][]).map(([label, score]) => (
           <div key={label} className="mb-3">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-gray-500">{label}</span>
@@ -425,9 +384,7 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
   const bottomRef = useRef<HTMLDivElement>(null);
   const quickQuestions = ['저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading]);
 
   const sendMessage = async (msg: string) => {
     if (!msg.trim() || isLoading) return;
@@ -439,39 +396,17 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: msg,
-          userName,
-          financialContext: {
-            age: userData.age,
-            totalAssets: userData.totalAssets,
-            totalDebt: userData.totalDebt,
-            netAssets: userData.netAssets,
-            monthlyIncome: userData.monthlyIncome,
-            monthlyExpense: userData.monthlyExpense,
-            wealthIndex: userData.wealthIndex,
-            financialLevel: userData.financialLevel,
-          },
-          budgetInfo: {
-            savings: userData.savings,
-            investment: userData.investment,
-            insurance: userData.insurance,
-            pension: userData.pension,
-            loanPayment: userData.loanPayment,
-          },
+          message: msg, userName,
+          financialContext: { age: userData.age, totalAssets: userData.totalAssets, totalDebt: userData.totalDebt, netAssets: userData.netAssets, monthlyIncome: userData.monthlyIncome, monthlyExpense: userData.monthlyExpense, wealthIndex: userData.wealthIndex, financialLevel: userData.financialLevel },
+          budgetInfo: { savings: userData.savings, investment: userData.investment, insurance: userData.insurance, pension: userData.pension, loanPayment: userData.loanPayment },
           conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await response.json();
-      if (data.success) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.message, timestamp: Date.now() }]);
-      } else {
-        onToast('잠시 후 다시 시도해주세요');
-      }
-    } catch {
-      onToast('네트워크 오류가 발생했습니다');
-    } finally {
-      setIsLoading(false);
-    }
+      if (data.success) setMessages(prev => [...prev, { role: 'assistant', content: data.message, timestamp: Date.now() }]);
+      else onToast('잠시 후 다시 시도해주세요');
+    } catch { onToast('네트워크 오류가 발생했습니다'); }
+    finally { setIsLoading(false); }
   };
 
   return (
@@ -480,40 +415,24 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
             {m.role === 'assistant' && <span className="text-xl self-end">🤖</span>}
-            <div
-              className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`}
-              style={m.role === 'user' ? { background: '#c9a53e', borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}
-            >
+            <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`}
+              style={m.role === 'user' ? { background: '#c9a53e', borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}>
               {m.content}
             </div>
           </div>
         ))}
-        {isLoading && (
-          <div className="flex gap-2 justify-start">
-            <span className="text-xl">🤖</span>
-            <div className="bg-gray-100 px-4 py-3 rounded-2xl text-sm text-gray-400">머니야가 생각 중...</div>
-          </div>
-        )}
+        {isLoading && <div className="flex gap-2 justify-start"><span className="text-xl">🤖</span><div className="bg-gray-100 px-4 py-3 rounded-2xl text-sm text-gray-400">머니야가 생각 중...</div></div>}
         <div ref={bottomRef} />
       </div>
       <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
         {quickQuestions.map(q => (
-          <button key={q} onClick={() => sendMessage(q)} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>
-            {q}
-          </button>
+          <button key={q} onClick={() => sendMessage(q)} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>{q}</button>
         ))}
       </div>
       <div className="px-4 pb-4 pt-2 flex gap-2 border-t border-gray-100">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-          placeholder="메시지 입력..."
-          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:border-amber-300"
-        />
-        <button onClick={() => sendMessage(input)} disabled={!input.trim() || isLoading} className="px-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: '#c9a53e' }}>
-          전송
-        </button>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
+          placeholder="메시지 입력..." className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:border-amber-300" />
+        <button onClick={() => sendMessage(input)} disabled={!input.trim() || isLoading} className="px-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: '#c9a53e' }}>전송</button>
       </div>
     </div>
   );
@@ -545,36 +464,22 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
           <>
             <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
             <p className="text-sm text-gray-500 mt-1">📍 줌 화상 상담</p>
-            {dDay !== null && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>D-{dDay}</span>
-            )}
+            {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>D-{dDay}</span>}
             <div className="mt-4">
               <p className="text-xs text-gray-400 mb-2">준비사항</p>
-              {[
-                { key: 'q', label: '사전 질문지 작성 완료' },
-                { key: 'camera', label: '카메라/마이크 테스트' },
-                { key: 'env', label: '조용한 환경 확보' },
-              ].map(item => (
+              {[{ key: 'q', label: '사전 질문지 작성 완료' }, { key: 'camera', label: '카메라/마이크 테스트' }, { key: 'env', label: '조용한 환경 확보' }].map(item => (
                 <div key={item.key} onClick={() => toggleCheck(item.key)} className="flex items-center gap-2 py-2 border-b border-gray-50 cursor-pointer">
-                  <span className={checks[item.key as keyof typeof checks] ? 'text-green-500' : 'text-gray-300'}>
-                    {checks[item.key as keyof typeof checks] ? '☑' : '☐'}
-                  </span>
+                  <span className={checks[item.key as keyof typeof checks] ? 'text-green-500' : 'text-gray-300'}>{checks[item.key as keyof typeof checks] ? '☑' : '☐'}</span>
                   <span className={`text-sm ${checks[item.key as keyof typeof checks] ? 'text-green-600' : 'text-gray-600'}`}>{item.label}</span>
                 </div>
               ))}
             </div>
             <div className="h-px bg-gray-100 my-4" />
-            <button
-              onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
+            <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
               className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-              style={isZoomActive ? { background: '#c9a53e' } : {}}
-            >
-              💻 줌 상담 입장하기
-            </button>
+              style={isZoomActive ? { background: '#c9a53e' } : {}}>💻 줌 상담 입장하기</button>
             {!isZoomActive && <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>}
-            <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">
-              📅 일정 변경 요청
-            </button>
+            <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">📅 일정 변경 요청</button>
           </>
         ) : (
           <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>
@@ -599,11 +504,8 @@ function History({ uid, onToast, onModal }: { uid: string; onToast: (msg: string
         const q = query(collection(db, 'users', uid, 'consultationHistory'), orderBy('date', 'desc'), limit(10));
         const snap = await getDocs(q);
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as ConsultationHistory));
-        setHistories(list);
-        setCount(list.length);
-      } catch (e) {
-        console.error('[History] 로드 실패:', e);
-      }
+        setHistories(list); setCount(list.length);
+      } catch (e) { console.error('[History] 로드 실패:', e); }
     };
     load();
   }, [uid]);
@@ -616,49 +518,32 @@ function History({ uid, onToast, onModal }: { uid: string; onToast: (msg: string
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">수료증 등급</p>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-3xl">{grade.icon}</span>
-          <div>
-            <p className="font-bold text-gray-900">{grade.grade}</p>
-            <p className="text-xs text-gray-400">총 {count}회 상담 완료</p>
-          </div>
+          <div><p className="font-bold text-gray-900">{grade.grade}</p><p className="text-xs text-gray-400">총 {count}회 상담 완료</p></div>
         </div>
         <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700">{grade.next}</div>
       </div>
       {histories.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
-          <p className="text-gray-400 text-sm">아직 상담 이력이 없습니다</p>
-        </div>
-      ) : (
-        histories.map((h, i) => (
-          <div key={h.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <p className="font-bold text-gray-900">상담 #{count - i}</p>
-                <p className="text-xs text-gray-400 mt-0.5">📅 {h.date} · ⏱️ {h.duration}분 · {h.type}</p>
-              </div>
-              <span className="text-2xl font-extrabold" style={{ color: '#c9a53e' }}>{h.score}점</span>
-            </div>
-            {h.summary && (
-              <div className="bg-gray-50 rounded-xl p-3 mb-3">
-                <p className="text-xs font-bold text-gray-400 mb-1">핵심 발견</p>
-                <p className="text-sm text-gray-700 leading-relaxed">"{h.summary}"</p>
-              </div>
-            )}
-            {h.tasks && h.tasks.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs font-bold text-gray-400 mb-2">개선 과제</p>
-                {h.tasks.map((task, j) => (
-                  <p key={j} className="text-sm text-gray-700 mb-1"><span style={{ color: '#c9a53e' }}>{j + 1}.</span> {task}</p>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2 mt-3 flex-wrap">
-              <button onClick={() => h.reportUrl ? window.open(h.reportUrl, '_blank') : onModal('리포트', '리포트를 준비 중입니다 📋')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>📄 리포트</button>
-              <button onClick={() => h.certificateUrl ? window.open(h.certificateUrl, '_blank') : onModal('수료증', '수료증을 준비 중입니다 🏆')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>🏆 수료증</button>
-              {h.zoomUrl && <button onClick={() => window.open(h.zoomUrl, '_blank')} className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">▶️ 녹화 보기</button>}
-            </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center"><p className="text-gray-400 text-sm">아직 상담 이력이 없습니다</p></div>
+      ) : histories.map((h, i) => (
+        <div key={h.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex justify-between items-start mb-3">
+            <div><p className="font-bold text-gray-900">상담 #{count - i}</p><p className="text-xs text-gray-400 mt-0.5">📅 {h.date} · ⏱️ {h.duration}분 · {h.type}</p></div>
+            <span className="text-2xl font-extrabold" style={{ color: '#c9a53e' }}>{h.score}점</span>
           </div>
-        ))
-      )}
+          {h.summary && <div className="bg-gray-50 rounded-xl p-3 mb-3"><p className="text-xs font-bold text-gray-400 mb-1">핵심 발견</p><p className="text-sm text-gray-700 leading-relaxed">"{h.summary}"</p></div>}
+          {h.tasks && h.tasks.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-bold text-gray-400 mb-2">개선 과제</p>
+              {h.tasks.map((task, j) => <p key={j} className="text-sm text-gray-700 mb-1"><span style={{ color: '#c9a53e' }}>{j + 1}.</span> {task}</p>)}
+            </div>
+          )}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <button onClick={() => h.reportUrl ? window.open(h.reportUrl, '_blank') : onModal('리포트', '리포트를 준비 중입니다 📋')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>📄 리포트</button>
+            <button onClick={() => h.certificateUrl ? window.open(h.certificateUrl, '_blank') : onModal('수료증', '수료증을 준비 중입니다 🏆')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>🏆 수료증</button>
+            {h.zoomUrl && <button onClick={() => window.open(h.zoomUrl, '_blank')} className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">▶️ 녹화 보기</button>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -802,8 +687,7 @@ function ConsultationHub({ user }: { user: any }) {
           {subTabs.map(t => (
             <button key={t.id} onClick={() => setActiveSubTab(t.id)}
               className={`shrink-0 px-3 py-3 text-xs font-bold border-b-2 transition-colors ${activeSubTab === t.id ? '' : 'border-transparent text-gray-400'}`}
-              style={activeSubTab === t.id ? { color: '#c9a53e', borderColor: '#c9a53e' } : {}}
-            >
+              style={activeSubTab === t.id ? { color: '#c9a53e', borderColor: '#c9a53e' } : {}}>
               {t.icon} {t.label}
             </button>
           ))}
@@ -842,9 +726,7 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
     <div className="flex flex-col h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
         <h1 className="text-lg font-extrabold text-gray-900">💬 상담</h1>
-        {isSubscriber && (
-          <span className="text-xs px-2 py-1 rounded-full font-bold text-white" style={{ background: '#c9a53e' }}>구독중</span>
-        )}
+        {isSubscriber && <span className="text-xs px-2 py-1 rounded-full font-bold text-white" style={{ background: '#c9a53e' }}>구독중</span>}
       </div>
       <div className="flex-1 overflow-hidden" style={{ paddingBottom: '64px' }}>
         {isSubscriber ? <ConsultationHub user={user} /> : <ServiceIntro onToast={msg => setToast(msg)} />}
