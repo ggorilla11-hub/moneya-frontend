@@ -148,7 +148,7 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
       <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
         <div className="flex gap-3">
-          <span className="text-2xl">🤖</span>
+          <img src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a" alt="머니야" className="w-10 h-10 object-contain" />
           <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
             {latestScore > 0 ? `${userName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${userName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
           </div>
@@ -237,11 +237,11 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-            {m.role === 'assistant' && <span className="text-xl self-end">🤖</span>}
+            {m.role === 'assistant' && <img src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a" alt="머니야" className="w-8 h-8 object-contain self-end" />}
             <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`} style={m.role === 'user' ? { background: GOLD, borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}>{m.content}</div>
           </div>
         ))}
-        {isLoading && <div className="flex gap-2"><span className="text-xl">🤖</span><div className="bg-gray-100 px-4 py-3 rounded-2xl text-sm text-gray-400">머니야가 생각 중...</div></div>}
+        {isLoading && <div className="flex gap-2"><img src="https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a" alt="머니야" className="w-8 h-8 object-contain" /><div className="bg-gray-100 px-4 py-3 rounded-2xl text-sm text-gray-400">머니야가 생각 중...</div></div>}
         <div ref={bottomRef} />
       </div>
       <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
