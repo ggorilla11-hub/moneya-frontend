@@ -46,6 +46,7 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   );
 }
 
+// ── 비구독자 서비스 소개 ───────────────────────────
 function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   return (
     <div className="overflow-y-auto h-full pb-6">
@@ -92,6 +93,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
+// ── 대시보드 ──────────────────────────────────────
 function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab: string) => void; onToast: (msg: string) => void }) {
   const scores = userData.consultationScores || {};
   const latestScore = userData.latestScore || 0;
@@ -157,6 +159,7 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
   );
 }
 
+// ── 내 재무 ───────────────────────────────────────
 function MyFinance({ userData }: { userData: any }) {
   const income = userData.monthlyIncome || 0;
   const expense = userData.monthlyExpense || 0;
@@ -209,6 +212,7 @@ function MyFinance({ userData }: { userData: any }) {
   );
 }
 
+// ── 머니야 채팅 ───────────────────────────────────
 function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onToast: (msg: string) => void }) {
   const userName = userData.name || user.displayName || '고객';
   const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: `안녕하세요 ${userName}님! AI 재무설계사 머니야입니다.\n오늘 궁금한 것이 있으신가요? 😊`, timestamp: Date.now() }]);
@@ -251,6 +255,7 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
   );
 }
 
+// ── 일정 ─────────────────────────────────────────
 function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string) => void }) {
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
@@ -296,6 +301,7 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
   );
 }
 
+// ── 상담 이력 ─────────────────────────────────────
 function History({ onModal }: { onModal: (title: string, content: string) => void }) {
   const histories: ConsultationHistory[] = [];
   const count = 0;
@@ -331,6 +337,7 @@ function History({ onModal }: { onModal: (title: string, content: string) => voi
   );
 }
 
+// ── 서류함 ────────────────────────────────────────
 function Documents({ onToast }: { onToast: (msg: string) => void }) {
   const [docs, setDocs] = useState<Record<string, ConsultationDoc | null>>({ application: null, insurance: null, pension: null, tax: null });
   const [uploading, setUploading] = useState<string | null>(null);
@@ -383,6 +390,7 @@ function Documents({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
+// ── 구독자 허브 ───────────────────────────────────
 function ConsultationHub({ user }: { user: any }) {
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
   const [userData] = useState<any>({});
@@ -410,6 +418,7 @@ function ConsultationHub({ user }: { user: any }) {
   );
 }
 
+// ── 메인 페이지 ───────────────────────────────────
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
@@ -426,8 +435,3 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
     </div>
   );
 }
-```
-
-**GitHub URL:**
-```
-https://github.com/ggorilla11-hub/moneya-frontend/edit/develop/src/pages/ConsultationPage.tsx
