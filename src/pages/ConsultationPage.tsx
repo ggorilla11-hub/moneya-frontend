@@ -190,7 +190,6 @@ function HubDashboard({ user }: { user: any }) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef  = useRef<MediaStream | null>(null);
   const processorRef    = useRef<any>(null);
-  const audioQueueRef   = useRef<string[]>([]);
   const isPlayingRef    = useRef(false);
   const isConnectedRef  = useRef(false);
 
@@ -262,7 +261,6 @@ function HubDashboard({ user }: { user: any }) {
     } catch (e) { console.error('MP3 재생 에러:', e); }
   };
 
-  const processAudioQueue = () => { isPlayingRef.current = false; };
   const cleanupVoiceMode = () => {
     if (wsRef.current) { try { wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); } catch {} wsRef.current = null; }
     if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
