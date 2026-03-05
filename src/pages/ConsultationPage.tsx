@@ -234,18 +234,19 @@ function HubDashboard({ user }: { user: any }) {
 
   // 음성모드 → ElevenLabs 음성 답변
   // MP3 청크 누적 버퍼
-  const mp3ChunksRef = useRef<string[]>([]);
+  const pcmChunksRef = useRef<string[]>([]);
 
   const playAudio = (b64: string) => {
-    mp3ChunksRef.current.push(b64);
+    pcmChunksRef.current.push(b64);
   };
 
-  // audio_end 수신 시 누적 MP3 청크 합쳐서 재생
+  // audio_end 수신 시 누적 PCM16 청크 합쳐서 재생 (OpenAI Realtime shimmer)
   const playAccumulatedAudio = async () => {
-    if (!mp3ChunksRef.current.length) return;
+    if (!pcmChunksRef.current.length) return;
     try {
-      const chunks = mp3ChunksRef.current;
-      mp3ChunksRef.current = [];
+      const chunks = pcmChunksRef.current;
+      pcmChunksRef.current = [];
+      // base64 → Uint8Array 배열로 변환
       const arrays = chunks.map(b64 => {
         const raw = atob(b64);
         const arr = new Uint8Array(raw.length);
@@ -256,15 +257,20 @@ function HubDashboard({ user }: { user: any }) {
       const merged = new Uint8Array(totalLen);
       let offset = 0;
       for (const a of arrays) { merged.set(a, offset); offset += a.length; }
+      // PCM16 → Float32 변환
+      const int16 = new Int16Array(merged.buffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768.0;
       if (!audioContextRef.current || audioContextRef.current.state === 'closed')
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
-      const decoded = await audioContextRef.current.decodeAudioData(merged.buffer);
+      const buffer = audioContextRef.current.createBuffer(1, float32.length, 24000);
+      buffer.getChannelData(0).set(float32);
       const src = audioContextRef.current.createBufferSource();
-      src.buffer = decoded;
+      src.buffer = buffer;
       src.connect(audioContextRef.current.destination);
       src.start();
-    } catch (e) { console.error('MP3 재생 에러:', e); }
+    } catch (e) { console.error('PCM 재생 에러:', e); }
   };
 
   const cleanupVoiceMode = () => {
@@ -274,7 +280,7 @@ function HubDashboard({ user }: { user: any }) {
       try { const { processor, source, audioContext } = processorRef.current; processor.disconnect(); source.disconnect(); audioContext.close(); } catch {}
       processorRef.current = null;
     }
-    mp3ChunksRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
+    pcmChunksRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
   };
   const startAudioCapture = (stream: MediaStream, ws: WebSocket) => {
     try {
@@ -311,7 +317,7 @@ function HubDashboard({ user }: { user: any }) {
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg.text }]);
           if (msg.type === 'transcript' && msg.role === 'assistant')
             setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
-          if (msg.type === 'interrupt') { mp3ChunksRef.current = []; isPlayingRef.current = false; }
+          if (msg.type === 'interrupt') { pcmChunksRef.current = []; isPlayingRef.current = false; }
         } catch {}
       };
       ws.onerror = () => { setVoiceStatus('연결 실패'); cleanupVoiceMode(); setIsVoiceMode(false); };
