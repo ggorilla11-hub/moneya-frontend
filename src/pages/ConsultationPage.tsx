@@ -114,7 +114,7 @@ function HubDashboard({ userData, displayName, onToast }: { userData: any; displ
             {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
           </div>
         </div>
-        <button onClick={() => onToast('머니야 탭에서 직접 대화해보세요!')} className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: GOLD }}>대화하기 →</button>
+
       </div>
     </div>
   );
