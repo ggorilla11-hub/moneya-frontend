@@ -294,7 +294,7 @@ function HubDashboard({ user }: { user: any }) {
       mediaStreamRef.current = stream;
       const ws = new WebSocket(`${WS_URL}?mode=consult`);
       wsRef.current = ws;
-      ws.onopen = () => { ws.send(JSON.stringify({ type: 'start_app', userName: displayName, conversationHistory: messages.map(m => ({ role: m.role, content: m.text })) })); };
+      ws.onopen = () => { ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, conversationHistory: messages.map(m => ({ role: m.role, content: m.text })) })); };
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
