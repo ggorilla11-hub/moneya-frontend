@@ -7,11 +7,8 @@ import {
   doc, getDoc, collection, addDoc, getDocs,
   query, orderBy, limit
 } from 'firebase/firestore';
-import {
-  ref, uploadBytes, getDownloadURL
-} from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { db } from '../config/firebase';
-import { getStorage } from 'firebase/storage';
 import { useSubscription } from '../hooks/useSubscription';
 
 const storage = getStorage();
@@ -146,7 +143,6 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
           오상열 CFP(20년) × AI 머니야가 함께하는<br />맞춤 재무설계 서비스
         </p>
       </div>
-
       <div className="px-4 space-y-4">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">이런 분께 추천</p>
@@ -158,7 +154,6 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
             ))}
           </ul>
         </div>
-
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">서비스 구성</p>
           <ul className="space-y-2">
@@ -169,7 +164,6 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
             ))}
           </ul>
         </div>
-
         <div className="rounded-2xl border-2 p-5" style={{ borderColor: '#c9a53e', background: '#fffdf5' }}>
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm text-gray-600">초회 상담</span>
@@ -181,7 +175,6 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
             <span className="text-xl font-extrabold" style={{ color: '#c9a53e' }}>월 9,900원</span>
           </div>
         </div>
-
         <button
           onClick={() => onToast('결제 페이지는 준비 중입니다 🙏')}
           className="w-full py-4 rounded-2xl font-extrabold text-white text-base shadow-lg active:scale-95 transition-transform"
@@ -189,11 +182,9 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
         >
           상담 신청하기
         </button>
-
         <p className="text-center text-gray-400 text-xs leading-relaxed">
           "하루 커피 한 잔 값으로<br />평생 재무설계 완성"
         </p>
-
         <div className="space-y-3">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">고객 후기</p>
           {[
@@ -217,16 +208,11 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
   const latestScore = userData.latestScore || 0;
   const nextConsult = userData.nextConsultDate || null;
   const userName = userData.name || userData.displayName || '고객';
-
   const floorNames = ['1층 기초체력', '2층 안전장치', '3층 부동산', '4층 보장자산', '5층 은퇴설계', '6층 투자성장'];
   const floorScores = [scores.f1 || 0, scores.f2 || 0, scores.f3 || 0, scores.f4 || 0, scores.f5 || 0, scores.f6 || 0];
-  let weakestIdx = 0;
-  let weakestScore = 100;
+  let weakestIdx = 0; let weakestScore = 100;
   floorScores.forEach((s, i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
-
-  let dDay: number | null = null;
-  let isZoomActive = false;
-  let consultDateStr = '';
+  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
   if (nextConsult) {
     const now = new Date();
     const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
@@ -235,7 +221,6 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
     isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
     consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
   }
-
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
       <div className="bg-white rounded-2xl border shadow-sm p-4" style={{ borderColor: '#c9a53e' }}>
@@ -243,23 +228,14 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
         {nextConsult ? (
           <>
             <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
-            {dDay !== null && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>D-{dDay}</span>
-            )}
+            {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#c9a53e' }}>D-{dDay}</span>}
             <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                style={isZoomActive ? { background: '#c9a53e' } : {}}
-              >💻 줌 입장하기</button>
+              <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }} className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={isZoomActive ? { background: '#c9a53e' } : {}}>💻 줌 입장하기</button>
               <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200">📅 일정변경</button>
             </div>
           </>
-        ) : (
-          <p className="text-sm text-gray-400">예정된 상담이 없습니다</p>
-        )}
+        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다</p>}
       </div>
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
         <div className="flex items-center gap-3 mb-4">
@@ -281,33 +257,25 @@ function HubDashboard({ userData, onNav, onToast }: { userData: any; onNav: (tab
         ))}
         <button onClick={() => onNav('finance')} className="mt-3 w-full py-2 rounded-xl text-sm text-gray-500 bg-gray-50 border border-gray-100">상세 보기 →</button>
       </div>
-
       <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
         <div className="flex gap-3">
           <span className="text-2xl">🤖</span>
           <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
-            {latestScore > 0
-              ? `${userName}님, ${floorNames[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!`
-              : `${userName}님, 안녕하세요! 첫 상담을 예약해보세요. 금융집짓기 6단계로 재무를 체계적으로 분석해드립니다.`}
+            {latestScore > 0 ? `${userName}님, ${floorNames[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${userName}님, 안녕하세요! 첫 상담을 예약해보세요. 금융집짓기 6단계로 재무를 체계적으로 분석해드립니다.`}
           </div>
         </div>
         <button onClick={() => onNav('chat')} className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: '#c9a53e' }}>대화하기 →</button>
       </div>
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">최근 활동</p>
-        {(userData.recentActivities || []).length > 0 ? (
-          userData.recentActivities.slice(0, 3).map((act: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-              <span className="text-xs text-gray-400 w-10 shrink-0">{act.date}</span>
-              <span>{act.icon}</span>
-              <span className="text-sm text-gray-700">{act.text}</span>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-gray-400">아직 활동 내역이 없습니다</p>
-        )}
+        {(userData.recentActivities || []).length > 0 ? userData.recentActivities.slice(0, 3).map((act: any, i: number) => (
+          <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+            <span className="text-xs text-gray-400 w-10 shrink-0">{act.date}</span>
+            <span>{act.icon}</span>
+            <span className="text-sm text-gray-700">{act.text}</span>
+          </div>
+        )) : <p className="text-sm text-gray-400">아직 활동 내역이 없습니다</p>}
       </div>
     </div>
   );
@@ -324,7 +292,6 @@ function MyFinance({ userData }: { userData: any }) {
   const emergencyFundMonths = userData.emergencyFundMonths || 0;
   const scores = userData.consultationScores || {};
   const goals = userData.monthlyGoals || [];
-
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -343,7 +310,6 @@ function MyFinance({ userData }: { userData: any }) {
           </div>
         ))}
       </div>
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">금융집짓기 6단계 점수</p>
         {([['1층 기초체력', scores.f1 || 0], ['2층 안전장치', scores.f2 || 0], ['3층 부동산', scores.f3 || 0], ['4층 보장자산', scores.f4 || 0], ['5층 은퇴설계', scores.f5 || 0], ['6층 투자성장', scores.f6 || 0]] as [string, number][]).map(([label, score]) => (
@@ -356,19 +322,14 @@ function MyFinance({ userData }: { userData: any }) {
           </div>
         ))}
       </div>
-
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">이달의 목표</p>
-        {goals.length > 0 ? (
-          goals.map((goal: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-              <span className={goal.done ? 'text-green-500' : 'text-gray-300'}>{goal.done ? '☑' : '☐'}</span>
-              <span className={`text-sm ${goal.done ? 'text-green-600 line-through' : 'text-gray-700'}`}>{goal.text}</span>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-gray-400">상담 후 목표가 설정됩니다</p>
-        )}
+        {goals.length > 0 ? goals.map((goal: any, i: number) => (
+          <div key={i} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+            <span className={goal.done ? 'text-green-500' : 'text-gray-300'}>{goal.done ? '☑' : '☐'}</span>
+            <span className={`text-sm ${goal.done ? 'text-green-600 line-through' : 'text-gray-700'}`}>{goal.text}</span>
+          </div>
+        )) : <p className="text-sm text-gray-400">상담 후 목표가 설정됩니다</p>}
       </div>
     </div>
   );
@@ -383,24 +344,15 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const quickQuestions = ['저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
-
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading]);
-
   const sendMessage = async (msg: string) => {
     if (!msg.trim() || isLoading) return;
     setMessages(prev => [...prev, { role: 'user', content: msg, timestamp: Date.now() }]);
-    setInput('');
-    setIsLoading(true);
+    setInput(''); setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: msg, userName,
-          financialContext: { age: userData.age, totalAssets: userData.totalAssets, totalDebt: userData.totalDebt, netAssets: userData.netAssets, monthlyIncome: userData.monthlyIncome, monthlyExpense: userData.monthlyExpense, wealthIndex: userData.wealthIndex, financialLevel: userData.financialLevel },
-          budgetInfo: { savings: userData.savings, investment: userData.investment, insurance: userData.insurance, pension: userData.pension, loanPayment: userData.loanPayment },
-          conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, userName, financialContext: { age: userData.age, totalAssets: userData.totalAssets, totalDebt: userData.totalDebt, netAssets: userData.netAssets, monthlyIncome: userData.monthlyIncome, monthlyExpense: userData.monthlyExpense, wealthIndex: userData.wealthIndex, financialLevel: userData.financialLevel }, budgetInfo: { savings: userData.savings, investment: userData.investment, insurance: userData.insurance, pension: userData.pension, loanPayment: userData.loanPayment }, conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })) }),
       });
       const data = await response.json();
       if (data.success) setMessages(prev => [...prev, { role: 'assistant', content: data.message, timestamp: Date.now() }]);
@@ -408,15 +360,13 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
     } catch { onToast('네트워크 오류가 발생했습니다'); }
     finally { setIsLoading(false); }
   };
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
             {m.role === 'assistant' && <span className="text-xl self-end">🤖</span>}
-            <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`}
-              style={m.role === 'user' ? { background: '#c9a53e', borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}>
+            <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`} style={m.role === 'user' ? { background: '#c9a53e', borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}>
               {m.content}
             </div>
           </div>
@@ -425,13 +375,10 @@ function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onT
         <div ref={bottomRef} />
       </div>
       <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
-        {quickQuestions.map(q => (
-          <button key={q} onClick={() => sendMessage(q)} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>{q}</button>
-        ))}
+        {quickQuestions.map(q => <button key={q} onClick={() => sendMessage(q)} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>{q}</button>)}
       </div>
       <div className="px-4 pb-4 pt-2 flex gap-2 border-t border-gray-100">
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-          placeholder="메시지 입력..." className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:border-amber-300" />
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }} placeholder="메시지 입력..." className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:border-amber-300" />
         <button onClick={() => sendMessage(input)} disabled={!input.trim() || isLoading} className="px-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: '#c9a53e' }}>전송</button>
       </div>
     </div>
@@ -442,20 +389,15 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
   const toggleCheck = (k: string) => setChecks(p => ({ ...p, [k]: !p[k as keyof typeof p] }));
-
-  let dDay: number | null = null;
-  let isZoomActive = false;
-  let consultDateStr = '';
+  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
   if (nextConsult) {
     const now = new Date();
     const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
     const diff = consult.getTime() - now.getTime();
     dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
     isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })
-      + ' ' + consult.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }) + ' ' + consult.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   }
-
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
       <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: '#c9a53e' }}>
@@ -475,15 +417,11 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
               ))}
             </div>
             <div className="h-px bg-gray-100 my-4" />
-            <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
-              className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-              style={isZoomActive ? { background: '#c9a53e' } : {}}>💻 줌 상담 입장하기</button>
+            <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }} className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={isZoomActive ? { background: '#c9a53e' } : {}}>💻 줌 상담 입장하기</button>
             {!isZoomActive && <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>}
             <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">📅 일정 변경 요청</button>
           </>
-        ) : (
-          <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>
-        )}
+        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>}
       </div>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">상담 유형</p>
@@ -497,7 +435,6 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
 function History({ uid, onToast, onModal }: { uid: string; onToast: (msg: string) => void; onModal: (title: string, content: string) => void }) {
   const [histories, setHistories] = useState<ConsultationHistory[]>([]);
   const [count, setCount] = useState(0);
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -509,9 +446,7 @@ function History({ uid, onToast, onModal }: { uid: string; onToast: (msg: string
     };
     load();
   }, [uid]);
-
   const grade = getCertGrade(count);
-
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -531,12 +466,7 @@ function History({ uid, onToast, onModal }: { uid: string; onToast: (msg: string
             <span className="text-2xl font-extrabold" style={{ color: '#c9a53e' }}>{h.score}점</span>
           </div>
           {h.summary && <div className="bg-gray-50 rounded-xl p-3 mb-3"><p className="text-xs font-bold text-gray-400 mb-1">핵심 발견</p><p className="text-sm text-gray-700 leading-relaxed">"{h.summary}"</p></div>}
-          {h.tasks && h.tasks.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-bold text-gray-400 mb-2">개선 과제</p>
-              {h.tasks.map((task, j) => <p key={j} className="text-sm text-gray-700 mb-1"><span style={{ color: '#c9a53e' }}>{j + 1}.</span> {task}</p>)}
-            </div>
-          )}
+          {h.tasks && h.tasks.length > 0 && <div className="mb-3"><p className="text-xs font-bold text-gray-400 mb-2">개선 과제</p>{h.tasks.map((task, j) => <p key={j} className="text-sm text-gray-700 mb-1"><span style={{ color: '#c9a53e' }}>{j + 1}.</span> {task}</p>)}</div>}
           <div className="flex gap-2 mt-3 flex-wrap">
             <button onClick={() => h.reportUrl ? window.open(h.reportUrl, '_blank') : onModal('리포트', '리포트를 준비 중입니다 📋')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>📄 리포트</button>
             <button onClick={() => h.certificateUrl ? window.open(h.certificateUrl, '_blank') : onModal('수료증', '수료증을 준비 중입니다 🏆')} className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 border border-amber-200" style={{ color: '#c9a53e' }}>🏆 수료증</button>
@@ -553,14 +483,12 @@ function Documents({ user, onToast }: { user: any; onToast: (msg: string) => voi
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<string>('');
-
   const docDefs = [
     { key: 'application', label: '상담신청서', required: true, sub: '' },
     { key: 'insurance', label: '보험증권', required: true, sub: '' },
     { key: 'pension', label: '연금명세서', required: true, sub: '국민연금 + 퇴직연금' },
     { key: 'tax', label: '세금신고서', required: false, sub: '' },
   ];
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -572,7 +500,6 @@ function Documents({ user, onToast }: { user: any; onToast: (msg: string) => voi
     };
     load();
   }, [user.uid]);
-
   const handleUpload = async (file: File, docType: string) => {
     setUploading(docType);
     try {
@@ -586,15 +513,12 @@ function Documents({ user, onToast }: { user: any; onToast: (msg: string) => voi
     } catch { onToast('업로드에 실패했습니다. 다시 시도해주세요.'); }
     finally { setUploading(null); }
   };
-
   const requiredDocs = docDefs.filter(d => d.required);
   const completedRequired = requiredDocs.filter(d => !!docs[d.key]).length;
   const progress = Math.round((completedRequired / requiredDocs.length) * 100);
-
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      <input ref={fileInputRef} type="file" className="hidden" accept="image/*,application/pdf"
-        onChange={e => { const file = e.target.files?.[0]; if (file && uploadTarget) handleUpload(file, uploadTarget); e.target.value = ''; }} />
+      <input ref={fileInputRef} type="file" className="hidden" accept="image/*,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && uploadTarget) handleUpload(file, uploadTarget); e.target.value = ''; }} />
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex justify-between items-center mb-2">
           <p className="text-sm font-bold text-gray-700">필수 서류 제출 현황</p>
@@ -660,7 +584,6 @@ function ConsultationHub({ user }: { user: any }) {
   const [userData, setUserData] = useState<any>({});
   const [toast, setToast] = useState<string | null>(null);
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -670,7 +593,6 @@ function ConsultationHub({ user }: { user: any }) {
     };
     load();
   }, [user.uid]);
-
   const subTabs = [
     { id: 'dashboard', label: '홈', icon: '🏠' },
     { id: 'finance', label: '내 재무', icon: '📊' },
@@ -679,15 +601,12 @@ function ConsultationHub({ user }: { user: any }) {
     { id: 'history', label: '이력', icon: '📋' },
     { id: 'files', label: '서류함', icon: '📎' },
   ];
-
   return (
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-100 px-4">
         <div className="flex overflow-x-auto">
           {subTabs.map(t => (
-            <button key={t.id} onClick={() => setActiveSubTab(t.id)}
-              className={`shrink-0 px-3 py-3 text-xs font-bold border-b-2 transition-colors ${activeSubTab === t.id ? '' : 'border-transparent text-gray-400'}`}
-              style={activeSubTab === t.id ? { color: '#c9a53e', borderColor: '#c9a53e' } : {}}>
+            <button key={t.id} onClick={() => setActiveSubTab(t.id)} className={`shrink-0 px-3 py-3 text-xs font-bold border-b-2 transition-colors ${activeSubTab === t.id ? '' : 'border-transparent text-gray-400'}`} style={activeSubTab === t.id ? { color: '#c9a53e', borderColor: '#c9a53e' } : {}}>
               {t.icon} {t.label}
             </button>
           ))}
@@ -710,7 +629,6 @@ function ConsultationHub({ user }: { user: any }) {
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const { isSubscriber, loading } = useSubscription(user?.uid);
   const [toast, setToast] = useState<string | null>(null);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-screen bg-gray-50">
@@ -721,7 +639,6 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
       </div>
     );
   }
-
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
