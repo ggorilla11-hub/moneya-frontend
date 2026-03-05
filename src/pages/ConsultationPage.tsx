@@ -313,6 +313,19 @@ function HubDashboard({ user }: { user: any }) {
           if (msg.type === 'session_started') { isConnectedRef.current = true; setVoiceStatus('듣는중...'); startAudioCapture(stream, ws); }
           if (msg.type === 'audio' && msg.data) playAudio(msg.data);
           if (msg.type === 'audio_end') playAccumulatedAudio();
+          // MP3 TTS 재생 (서버에서 REST TTS로 생성한 MP3)
+          if (msg.type === 'tts_audio' && msg.data) {
+            try {
+              const audioBlob = new Blob(
+                [Uint8Array.from(atob(msg.data), c => c.charCodeAt(0))],
+                { type: 'audio/mp3' }
+              );
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              audio.onended = () => URL.revokeObjectURL(audioUrl);
+              audio.play().catch(e => console.error('MP3 재생 에러:', e));
+            } catch (e) { console.error('TTS 오디오 처리 에러:', e); }
+          }
           if (msg.type === 'transcript' && msg.role === 'user')
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg.text }]);
           if (msg.type === 'transcript' && msg.role === 'assistant')
