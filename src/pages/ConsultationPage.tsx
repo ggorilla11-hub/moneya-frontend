@@ -234,29 +234,35 @@ function HubDashboard({ user }: { user: any }) {
   };
 
   // 음성모드 → ElevenLabs 음성 답변
-  const playAudio = async (b64: string) => {
-    audioQueueRef.current.push(b64);
-    if (!isPlayingRef.current) processAudioQueue();
+  // MP3 청크 누적 버퍼
+  const mp3ChunksRef = useRef<string[]>([]);
+
+  const playAudio = (b64: string) => {
+    mp3ChunksRef.current.push(b64);
   };
-  const processAudioQueue = async () => {
-    if (!audioQueueRef.current.length) { isPlayingRef.current = false; return; }
-    isPlayingRef.current = true;
-    const b64 = audioQueueRef.current.shift()!;
+
+  // audio_end 수신 시 누적 MP3 청크 합쳐서 재생
+  const playAccumulatedAudio = async () => {
+    if (!mp3ChunksRef.current.length) return;
     try {
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed')
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
-      const raw = atob(b64); const buf = new ArrayBuffer(raw.length); const view = new Uint8Array(buf);
+      const allChunks = mp3ChunksRef.current.join('');
+      mp3ChunksRef.current = [];
+      const raw = atob(allChunks);
+      const buf = new ArrayBuffer(raw.length);
+      const view = new Uint8Array(buf);
       for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
-      const pcm = new Int16Array(buf); const f32 = new Float32Array(pcm.length);
-      for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
-      const ab = audioContextRef.current.createBuffer(1, f32.length, 24000);
-      ab.getChannelData(0).set(f32);
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed')
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
+      const decoded = await audioContextRef.current.decodeAudioData(buf.slice(0));
       const src = audioContextRef.current.createBufferSource();
-      src.buffer = ab; src.connect(audioContextRef.current.destination);
-      src.onended = () => processAudioQueue(); src.start();
-    } catch { processAudioQueue(); }
+      src.buffer = decoded;
+      src.connect(audioContextRef.current.destination);
+      src.start();
+    } catch (e) { console.error('MP3 재생 에러:', e); }
   };
+
+  const processAudioQueue = () => { isPlayingRef.current = false; };
   const cleanupVoiceMode = () => {
     if (wsRef.current) { try { wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); } catch {} wsRef.current = null; }
     if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
@@ -264,7 +270,7 @@ function HubDashboard({ user }: { user: any }) {
       try { const { processor, source, audioContext } = processorRef.current; processor.disconnect(); source.disconnect(); audioContext.close(); } catch {}
       processorRef.current = null;
     }
-    audioQueueRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
+    mp3ChunksRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
   };
   const startAudioCapture = (stream: MediaStream, ws: WebSocket) => {
     try {
@@ -290,17 +296,18 @@ function HubDashboard({ user }: { user: any }) {
       mediaStreamRef.current = stream;
       const ws = new WebSocket(`${WS_URL}?mode=consult`);
       wsRef.current = ws;
-      ws.onopen = () => { ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, conversationHistory: messages.map(m => ({ role: m.role, content: m.text })) })); };
+      ws.onopen = () => { ws.send(JSON.stringify({ type: 'start_app', userName: displayName, conversationHistory: messages.map(m => ({ role: m.role, content: m.text })) })); };
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'session_started') { isConnectedRef.current = true; setVoiceStatus('듣는중...'); startAudioCapture(stream, ws); }
           if (msg.type === 'audio' && msg.data) playAudio(msg.data);
+          if (msg.type === 'audio_end') playAccumulatedAudio();
           if (msg.type === 'transcript' && msg.role === 'user')
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg.text }]);
           if (msg.type === 'transcript' && msg.role === 'assistant')
             setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
-          if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
+          if (msg.type === 'interrupt') { mp3ChunksRef.current = []; isPlayingRef.current = false; }
         } catch {}
       };
       ws.onerror = () => { setVoiceStatus('연결 실패'); cleanupVoiceMode(); setIsVoiceMode(false); };
