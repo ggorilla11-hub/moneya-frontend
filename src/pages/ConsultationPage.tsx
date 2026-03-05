@@ -244,16 +244,22 @@ function HubDashboard({ user }: { user: any }) {
   const playAccumulatedAudio = async () => {
     if (!mp3ChunksRef.current.length) return;
     try {
-      const allChunks = mp3ChunksRef.current.join('');
+      const chunks = mp3ChunksRef.current;
       mp3ChunksRef.current = [];
-      const raw = atob(allChunks);
-      const buf = new ArrayBuffer(raw.length);
-      const view = new Uint8Array(buf);
-      for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+      const arrays = chunks.map(b64 => {
+        const raw = atob(b64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      });
+      const totalLen = arrays.reduce((acc, a) => acc + a.length, 0);
+      const merged = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const a of arrays) { merged.set(a, offset); offset += a.length; }
       if (!audioContextRef.current || audioContextRef.current.state === 'closed')
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
-      const decoded = await audioContextRef.current.decodeAudioData(buf.slice(0));
+      const decoded = await audioContextRef.current.decodeAudioData(merged.buffer);
       const src = audioContextRef.current.createBufferSource();
       src.buffer = decoded;
       src.connect(audioContextRef.current.destination);
