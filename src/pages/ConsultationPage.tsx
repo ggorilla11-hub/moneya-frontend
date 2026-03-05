@@ -1,16 +1,18 @@
-// ConsultationPage.tsx v3.0
-// v3.0 수정사항:
-// 1. 6개 서브탭 완전 복원 (홈/내재무/머니야/일정/이력/서류함)
-// 2. 홈 서브탭에만 AI 대화창 + 입력바 추가
-// 3. 텍스트/키워드 입력 → 텍스트 답변만 (음성 없음)
-// 4. 마이크 버튼 → 음성 답변 (ElevenLabs)
-// 5. 나머지 5개 서브탭 기존 코드 그대로 유지
+// ConsultationPage.tsx v4.0
+// v4.0 수정사항:
+// 1. 홈 서브탭 → 기존 그대로 (대화하기 버튼 텍스트)
+// 2. 머니야 서브탭(3번째) → Claude AI 음성상담 화면
+//    - 상단: 머니야 프로필 + 상태 표시
+//    - 하단 고정: + 마이크 텍스트입력바
+//    - 텍스트/키워드 → 텍스트 답변만
+//    - 마이크 → ElevenLabs 음성 답변
+// 3. 키워드 칩: 재무상담/저축률 진단/보험 분석/은퇴 계산/투자 조언
+// 4. 나머지 서브탭 기존 그대로
 
 import { useState, useRef, useEffect } from 'react';
 
 interface Message { role: 'user' | 'assistant'; content: string; timestamp: number; }
 interface ConsultationDoc { docType: string; fileName: string; fileUrl: string; }
-
 interface ConsultationPageProps { user: any; }
 
 const API_URL = 'https://moneya-server.onrender.com';
@@ -53,7 +55,7 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   );
 }
 
-// ── 홈 대시보드 (AI 대화 포함) ──────────────────────
+// ── 홈 대시보드 (기존 그대로) ─────────────────────
 function HubDashboard({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
   const scores = userData.consultationScores || {};
   const latestScore = userData.latestScore || 0;
@@ -71,15 +73,119 @@ function HubDashboard({ userData, displayName, onToast }: { userData: any; displ
     isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
     consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
   }
+  return (
+    <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
+      <div className="bg-white rounded-2xl border shadow-sm p-4" style={{ borderColor: GOLD }}>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 정기상담</p>
+        {nextConsult ? (
+          <>
+            <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
+            {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
+                style={isZoomActive ? { background: GOLD } : {}}>💻 줌 입장하기</button>
+              <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200">📅 일정변경</button>
+            </div>
+          </>
+        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다</p>}
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-3xl">🏠</span>
+          <div><span className="text-2xl font-extrabold" style={{ color: GOLD }}>{latestScore}점</span>
+            <div className="w-32 bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${latestScore}%`, background: GOLD }} /></div>
+          </div>
+        </div>
+        {floorLabels.map((label, idx) => (
+          <div key={label} className="flex items-center gap-2 mb-2">
+            <span className="text-xs">{si(floorScores[idx])}</span>
+            <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
+            <ScoreBar score={floorScores[idx]} color={floorScores[idx] >= 80 ? '#10B981' : floorScores[idx] >= 60 ? '#F59E0B' : '#EF4444'} />
+            <span className={`text-xs font-bold w-6 text-right ${sc(floorScores[idx])}`}>{floorScores[idx]}</span>
+          </div>
+        ))}
+      </div>
+      <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
+        <div className="flex gap-3">
+          <img src={MONEYA_IMG} alt="머니야" className="w-10 h-10 object-contain" />
+          <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
+            {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
+          </div>
+        </div>
+        <button onClick={() => onToast('머니야 탭에서 직접 대화해보세요!')} className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: GOLD }}>대화하기 →</button>
+      </div>
+    </div>
+  );
+}
 
-  // ── AI 대화 상태 ──
+// ── 내 재무 (기존 그대로) ─────────────────────────
+function MyFinance({ userData }: { userData: any }) {
+  const income = userData.monthlyIncome || 0;
+  const expense = userData.monthlyExpense || 0;
+  const netAssets = userData.netAssets || 0;
+  const totalDebt = userData.totalDebt || 0;
+  const totalAssets = userData.totalAssets || 0;
+  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
+  const debtRatio = totalAssets > 0 ? Math.round((totalDebt / totalAssets) * 100) : 0;
+  const emergencyFundMonths = userData.emergencyFundMonths || 0;
+  const scores = userData.consultationScores || {};
+  const goals: any[] = userData.monthlyGoals || [];
+  const floorKeys = ['f1','f2','f3','f4','f5','f6'] as const;
+  const floorLabels = ['1층 기초체력','2층 안전장치','3층 부동산','4층 보장자산','5층 은퇴설계','6층 투자성장'];
+  return (
+    <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">기본 재무 지표</p>
+        {([['순자산',`${netAssets.toLocaleString()}만원`,'text-gray-900'],['월소득',`${income.toLocaleString()}만원`,'text-gray-900'],['월지출',`${expense.toLocaleString()}만원`,'text-gray-900'],['저축률',`${savingsRate}%`,savingsRate>=20?'text-green-600':savingsRate>=10?'text-yellow-500':'text-red-500'],['부채비율',`${debtRatio}%`,debtRatio<=40?'text-green-600':debtRatio<=60?'text-yellow-500':'text-red-500'],['비상자금',`${emergencyFundMonths}개월분`,emergencyFundMonths>=6?'text-green-600':emergencyFundMonths>=3?'text-yellow-500':'text-red-500']] as [string,string,string][]).map(([label,val,color]) => (
+          <div key={label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+            <span className="text-sm text-gray-500">{label}</span>
+            <span className={`text-sm font-bold ${color}`}>{val}</span>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">금융집짓기 6단계 점수</p>
+        {floorLabels.map((label, idx) => {
+          const score: number = scores[floorKeys[idx]] || 0;
+          return (
+            <div key={label} className="mb-3">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-gray-500">{label}</span>
+                <span className={`text-xs font-bold ${sc(score)}`}>{si(score)} {score}점</span>
+              </div>
+              <ScoreBar score={score} color={score>=80?'#10B981':score>=60?'#F59E0B':'#EF4444'} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">이달의 목표</p>
+        {goals.length > 0 ? goals.map((goal, i) => (
+          <div key={i} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+            <span className={goal.done ? 'text-green-500' : 'text-gray-300'}>{goal.done ? '☑' : '☐'}</span>
+            <span className={`text-sm ${goal.done ? 'text-green-600 line-through' : 'text-gray-700'}`}>{goal.text}</span>
+          </div>
+        )) : <p className="text-sm text-gray-400">상담 후 목표가 설정됩니다</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── 머니야 탭 (3번째) - Claude AI 음성상담 ─────────
+function MoneyaConsult({ user, userData }: { user: any; userData: any }) {
+  const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
-    { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n금융집짓기 방법론으로 재무상담을 도와드릴게요. 무엇이든 물어보세요! 😊` }
+    { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
   ]);
-  const [inputText, setInputText]       = useState('');
-  const [isLoading, setIsLoading]       = useState(false);
-  const [isVoiceMode, setIsVoiceMode]   = useState(false);
-  const [voiceStatus, setVoiceStatus]   = useState('대기중');
+  const [inputText, setInputText]     = useState('');
+  const [isLoading, setIsLoading]     = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('대기중');
+  const [serverReady, setServerReady] = useState(false);
+
   const chatAreaRef    = useRef<HTMLDivElement>(null);
   const wsRef          = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -90,12 +196,19 @@ function HubDashboard({ userData, displayName, onToast }: { userData: any; displ
   const isConnectedRef  = useRef(false);
 
   useEffect(() => {
+    const warmup = async () => {
+      try { const r = await fetch(`${API_URL}/api/health`); if (r.ok) setServerReady(true); }
+      catch { setTimeout(warmup, 3000); }
+    };
+    warmup();
+    return () => cleanupVoiceMode();
+  }, []);
+
+  useEffect(() => {
     setTimeout(() => {
       if (chatAreaRef.current) chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }, 80);
   }, [messages]);
-
-  useEffect(() => { return () => cleanupVoiceMode(); }, []);
 
   // 텍스트 전송 → 텍스트 답변만 (음성 없음)
   const sendTextMessage = async (text: string) => {
@@ -121,7 +234,7 @@ function HubDashboard({ userData, displayName, onToast }: { userData: any; displ
     } finally { setIsLoading(false); }
   };
 
-  // ── 음성모드 (마이크) → ElevenLabs 음성 답변 ──
+  // 음성모드 → ElevenLabs 음성 답변
   const playAudio = async (b64: string) => {
     audioQueueRef.current.push(b64);
     if (!isPlayingRef.current) processAudioQueue();
@@ -198,246 +311,127 @@ function HubDashboard({ userData, displayName, onToast }: { userData: any; displ
   const stopVoiceMode = () => { cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); };
   const toggleVoiceMode = () => { isVoiceMode ? stopVoiceMode() : startVoiceMode(); };
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* 상단 스크롤 영역 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-2 space-y-4">
-        {/* 다음 정기상담 카드 */}
-        <div className="bg-white rounded-2xl border shadow-sm p-4" style={{ borderColor: GOLD }}>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 정기상담</p>
-          {nextConsult ? (
-            <>
-              <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
-              {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
-              <div className="flex gap-2 mt-3">
-                <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                  style={isZoomActive ? { background: GOLD } : {}}>💻 줌 입장하기</button>
-                <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200">📅 일정변경</button>
-              </div>
-            </>
-          ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다</p>}
-        </div>
+  const CHIPS = ['재무상담', '저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
 
-        {/* 금융집 현황 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-3xl">🏠</span>
-            <div><span className="text-2xl font-extrabold" style={{ color: GOLD }}>{latestScore}점</span>
-              <div className="w-32 bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${latestScore}%`, background: GOLD }} /></div>
-            </div>
-          </div>
-          {floorLabels.map((label, idx) => (
-            <div key={label} className="flex items-center gap-2 mb-2">
-              <span className="text-xs">{si(floorScores[idx])}</span>
-              <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
-              <ScoreBar score={floorScores[idx]} color={floorScores[idx] >= 80 ? '#10B981' : floorScores[idx] >= 60 ? '#F59E0B' : '#EF4444'} />
-              <span className={`text-xs font-bold w-6 text-right ${sc(floorScores[idx])}`}>{floorScores[idx]}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* 머니야 메시지 */}
-        <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
-          <div className="flex gap-3 mb-3">
-            <img src={MONEYA_IMG} alt="머니야" className="w-10 h-10 object-contain" />
-            <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
-              {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 아래에서 직접 질문해보세요!` : `${displayName}님, 안녕하세요! 아래에서 머니야에게 바로 질문해보세요.`}
-            </div>
-          </div>
-        </div>
-
-        {/* AI 대화창 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">💬 AI 재무상담</p>
-
-          {/* 음성모드 표시 */}
-          {isVoiceMode && (
-            <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="w-1 bg-green-500 rounded-full animate-pulse" style={{ height: `${12 + (i%3)*6}px`, animationDelay: `${i*100}ms` }} />
-                  ))}
-                </div>
-                <span className="text-green-700 font-semibold text-xs">머니야가 듣고 있어요 · {voiceStatus}</span>
-              </div>
-              <button onClick={stopVoiceMode} className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">종료</button>
-            </div>
-          )}
-
-          {/* 메시지 목록 */}
-          <div ref={chatAreaRef} className="space-y-3 overflow-y-auto mb-3" style={{ maxHeight: '280px' }}>
-            {messages.map(m => (
-              <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                {m.role === 'assistant' && <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 mt-1" />}
-                <div className={`max-w-[80%] px-3 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
-                  ${m.role === 'assistant' ? 'bg-gray-50 border border-gray-100 text-gray-800' : 'text-white'}`}
-                  style={m.role === 'user' ? { background: GOLD } : {}}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-2">
-                <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0" />
-                <div className="px-3 py-2.5 rounded-2xl bg-gray-50 border border-gray-100">
-                  <div className="flex items-center gap-1">
-                    {[0,150,300].map(d => <div key={d} className="w-2 h-2 rounded-full animate-bounce" style={{ background: GOLD, animationDelay: `${d}ms` }} />)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 빠른 질문 칩 */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
-            {['저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'].map(q => (
-              <button key={q} onClick={() => sendTextMessage(q)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border"
-                style={{ color: GOLD, borderColor: GOLD, background: '#fffdf5' }}>
-                {q}
-              </button>
-            ))}
-          </div>
-
-          {/* 입력바 */}
-          <div className="flex items-center gap-2">
-            {/* + 버튼 */}
-            <button className="w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0"
-              style={{ borderColor: GOLD, background: '#fffdf5' }}>
-              <svg className="w-5 h-5" style={{ color: GOLD }} fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            </button>
-            {/* 마이크 버튼 → 음성 답변 */}
-            <button onClick={toggleVoiceMode}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-              style={{ background: isVoiceMode ? '#ef4444' : GOLD }}>
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
-              </svg>
-            </button>
-            {/* 텍스트 입력 */}
-            <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
-              <input type="text" value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyPress={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(inputText); } }}
-                placeholder="머니야에게 말씀해주세요..."
-                className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
-                disabled={isLoading || isVoiceMode} />
-            </div>
-            {/* 전송 버튼 */}
-            <button onClick={() => sendTextMessage(inputText)}
-              disabled={!inputText.trim() || isLoading || isVoiceMode}
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-              style={{ background: inputText.trim() && !isLoading && !isVoiceMode ? GOLD : '#d1d5db' }}>
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── 내 재무 ───────────────────────────────────────
-function MyFinance({ userData }: { userData: any }) {
-  const income = userData.monthlyIncome || 0;
-  const expense = userData.monthlyExpense || 0;
-  const netAssets = userData.netAssets || 0;
-  const totalDebt = userData.totalDebt || 0;
-  const totalAssets = userData.totalAssets || 0;
-  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
-  const debtRatio = totalAssets > 0 ? Math.round((totalDebt / totalAssets) * 100) : 0;
-  const emergencyFundMonths = userData.emergencyFundMonths || 0;
-  const scores = userData.consultationScores || {};
-  const goals: any[] = userData.monthlyGoals || [];
-  const floorKeys = ['f1','f2','f3','f4','f5','f6'] as const;
-  const floorLabels = ['1층 기초체력','2층 안전장치','3층 부동산','4층 보장자산','5층 은퇴설계','6층 투자성장'];
-  return (
-    <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">기본 재무 지표</p>
-        {([['순자산',`${netAssets.toLocaleString()}만원`,'text-gray-900'],['월소득',`${income.toLocaleString()}만원`,'text-gray-900'],['월지출',`${expense.toLocaleString()}만원`,'text-gray-900'],['저축률',`${savingsRate}%`,savingsRate>=20?'text-green-600':savingsRate>=10?'text-yellow-500':'text-red-500'],['부채비율',`${debtRatio}%`,debtRatio<=40?'text-green-600':debtRatio<=60?'text-yellow-500':'text-red-500'],['비상자금',`${emergencyFundMonths}개월분`,emergencyFundMonths>=6?'text-green-600':emergencyFundMonths>=3?'text-yellow-500':'text-red-500']] as [string,string,string][]).map(([label,val,color]) => (
-          <div key={label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
-            <span className="text-sm text-gray-500">{label}</span>
-            <span className={`text-sm font-bold ${color}`}>{val}</span>
-          </div>
-        ))}
-      </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">금융집짓기 6단계 점수</p>
-        {floorLabels.map((label, idx) => {
-          const score: number = scores[floorKeys[idx]] || 0;
-          return (
-            <div key={label} className="mb-3">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">{label}</span>
-                <span className={`text-xs font-bold ${sc(score)}`}>{si(score)} {score}점</span>
-              </div>
-              <ScoreBar score={score} color={score>=80?'#10B981':score>=60?'#F59E0B':'#EF4444'} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">이달의 목표</p>
-        {goals.length > 0 ? goals.map((goal, i) => (
-          <div key={i} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-            <span className={goal.done ? 'text-green-500' : 'text-gray-300'}>{goal.done ? '☑' : '☐'}</span>
-            <span className={`text-sm ${goal.done ? 'text-green-600 line-through' : 'text-gray-700'}`}>{goal.text}</span>
-          </div>
-        )) : <p className="text-sm text-gray-400">상담 후 목표가 설정됩니다</p>}
-      </div>
-    </div>
-  );
-}
-
-// ── 머니야 채팅 (기존 OpenAI 채팅) ──────────────────
-function MoneyaChat({ user, userData, onToast }: { user: any; userData: any; onToast: (msg: string) => void }) {
-  const userName = userData.name || user.displayName || '고객';
-  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: `안녕하세요 ${userName}님! AI 재무설계사 머니야입니다.\n오늘 궁금한 것이 있으신가요? 😊`, timestamp: Date.now() }]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading]);
-  const sendMessage = async (msg: string) => {
-    if (!msg.trim() || isLoading) return;
-    setMessages(prev => [...prev, { role: 'user', content: msg, timestamp: Date.now() }]);
-    setInput(''); setIsLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, userName, financialContext: { age: userData.age, totalAssets: userData.totalAssets, totalDebt: userData.totalDebt, netAssets: userData.netAssets, monthlyIncome: userData.monthlyIncome, monthlyExpense: userData.monthlyExpense }, conversationHistory: messages.slice(-10).map(m => ({ role: m.role, content: m.content })) }) });
-      const data = await res.json();
-      if (data.success) setMessages(prev => [...prev, { role: 'assistant', content: data.message, timestamp: Date.now() }]);
-      else onToast('잠시 후 다시 시도해주세요');
-    } catch { onToast('네트워크 오류가 발생했습니다'); }
-    finally { setIsLoading(false); }
-  };
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-            {m.role === 'assistant' && <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain self-end" />}
-            <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-gray-100 text-gray-800'}`} style={m.role === 'user' ? { background: GOLD, borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }}>{m.content}</div>
+
+      {/* ── 상단 머니야 프로필 배너 ── */}
+      <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
+        <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
+        <div className="flex items-center gap-3 relative z-10">
+          <img src={MONEYA_IMG} alt="머니야" className={`w-14 h-14 object-contain rounded-full bg-white/20 p-1 ${isVoiceMode ? 'animate-pulse' : ''}`} />
+          <div className="flex-1">
+            <p className="text-white font-extrabold text-base">AI 재무설계사 머니야</p>
+            <p className="text-white/80 text-xs">오상열 CFP · 금융집짓기 전문</p>
+            <div className="flex items-center gap-2 mt-1">
+              {isVoiceMode ? (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/30 text-green-100 text-xs rounded-full">
+                  <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
+                  {voiceStatus}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-white/20 text-white/80 text-xs rounded-full">
+                  <span className="w-1.5 h-1.5 bg-white/60 rounded-full" />
+                  {serverReady ? '상담 준비됨' : '서버 준비중...'}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* 음성모드 파형 */}
+        {isVoiceMode && (
+          <div className="flex items-center gap-1 mt-3 justify-center">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="w-1 bg-white/70 rounded-full animate-pulse"
+                style={{ height: `${10 + (i % 4) * 6}px`, animationDelay: `${i * 80}ms` }} />
+            ))}
+            <span className="text-white/80 text-xs ml-2">머니야가 듣고 있어요</span>
+            <button onClick={stopVoiceMode} className="ml-auto px-3 py-1 bg-white/20 text-white text-xs font-bold rounded-full">종료</button>
+          </div>
+        )}
+      </div>
+
+      {/* ── 키워드 칩 ── */}
+      <div className="px-4 pt-3 pb-1 flex gap-2 overflow-x-auto">
+        {CHIPS.map(q => (
+          <button key={q} onClick={() => sendTextMessage(q)}
+            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border"
+            style={{ color: GOLD, borderColor: GOLD, background: '#fffdf5' }}>
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 대화창 ── */}
+      <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.map(m => (
+          <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            {m.role === 'assistant' && (
+              <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 mt-1 rounded-full" />
+            )}
+            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+              ${m.role === 'assistant' ? 'bg-white border border-gray-100 text-gray-800 shadow-sm' : 'text-white'}`}
+              style={m.role === 'user' ? { background: GOLD } : {}}>
+              {m.text}
+            </div>
           </div>
         ))}
-        {isLoading && <div className="flex gap-2"><img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain" /><div className="bg-gray-100 px-4 py-3 rounded-2xl text-sm text-gray-400">머니야가 생각 중...</div></div>}
-        <div ref={bottomRef} />
+        {isLoading && (
+          <div className="flex gap-2">
+            <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 rounded-full" />
+            <div className="px-4 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm">
+              <div className="flex items-center gap-1">
+                {[0,150,300].map(d => <div key={d} className="w-2 h-2 rounded-full animate-bounce" style={{ background: GOLD, animationDelay: `${d}ms` }} />)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
-        {['저축률 진단','보험 분석','은퇴 계산','투자 조언'].map(q => <button key={q} onClick={() => sendMessage(q)} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200" style={{ color: GOLD }}>{q}</button>)}
-      </div>
-      <div className="px-4 pb-4 pt-2 flex gap-2 border-t border-gray-100">
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }} placeholder="메시지 입력..." className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none" />
-        <button onClick={() => sendMessage(input)} disabled={!input.trim() || isLoading} className="px-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: GOLD }}>전송</button>
+
+      {/* ── 하단 입력바 고정 ── */}
+      <div className="bg-white border-t border-gray-100 px-4 py-3">
+        <div className="flex items-center gap-2">
+          {/* + 버튼 */}
+          <button className="w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0"
+            style={{ borderColor: GOLD, background: '#fffdf5' }}>
+            <svg className="w-5 h-5" style={{ color: GOLD }} fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
+          {/* 마이크 버튼 */}
+          <button onClick={toggleVoiceMode}
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+            style={{ background: isVoiceMode ? '#ef4444' : GOLD }}>
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+            </svg>
+          </button>
+          {/* 텍스트 입력 */}
+          <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
+            <input type="text" value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyPress={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(inputText); } }}
+              placeholder="머니야에게 말씀해주세요..."
+              className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
+              disabled={isLoading || isVoiceMode} />
+          </div>
+          {/* 전송 버튼 */}
+          <button onClick={() => sendTextMessage(inputText)}
+            disabled={!inputText.trim() || isLoading || isVoiceMode}
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+            style={{ background: inputText.trim() && !isLoading && !isVoiceMode ? GOLD : '#d1d5db' }}>
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── 일정 ─────────────────────────────────────────
+// ── 일정 (기존 그대로) ────────────────────────────
 function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string) => void }) {
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
@@ -478,8 +472,8 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
   );
 }
 
-// ── 상담 이력 ─────────────────────────────────────
-function History({ }: {}) {
+// ── 상담 이력 (기존 그대로) ───────────────────────
+function History() {
   const count = 0;
   const grade = getCertGrade(count);
   return (
@@ -499,7 +493,7 @@ function History({ }: {}) {
   );
 }
 
-// ── 서류함 ────────────────────────────────────────
+// ── 서류함 (기존 그대로) ─────────────────────────
 function Documents({ onToast }: { onToast: (msg: string) => void }) {
   const [docs, setDocs] = useState<Record<string, ConsultationDoc | null>>({ application: null, insurance: null, pension: null, tax: null });
   const [uploading, setUploading] = useState<string | null>(null);
@@ -559,11 +553,11 @@ function ConsultationHub({ user }: { user: any }) {
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
   const displayName = user.displayName || '고객';
   const subTabs = [
-    { id: 'dashboard', label: '홈', icon: '🏠' },
+    { id: 'dashboard', label: '홈',    icon: '🏠' },
     { id: 'finance',   label: '내 재무', icon: '📊' },
     { id: 'chat',      label: '머니야', icon: '💬' },
-    { id: 'schedule',  label: '일정', icon: '📅' },
-    { id: 'history',   label: '이력', icon: '📋' },
+    { id: 'schedule',  label: '일정',  icon: '📅' },
+    { id: 'history',   label: '이력',  icon: '📋' },
     { id: 'files',     label: '서류함', icon: '📎' },
   ];
   return (
@@ -582,7 +576,7 @@ function ConsultationHub({ user }: { user: any }) {
       <div className="flex-1 overflow-hidden bg-gray-50">
         {activeSubTab === 'dashboard' && <HubDashboard userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
-        {activeSubTab === 'chat'      && <MoneyaChat user={user} userData={userData} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'chat'      && <MoneyaConsult user={user} userData={userData} />}
         {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
