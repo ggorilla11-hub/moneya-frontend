@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from 'react';
 
 interface Message { role: 'user' | 'assistant'; content: string; timestamp: number; }
 interface ConsultationDoc { docType: string; fileName: string; fileUrl: string; }
-interface ConsultationHistory { id: string; date: string; type: string; duration: number; score: number; summary: string; tasks: string[]; reportUrl?: string; certificateUrl?: string; zoomUrl?: string; }
+
 interface ConsultationPageProps { user: any; }
 
 const API_URL = 'https://moneya-server.onrender.com';
@@ -479,7 +479,7 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
 }
 
 // ── 상담 이력 ─────────────────────────────────────
-function History({ onModal }: { onModal: (title: string, content: string) => void }) {
+function History({ }: {}) {
   const count = 0;
   const grade = getCertGrade(count);
   return (
@@ -584,7 +584,7 @@ function ConsultationHub({ user }: { user: any }) {
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
         {activeSubTab === 'chat'      && <MoneyaChat user={user} userData={userData} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
-        {activeSubTab === 'history'   && <History onModal={(t,c) => setModal({ title: t, content: c })} />}
+        {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
       </div>
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
