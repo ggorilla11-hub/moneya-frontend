@@ -313,7 +313,7 @@ function HubDashboard({ user }: { user: any }) {
   const CHIPS = ['재무상담', '저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
 
       {/* ── 상단 머니야 프로필 배너 ── */}
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
