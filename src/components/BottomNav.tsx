@@ -1,9 +1,10 @@
 // src/components/BottomNav.tsx
-// v2.0: "마이페이지" → "더보기" 변경, 아이콘 변경
+// v3.0: 상담 탭 추가 (5번째 탭 💬)
+// ★★★ v3.0 변경사항: consultation 탭 1개 추가. 기존 4개 탭 코드 변경 없음 ★★★
 
 interface BottomNavProps {
-  currentTab: 'home' | 'ai-spend' | 'financial-house' | 'mypage';
-  onTabChange: (tab: 'home' | 'ai-spend' | 'financial-house' | 'mypage') => void;
+  currentTab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage';
+  onTabChange: (tab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage') => void;
 }
 
 function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
@@ -39,7 +40,17 @@ function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
       activeColor: 'text-purple-600',
     },
     {
-      // ★★★ v2.0: 마이페이지 → 더보기 변경 ★★★
+      // ★★★ v3.0 추가: 상담 탭 ★★★
+      id: 'consultation' as const,
+      label: '상담',
+      icon: (active: boolean) => (
+        <svg className={`w-6 h-6 ${active ? 'text-amber-500' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12zM7 9h10v2H7zm0-3h10v2H7zm0 6h7v2H7z"/>
+        </svg>
+      ),
+      activeColor: 'text-amber-500',
+    },
+    {
       id: 'mypage' as const,
       label: '더보기',
       icon: (active: boolean) => (
