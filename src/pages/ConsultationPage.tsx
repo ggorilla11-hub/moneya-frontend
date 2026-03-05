@@ -55,7 +55,7 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
 }
 
 // ── 홈 대시보드 (기존 그대로) ─────────────────────
-function HubDashboard({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
+function MoneyaInfo({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
   const scores = userData.consultationScores || {};
   const latestScore = userData.latestScore || 0;
   const nextConsult = userData.nextConsultDate || null;
@@ -174,7 +174,7 @@ function MyFinance({ userData }: { userData: any }) {
 }
 
 // ── 머니야 탭 (3번째) - Claude AI 음성상담 ─────────
-function MoneyaConsult({ user }: { user: any }) {
+function HubDashboard({ user }: { user: any }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
@@ -389,7 +389,7 @@ function MoneyaConsult({ user }: { user: any }) {
       </div>
 
       {/* ── 하단 입력바 고정 ── */}
-      <div className="bg-white border-t border-gray-100 px-4 py-3">
+      <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
         <div className="flex items-center gap-2">
           {/* + 버튼 */}
           <button className="w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0"
@@ -573,9 +573,9 @@ function ConsultationHub({ user }: { user: any }) {
         </div>
       </div>
       <div className="flex-1 overflow-hidden bg-gray-50">
-        {activeSubTab === 'dashboard' && <HubDashboard userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'dashboard' && <HubDashboard user={user} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
-        {activeSubTab === 'chat'      && <MoneyaConsult user={user} />}
+        {activeSubTab === 'chat'      && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
