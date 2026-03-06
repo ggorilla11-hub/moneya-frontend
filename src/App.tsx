@@ -19,6 +19,7 @@ import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingPage from './pages/ConsultingPage';
+import ConsultingChatPage from './pages/ConsultingChatPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
@@ -461,11 +462,10 @@ function App() {
               )}
             </FinancialHouseProvider>
           )}
-          {/* ★★★ 상담탭 → ConsultingPage (기존 홈/내재무/줌상담 탭 구조) ★★★ */}
+          {/* ★★★ 상담탭 → ConsultingChatPage (AI 머니야 채팅/음성 상담) ★★★ */}
           {currentTab === 'consultation' && (
-            <ConsultingPage
+            <ConsultingChatPage
               onBack={() => setCurrentTab('home')}
-              onApply={handleConsultingApply}
               displayName={financialResult?.name || user.displayName || '고객'}
               financialResult={financialResult}
             />
