@@ -1,13 +1,7 @@
-// ConsultationPage.tsx v4.0
-// v4.0 수정사항:
-// 1. 홈 서브탭 → 기존 그대로 (대화하기 버튼 텍스트)
-// 2. 머니야 서브탭(3번째) → Claude AI 음성상담 화면
-//    - 상단: 머니야 프로필 + 상태 표시
-//    - 하단 고정: + 마이크 텍스트입력바
-//    - 텍스트/키워드 → 텍스트 답변만
-//    - 마이크 → ElevenLabs 음성 답변
-// 3. 키워드 칩: 재무상담/저축률 진단/보험 분석/은퇴 계산/투자 조언
-// 4. 나머지 서브탭 기존 그대로
+// ConsultationPage.tsx v5.0
+// v5.0 수정사항:
+// 1. 머니야 탭 → 줌 상담 시작하기 화면으로 교체
+// 2. 일정 탭 → AI 머니야 채팅 기능으로 교체 (기존 머니야 탭 내용)
 
 import { useState, useRef, useEffect } from 'react';
 
@@ -114,7 +108,6 @@ function MoneyaInfo({ userData, displayName, onToast }: { userData: any; display
             {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -173,8 +166,96 @@ function MyFinance({ userData }: { userData: any }) {
   );
 }
 
-// ── 머니야 탭 (3번째) - Claude AI 음성상담 ─────────
-function HubDashboard({ user }: { user: any }) {
+// ── 머니야 탭 → 줌 상담 시작하기 ─────────────────
+function ZoomConsult({ user, onToast }: { user: any; onToast: (msg: string) => void }) {
+  const displayName = user.displayName || '고객';
+  const [isLoading, setIsLoading] = useState(false);
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+
+  const createZoomMeeting = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/zoom/create-meeting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerName: displayName, duration: 90 })
+      });
+      const data = await res.json();
+      if (data.success && data.joinUrl) {
+        setZoomUrl(data.joinUrl);
+        window.open(data.joinUrl, '_blank');
+      } else {
+        onToast('줌 미팅 생성에 실패했습니다. 다시 시도해주세요.');
+      }
+    } catch {
+      onToast('서버 연결 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="overflow-y-auto h-full px-4 py-6 pb-6 space-y-5">
+      {/* 상단 배너 */}
+      <div className="rounded-2xl p-6 text-center relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
+        <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-white/10 rounded-full" />
+        <img src={MONEYA_IMG} alt="머니야" className="w-20 h-20 object-contain mx-auto mb-3 rounded-full bg-white/20 p-2 relative z-10" />
+        <h2 className="text-white font-extrabold text-xl relative z-10">AI 머니야 줌 상담</h2>
+        <p className="text-white/80 text-sm mt-1 relative z-10">오상열 CFP · 금융집짓기® 전문</p>
+      </div>
+
+      {/* 안내 카드 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">상담 안내</p>
+        {[
+          { icon: '⏱', label: '상담 시간', value: '90분 (8단계 금융집짓기)' },
+          { icon: '🎥', label: '방식', value: 'Zoom 화상상담' },
+          { icon: '📋', label: '내용', value: '수입지출 · 보험 · 저축 · 투자 · 은퇴' },
+          { icon: '🤖', label: 'AI 지원', value: 'RAG 5,554개 지식베이스 활용' },
+        ].map(item => (
+          <div key={item.label} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-sm text-gray-500 w-20 shrink-0">{item.label}</span>
+            <span className="text-sm font-medium text-gray-800">{item.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 줌 미팅 링크 (생성 후 표시) */}
+      {zoomUrl && (
+        <div className="bg-green-50 rounded-2xl border border-green-200 p-4">
+          <p className="text-green-700 font-bold text-sm mb-2">✅ 줌 미팅이 생성되었습니다!</p>
+          <p className="text-green-600 text-xs mb-3">새 창이 열리지 않으면 아래 버튼을 눌러주세요.</p>
+          <button onClick={() => window.open(zoomUrl, '_blank')}
+            className="w-full py-3 rounded-xl text-sm font-bold text-white"
+            style={{ background: '#10B981' }}>
+            🔗 줌 미팅 다시 열기
+          </button>
+        </div>
+      )}
+
+      {/* 줌 상담 시작 버튼 */}
+      <button
+        onClick={createZoomMeeting}
+        disabled={isLoading}
+        className="w-full py-4 rounded-2xl font-extrabold text-white text-base shadow-lg transition-all disabled:opacity-60"
+        style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
+        {isLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            줌 미팅 생성 중...
+          </span>
+        ) : '🎥 줌 상담 시작하기'}
+      </button>
+
+      <p className="text-center text-xs text-gray-400">버튼을 누르면 Zoom 미팅이 자동 생성되고<br />새 창에서 바로 입장합니다</p>
+    </div>
+  );
+}
+
+// ── 일정 탭 → AI 머니야 채팅 (기존 머니야 탭 내용) ─
+function Schedule({ user }: { user: any }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
@@ -192,6 +273,7 @@ function HubDashboard({ user }: { user: any }) {
   const processorRef    = useRef<any>(null);
   const isPlayingRef    = useRef(false);
   const isConnectedRef  = useRef(false);
+  const audioQueueRef   = useRef<string[]>([]);
 
   useEffect(() => {
     const warmup = async () => {
@@ -208,7 +290,6 @@ function HubDashboard({ user }: { user: any }) {
     }, 80);
   }, [messages]);
 
-  // 텍스트 전송 → 텍스트 답변만 (음성 없음)
   const sendTextMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: text.trim() }]);
@@ -232,41 +313,26 @@ function HubDashboard({ user }: { user: any }) {
     } finally { setIsLoading(false); }
   };
 
-  // 음성모드 → 오디오 재생 (지출탭과 동일한 큐 방식)
-  const audioQueueRef = useRef<string[]>([]);
-
   const playAudio = async (base64Audio: string) => {
     audioQueueRef.current.push(base64Audio);
-    if (!isPlayingRef.current) {
-      processAudioQueue();
-    }
+    if (!isPlayingRef.current) processAudioQueue();
   };
 
   const processAudioQueue = async () => {
-    if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      return;
-    }
+    if (audioQueueRef.current.length === 0) { isPlayingRef.current = false; return; }
     isPlayingRef.current = true;
     const base64Audio = audioQueueRef.current.shift()!;
     try {
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed')
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
+      if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
       const audioData = atob(base64Audio);
       const arrayBuffer = new ArrayBuffer(audioData.length);
       const view = new Uint8Array(arrayBuffer);
-      for (let i = 0; i < audioData.length; i++) {
-        view[i] = audioData.charCodeAt(i);
-      }
+      for (let i = 0; i < audioData.length; i++) view[i] = audioData.charCodeAt(i);
       const pcm16 = new Int16Array(arrayBuffer);
       const float32 = new Float32Array(pcm16.length);
-      for (let i = 0; i < pcm16.length; i++) {
-        float32[i] = pcm16[i] / 32768;
-      }
+      for (let i = 0; i < pcm16.length; i++) float32[i] = pcm16[i] / 32768;
       const audioBuffer = audioContextRef.current.createBuffer(1, float32.length, 24000);
       audioBuffer.getChannelData(0).set(float32);
       const source = audioContextRef.current.createBufferSource();
@@ -274,21 +340,16 @@ function HubDashboard({ user }: { user: any }) {
       source.connect(audioContextRef.current.destination);
       source.onended = () => processAudioQueue();
       source.start();
-    } catch (e) {
-      console.error('오디오 재생 에러:', e);
-      processAudioQueue();
-    }
+    } catch { processAudioQueue(); }
   };
 
   const cleanupVoiceMode = () => {
     if (wsRef.current) { try { wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); } catch {} wsRef.current = null; }
     if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
-    if (processorRef.current) {
-      try { const { processor, source, audioContext } = processorRef.current; processor.disconnect(); source.disconnect(); audioContext.close(); } catch {}
-      processorRef.current = null;
-    }
+    if (processorRef.current) { try { const { processor, source, audioContext } = processorRef.current; processor.disconnect(); source.disconnect(); audioContext.close(); } catch {} processorRef.current = null; }
     audioQueueRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
   };
+
   const startAudioCapture = (stream: MediaStream, ws: WebSocket) => {
     try {
       const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -305,6 +366,7 @@ function HubDashboard({ user }: { user: any }) {
       processorRef.current = { processor: prc, source: src, audioContext: ac };
     } catch (e) { console.error('오디오 캡처 에러:', e); }
   };
+
   const startVoiceMode = async () => {
     if (isConnectedRef.current) return;
     try {
@@ -319,10 +381,8 @@ function HubDashboard({ user }: { user: any }) {
           const msg = JSON.parse(event.data);
           if (msg.type === 'session_started') { isConnectedRef.current = true; setVoiceStatus('듣는중...'); startAudioCapture(stream, ws); }
           if (msg.type === 'audio' && msg.data) playAudio(msg.data);
-          if (msg.type === 'transcript' && msg.role === 'user')
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg.text }]);
-          if (msg.type === 'transcript' && msg.role === 'assistant')
-            setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
+          if (msg.type === 'transcript' && msg.role === 'user') setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: msg.text }]);
+          if (msg.type === 'transcript' && msg.role === 'assistant') setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
           if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
         } catch {}
       };
@@ -330,6 +390,7 @@ function HubDashboard({ user }: { user: any }) {
       ws.onclose = () => { isConnectedRef.current = false; setVoiceStatus('대기중'); setIsVoiceMode(false); };
     } catch { alert('마이크 권한이 필요합니다.'); cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); }
   };
+
   const stopVoiceMode = () => { cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); };
   const toggleVoiceMode = () => { isVoiceMode ? stopVoiceMode() : startVoiceMode(); };
 
@@ -337,8 +398,7 @@ function HubDashboard({ user }: { user: any }) {
 
   return (
     <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
-
-      {/* ── 상단 머니야 프로필 배너 ── */}
+      {/* 상단 머니야 프로필 배너 */}
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
         <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
         <div className="flex items-center gap-3 relative z-10">
@@ -361,7 +421,6 @@ function HubDashboard({ user }: { user: any }) {
             </div>
           </div>
         </div>
-        {/* 음성모드 파형 */}
         {isVoiceMode && (
           <div className="flex items-center gap-1 mt-3 justify-center">
             {[...Array(8)].map((_, i) => (
@@ -374,7 +433,7 @@ function HubDashboard({ user }: { user: any }) {
         )}
       </div>
 
-      {/* ── 키워드 칩 ── */}
+      {/* 키워드 칩 */}
       <div className="px-4 pt-3 pb-1 flex gap-2 overflow-x-auto">
         {CHIPS.map(q => (
           <button key={q} onClick={() => sendTextMessage(q)}
@@ -385,13 +444,11 @@ function HubDashboard({ user }: { user: any }) {
         ))}
       </div>
 
-      {/* ── 대화창 ── */}
+      {/* 대화창 */}
       <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map(m => (
           <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            {m.role === 'assistant' && (
-              <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 mt-1 rounded-full" />
-            )}
+            {m.role === 'assistant' && <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 mt-1 rounded-full" />}
             <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
               ${m.role === 'assistant' ? 'bg-white border border-gray-100 text-gray-800 shadow-sm' : 'text-white'}`}
               style={m.role === 'user' ? { background: GOLD } : {}}>
@@ -411,17 +468,15 @@ function HubDashboard({ user }: { user: any }) {
         )}
       </div>
 
-      {/* ── 하단 입력바 고정 ── */}
+      {/* 하단 입력바 */}
       <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
         <div className="flex items-center gap-2">
-          {/* + 버튼 */}
           <button className="w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0"
             style={{ borderColor: GOLD, background: '#fffdf5' }}>
             <svg className="w-5 h-5" style={{ color: GOLD }} fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
           </button>
-          {/* 마이크 버튼 */}
           <button onClick={toggleVoiceMode}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{ background: isVoiceMode ? '#ef4444' : GOLD }}>
@@ -429,7 +484,6 @@ function HubDashboard({ user }: { user: any }) {
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
             </svg>
           </button>
-          {/* 텍스트 입력 */}
           <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
             <input type="text" value={inputText}
               onChange={e => setInputText(e.target.value)}
@@ -438,7 +492,6 @@ function HubDashboard({ user }: { user: any }) {
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
               disabled={isLoading || isVoiceMode} />
           </div>
-          {/* 전송 버튼 */}
           <button onClick={() => sendTextMessage(inputText)}
             disabled={!inputText.trim() || isLoading || isVoiceMode}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
@@ -448,47 +501,6 @@ function HubDashboard({ user }: { user: any }) {
             </svg>
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── 일정 (기존 그대로) ────────────────────────────
-function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string) => void }) {
-  const [checks, setChecks] = useState({ q: true, camera: false, env: false });
-  const nextConsult = userData.nextConsultDate;
-  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
-  if (nextConsult) {
-    const now = new Date();
-    const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
-    const diff = consult.getTime() - now.getTime();
-    dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }) + ' ' + consult.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  }
-  return (
-    <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: GOLD }}>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 상담</p>
-        {nextConsult ? (
-          <>
-            <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
-            {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
-            <div className="mt-4">
-              <p className="text-xs text-gray-400 mb-2">준비사항</p>
-              {([{key:'q' as const,label:'사전 질문지 작성 완료'},{key:'camera' as const,label:'카메라/마이크 테스트'},{key:'env' as const,label:'조용한 환경 확보'}]).map(item => (
-                <div key={item.key} onClick={() => setChecks(p => ({...p,[item.key]:!p[item.key]}))} className="flex items-center gap-2 py-2 border-b border-gray-50 cursor-pointer">
-                  <span className={checks[item.key] ? 'text-green-500' : 'text-gray-300'}>{checks[item.key] ? '☑' : '☐'}</span>
-                  <span className={`text-sm ${checks[item.key] ? 'text-green-600' : 'text-gray-600'}`}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="h-px bg-gray-100 my-4" />
-            <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink,'_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }} className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={isZoomActive ? { background: GOLD } : {}}>💻 줌 상담 입장하기</button>
-            {!isZoomActive && <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>}
-            <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">📅 일정 변경 요청</button>
-          </>
-        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>}
       </div>
     </div>
   );
@@ -577,8 +589,8 @@ function ConsultationHub({ user }: { user: any }) {
   const subTabs = [
     { id: 'dashboard', label: '홈',    icon: '🏠' },
     { id: 'finance',   label: '내 재무', icon: '📊' },
-    { id: 'chat',      label: '머니야', icon: '💬' },
-    { id: 'schedule',  label: '일정',  icon: '📅' },
+    { id: 'zoom',      label: '머니야', icon: '🎥' },
+    { id: 'schedule',  label: '일정',  icon: '💬' },
     { id: 'history',   label: '이력',  icon: '📋' },
     { id: 'files',     label: '서류함', icon: '📎' },
   ];
@@ -596,10 +608,10 @@ function ConsultationHub({ user }: { user: any }) {
         </div>
       </div>
       <div className="flex-1 overflow-hidden bg-gray-50">
-        {activeSubTab === 'dashboard' && <HubDashboard user={user} />}
+        {activeSubTab === 'dashboard' && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
-        {activeSubTab === 'chat'      && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
-        {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'zoom'      && <ZoomConsult user={user} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'schedule'  && <Schedule user={user} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
       </div>
