@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
@@ -7,6 +8,6 @@
 
 ---
 
-**④ 커밋 메시지**
+**③ 커밋 메시지**
 ```
-fix: Vercel SPA 라우팅 설정 추가
+fix: vercel.json version 추가
