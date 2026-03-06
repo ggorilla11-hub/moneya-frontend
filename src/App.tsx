@@ -458,7 +458,7 @@ function App() {
           )}
           {/* ★★★ 상담탭 → ConsultationPage (홈/내재무/줌상담/일정/이력/서류) ★★★ */}
           {currentTab === 'consultation' && (
-            <ConsultationPage />
+            <ConsultationPage user={user} />
           )}
           {currentTab === 'mypage' && (
             <MyPage
