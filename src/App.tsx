@@ -18,8 +18,8 @@ import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
-import ConsultingPage from './pages/ConsultingPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
+import ConsultationPage from './pages/ConsultationPage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
@@ -271,11 +271,6 @@ function App() {
     if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
   };
 
-  const handleConsultingApply = (product: ConsultingProduct) => {
-    setSelectedProduct(product);
-    setCurrentStep('consulting-apply');
-  };
-
   const handleLogout = () => auth.signOut();
 
   const handleRestart = () => {
@@ -461,14 +456,9 @@ function App() {
               )}
             </FinancialHouseProvider>
           )}
-          {/* ★★★ 상담탭 → ConsultingPage (기존 홈/내재무/줌상담 탭 구조) ★★★ */}
+          {/* ★★★ 상담탭 → ConsultationPage (홈/내재무/줌상담/일정/이력/서류) ★★★ */}
           {currentTab === 'consultation' && (
-            <ConsultingPage
-              onBack={() => setCurrentTab('home')}
-              onApply={handleConsultingApply}
-              displayName={financialResult?.name || user.displayName || '고객'}
-              financialResult={financialResult}
-            />
+            <ConsultationPage />
           )}
           {currentTab === 'mypage' && (
             <MyPage
