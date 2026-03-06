@@ -255,7 +255,7 @@ function ZoomConsult({ user, onToast }: { user: any; onToast: (msg: string) => v
 }
 
 // ── 홈 탭 → AI 머니야 채팅 ─────────────────────────
-function Schedule({ user, userData, onToast }: { user: any; userData: any; onToast: (msg: string) => void }) {
+function Schedule({ user }: { user: any; userData?: any; onToast?: (msg: string) => void }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
