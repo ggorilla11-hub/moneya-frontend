@@ -478,40 +478,48 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
 
   const startCall = useCallback(async () => {
     setPhase('connecting');
-    // 카메라/마이크 권한 시도 (실패해도 화상상담 화면 진입)
+    // 마이크는 필수 (AI 대화용), 카메라는 선택
+    let audioStream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
     } catch {
-      // 권한 없어도 AI 화상상담 진행 (카메라는 아바타로 대체)
+      onToast('마이크 권한이 필요합니다');
+      setPhase('idle');
+      return;
     }
-    // 2초 후 화상상담 활성화 (시뮬레이터와 동일)
+    // 카메라는 별도 시도 (실패해도 진행)
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      videoStream.getTracks().forEach(t => audioStream!.addTrack(t));
+    } catch { /* 카메라 없어도 OK */ }
+    localStreamRef.current = audioStream;
+    if (localVideoRef.current) localVideoRef.current.srcObject = audioStream;
+
+    // 2초 후 화상상담 활성화
     setTimeout(() => {
       setPhase('active');
       const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setMessages([{ role:'ai', text:`안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다. 현재 월 수입과 지출을 말씀해 주세요.`, tag:'📊 1단계: 수입지출 분석 시작', time:t }]);
       timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
-      // 서버 연결 시도 (실패해도 UI는 정상 작동)
+      // 서버 연결
       try {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const ws = new WebSocket(WS_URL);
-        wsRef.current = ws; ws.binaryType = 'arraybuffer';
+        wsRef.current = ws;
         ws.onopen = () => {
           ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, mode: 'video' }));
-          if (localStreamRef.current) {
-            const ac = new AudioContext({ sampleRate: 16000 });
-            const src = ac.createMediaStreamSource(localStreamRef.current);
-            const prc = ac.createScriptProcessor(4096, 1, 1);
-            src.connect(prc); prc.connect(ac.destination);
-            prc.onaudioprocess = (e) => {
-              if (ws.readyState !== WebSocket.OPEN) return;
-              const f32 = e.inputBuffer.getChannelData(0);
-              const i16 = new Int16Array(f32.length);
-              for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
-              ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
-            };
-          }
+          // 마이크 오디오를 서버로 전송 (24000Hz)
+          const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+          const src = ac.createMediaStreamSource(audioStream!);
+          const prc = ac.createScriptProcessor(4096, 1, 1);
+          src.connect(prc); prc.connect(ac.destination);
+          prc.onaudioprocess = (e) => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const f32 = e.inputBuffer.getChannelData(0);
+            const i16 = new Int16Array(f32.length);
+            for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
+            ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+          };
         };
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
