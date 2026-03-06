@@ -18,7 +18,8 @@ import AISpendPage from './pages/AISpendPage';
 import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
-import ConsultingPage from './pages/ConsultingPage';
+// ConsultingPage는 더보기 탭에서 사용 (상담탭은 ConsultingChatPage)
+// import ConsultingPage from './pages/ConsultingPage';
 import ConsultingChatPage from './pages/ConsultingChatPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
@@ -272,6 +273,7 @@ function App() {
     if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleConsultingApply = (product: ConsultingProduct) => {
     setSelectedProduct(product);
     setCurrentStep('consulting-apply');
