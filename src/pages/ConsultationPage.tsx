@@ -254,65 +254,9 @@ function ZoomConsult({ user, onToast }: { user: any; onToast: (msg: string) => v
   );
 }
 
-// ── 일정 탭 → 기존 일정 + AI 머니야 채팅 ─
+// ── 홈 탭 → AI 머니야 채팅 ─────────────────────────
 function Schedule({ user, userData, onToast }: { user: any; userData: any; onToast: (msg: string) => void }) {
-  const [scheduleMode, setScheduleMode] = useState<'schedule'|'chat'>('schedule');
   const displayName = user.displayName || '고객';
-
-  // 기존 일정 UI
-  const nextConsult = userData.nextConsultDate;
-  const [checks, setChecks] = useState({ q: true, camera: false, env: false });
-  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
-  if (nextConsult) {
-    const now = new Date();
-    const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
-    const diff = consult.getTime() - now.getTime();
-    dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }) + ' ' + consult.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  if (scheduleMode === 'schedule') {
-    return (
-      <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-        {/* 모드 전환 버튼 */}
-        <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-          <button onClick={() => setScheduleMode('schedule')}
-            className="flex-1 py-2 rounded-lg text-xs font-bold text-white"
-            style={{ background: GOLD }}>📅 상담 일정</button>
-          <button onClick={() => setScheduleMode('chat')}
-            className="flex-1 py-2 rounded-lg text-xs font-bold text-gray-500">💬 AI 머니야 채팅</button>
-        </div>
-
-        <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: GOLD }}>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 상담</p>
-          {nextConsult ? (
-            <>
-              <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
-              {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
-              <div className="mt-4">
-                <p className="text-xs text-gray-400 mb-2">준비사항</p>
-                {([{key:'q' as const,label:'사전 질문지 작성 완료'},{key:'camera' as const,label:'카메라/마이크 테스트'},{key:'env' as const,label:'조용한 환경 확보'}]).map(item => (
-                  <div key={item.key} onClick={() => setChecks(p => ({...p,[item.key]:!p[item.key]}))} className="flex items-center gap-2 py-2 border-b border-gray-50 cursor-pointer">
-                    <span className={checks[item.key] ? 'text-green-500' : 'text-gray-300'}>{checks[item.key] ? '☑' : '☐'}</span>
-                    <span className={`text-sm ${checks[item.key] ? 'text-green-600' : 'text-gray-600'}`}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="h-px bg-gray-100 my-4" />
-              <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink,'_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
-                className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                style={isZoomActive ? { background: GOLD } : {}}>💻 줌 상담 입장하기</button>
-              {!isZoomActive && <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>}
-              <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">📅 일정 변경 요청</button>
-            </>
-          ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>}
-        </div>
-      </div>
-    );
-  }
-
-  // AI 머니야 채팅 모드 (scheduleMode === 'chat')
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
   ]);
@@ -454,16 +398,7 @@ function Schedule({ user, userData, onToast }: { user: any; userData: any; onToa
 
   return (
     <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
-      {/* 모드 전환 버튼 */}
-      <div className="px-4 pt-3 flex gap-2 bg-gray-50">
-        <div className="flex gap-2 bg-gray-100 rounded-xl p-1 w-full">
-          <button onClick={() => setScheduleMode('schedule')}
-            className="flex-1 py-2 rounded-lg text-xs font-bold text-gray-500">📅 상담 일정</button>
-          <button onClick={() => setScheduleMode('chat')}
-            className="flex-1 py-2 rounded-lg text-xs font-bold text-white"
-            style={{ background: GOLD }}>💬 AI 머니야 채팅</button>
-        </div>
-      </div>
+      {/* 상단 머니야 프로필 배너 */}
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
         <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
         <div className="flex items-center gap-3 relative z-10">
@@ -652,12 +587,12 @@ function ConsultationHub({ user }: { user: any }) {
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
   const displayName = user.displayName || '고객';
   const subTabs = [
-    { id: 'dashboard', label: '홈',    icon: '🏠' },
+    { id: 'dashboard', label: '홈',     icon: '🏠' },
     { id: 'finance',   label: '내 재무', icon: '📊' },
-    { id: 'zoom',      label: '머니야', icon: '🎥' },
-    { id: 'schedule',  label: '일정',  icon: '💬' },
-    { id: 'history',   label: '이력',  icon: '📋' },
-    { id: 'files',     label: '서류함', icon: '📎' },
+    { id: 'zoom',      label: '줌상담',  icon: '🎥' },
+    { id: 'schedule',  label: '일정',   icon: '📅' },
+    { id: 'history',   label: '이력',   icon: '📋' },
+    { id: 'files',     label: '서류함',  icon: '📎' },
   ];
   return (
     <div className="flex flex-col h-full">
@@ -673,10 +608,10 @@ function ConsultationHub({ user }: { user: any }) {
         </div>
       </div>
       <div className="flex-1 overflow-hidden bg-gray-50">
-        {activeSubTab === 'dashboard' && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'dashboard' && <Schedule user={user} userData={userData} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
         {activeSubTab === 'zoom'      && <ZoomConsult user={user} onToast={msg => setToast(msg)} />}
-        {activeSubTab === 'schedule'  && <Schedule user={user} userData={userData} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'schedule'  && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
       </div>
