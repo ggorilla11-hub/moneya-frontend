@@ -51,70 +51,7 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   );
 }
 
-// ── 홈 대시보드 (기존 그대로) ─────────────────────
-function MoneyaInfo({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
-  const scores = userData.consultationScores || {};
-  const latestScore = userData.latestScore || 0;
-  const nextConsult = userData.nextConsultDate || null;
-  const floorLabels = ['1층 기초체력', '2층 안전장치', '3층 부동산', '4층 보장자산', '5층 은퇴설계', '6층 투자성장'];
-  const floorScores = [scores.f1||0, scores.f2||0, scores.f3||0, scores.f4||0, scores.f5||0, scores.f6||0];
-  let weakestIdx = 0; let weakestScore = 100;
-  floorScores.forEach((s, i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
-  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
-  if (nextConsult) {
-    const now = new Date();
-    const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
-    const diff = consult.getTime() - now.getTime();
-    dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
-  }
-  return (
-    <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      <div className="bg-white rounded-2xl border shadow-sm p-4" style={{ borderColor: GOLD }}>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 정기상담</p>
-        {nextConsult ? (
-          <>
-            <p className="text-base font-bold text-gray-900">📅 {consultDateStr}</p>
-            {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink, '_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                style={isZoomActive ? { background: GOLD } : {}}>💻 줌 입장하기</button>
-              <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-200">📅 일정변경</button>
-            </div>
-          </>
-        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다</p>}
-      </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-3xl">🏠</span>
-          <div><span className="text-2xl font-extrabold" style={{ color: GOLD }}>{latestScore}점</span>
-            <div className="w-32 bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${latestScore}%`, background: GOLD }} /></div>
-          </div>
-        </div>
-        {floorLabels.map((label, idx) => (
-          <div key={label} className="flex items-center gap-2 mb-2">
-            <span className="text-xs">{si(floorScores[idx])}</span>
-            <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
-            <ScoreBar score={floorScores[idx]} color={floorScores[idx] >= 80 ? '#10B981' : floorScores[idx] >= 60 ? '#F59E0B' : '#EF4444'} />
-            <span className={`text-xs font-bold w-6 text-right ${sc(floorScores[idx])}`}>{floorScores[idx]}</span>
-          </div>
-        ))}
-      </div>
-      <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
-        <div className="flex gap-3">
-          <img src={MONEYA_IMG} alt="머니야" className="w-10 h-10 object-contain" />
-          <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
-            {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 // ── 내 재무 (기존 그대로) ─────────────────────────
 function MyFinance({ userData }: { userData: any }) {
@@ -438,7 +375,6 @@ interface NoteData {
   webContent?: string;
 }
 interface VCMessage { role: 'ai' | 'user'; text: string; tag?: string; time: string; }
-interface AnalysisItem { color: 'red' | 'yellow' | 'green' | 'blue'; label: string; value: string; sub: string; }
 
 function FinancialHouseSVG({ highlights = [] }: { highlights?: string[] }) {
   return (
@@ -835,13 +771,12 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
   const floorScores = [scores.f1||0,scores.f2||0,scores.f3||0,scores.f4||0,scores.f5||0,scores.f6||0];
   let weakestIdx = 0; let weakestScore = 100;
   floorScores.forEach((s,i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
-  let dDay: number|null = null; let isZoomActive = false; let consultDateStr = '';
+  let dDay: number|null = null; let consultDateStr = '';
   if (nextConsult) {
     const now = new Date();
     const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
     const diff = consult.getTime() - now.getTime();
     dDay = Math.ceil(diff/(1000*60*60*24));
-    isZoomActive = diff > 0 && diff <= 10*60*1000;
     consultDateStr = consult.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}) + ' ' + consult.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   }
   return (
