@@ -417,8 +417,7 @@ function FinancialHouseSVG({ highlights = [] }: { highlights?: string[] }) {
   );
 }
 
-function SmartNote({ noteData }: { noteData: NoteData }) {
-  const [activeTab, setActiveTab] = useState<'house'|'chart'|'calc'|'video'|'web'>('house');
+function SmartNote({ noteData, activeTab, onTabChange }: { noteData: NoteData; activeTab: 'house'|'chart'|'calc'|'video'|'web'; onTabChange: (tab: 'house'|'chart'|'calc'|'video'|'web') => void }) {
   const tabs = [
     { id: 'house' as const, label: '🏠 금융집짓기' },
     { id: 'chart' as const, label: '📊 차트' },
@@ -430,7 +429,7 @@ function SmartNote({ noteData }: { noteData: NoteData }) {
     <div style={{ background: 'white', borderRadius: 16, border: '1px solid #E5E5E5', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
       <div style={{ display: 'flex', gap: 2, padding: '8px 8px 0', borderBottom: '1px solid #F0F0F0', background: '#FAFAFA', overflowX: 'auto', scrollbarWidth: 'none' }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: '8px 8px 0 0', border: 'none', background: activeTab === tab.id ? 'white' : 'transparent', color: activeTab === tab.id ? '#D4A017' : '#888', fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 11, cursor: 'pointer', borderBottom: activeTab === tab.id ? '2px solid #D4A017' : '2px solid transparent', transition: 'all 0.2s', fontFamily: 'inherit' }}>{tab.label}</button>
+          <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: '8px 8px 0 0', border: 'none', background: activeTab === tab.id ? 'white' : 'transparent', color: activeTab === tab.id ? '#D4A017' : '#888', fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 11, cursor: 'pointer', borderBottom: activeTab === tab.id ? '2px solid #D4A017' : '2px solid transparent', transition: 'all 0.2s', fontFamily: 'inherit' }}>{tab.label}</button>
         ))}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
@@ -499,6 +498,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [activeNoteTab, setActiveNoteTab] = useState<'house'|'chart'|'calc'|'video'|'web'>('house');
   const [noteData, setNoteData] = useState<NoteData>({ houseHighlights: [], chips: [{ label: '💰 월 수입 입력 전', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' }] });
   const [messages, setMessages] = useState<VCMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
@@ -531,11 +531,100 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     if (!isPlayingRef.current) processAudioQueue();
   }, [processAudioQueue]);
 
-  const handleSmartNoteUpdate = useCallback((args: { note_type: string; content: string }) => {
-    if (args.note_type === 'house_svg') { try { const d = JSON.parse(args.content); setNoteData(p => ({ ...p, houseHighlights: d.highlights||[], chips: d.chips||p.chips })); } catch {} }
-    else if (args.note_type === 'chart') setNoteData(p => ({ ...p, chartContent: args.content }));
-    else if (args.note_type === 'calculation') { try { const items = JSON.parse(args.content); setNoteData(p => ({ ...p, calcContent: Array.isArray(items)?items:[items] })); } catch {} }
-    else if (args.note_type === 'web') setNoteData(p => ({ ...p, webContent: args.content }));
+  // 서버 note_update 이벤트 → 스마트 노트 반영
+  // 서버 구조: { type:'note_update', note_type, highlight, data, query, content }
+  const handleNoteUpdate = useCallback((msg: any) => {
+    const nt = msg.note_type;
+
+    // 금융집짓기 SVG 하이라이트
+    if (nt === 'house') {
+      const highlightMap: Record<string, string> = {
+        insurance: 'insurance', retirement: 'retirement', debt_savings: 'debt',
+        investment_tax: 'investment', realestate: 'real_estate', budget: 'savings', general: '',
+      };
+      const highlight = msg.highlight ? (highlightMap[msg.highlight] || msg.highlight) : '';
+      const chipMap: Record<string, { label: string; bg: string; color: string; border: string }> = {
+        insurance:     { label: '🛡️ 보장자산 분석 중', bg: '#FFF0F0', color: '#C0392B', border: 'rgba(192,57,43,0.3)' },
+        retirement:    { label: '🏠 은퇴설계 분석 중', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' },
+        debt_savings:  { label: '💰 저축/부채 분석 중', bg: '#F0FFF4', color: '#27AE60', border: 'rgba(39,174,96,0.3)' },
+        investment_tax:{ label: '📈 투자/세금 분석 중', bg: '#EFF8FF', color: '#2980B9', border: 'rgba(41,128,185,0.3)' },
+        realestate:    { label: '🏢 부동산 분석 중',   bg: '#F5F0FF', color: '#8E44AD', border: 'rgba(142,68,173,0.3)' },
+        budget:        { label: '📊 예산 분석 중',     bg: '#F0F4FF', color: '#2C3E50', border: 'rgba(44,62,80,0.3)'  },
+      };
+      const chip = msg.highlight ? chipMap[msg.highlight] : null;
+      setNoteData(p => ({
+        ...p,
+        houseHighlights: highlight ? [highlight] : [],
+        chips: chip ? [chip] : p.chips,
+      }));
+      setActiveNoteTab('house');
+    }
+
+    // 차트 탭
+    else if (nt === 'chart') {
+      const d = msg.data || {};
+      if (d.gap !== undefined && d.lumpSum !== undefined) {
+        // 은퇴자금 계산 결과
+        const html = `
+          <div style="background:linear-gradient(135deg,#1A1A2E,#2D2D4E);border-radius:12px;padding:16px;color:white;margin-bottom:10px">
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px">월 부족 자금</div>
+            <div style="font-size:26px;font-weight:700;color:#D4A017">${d.gap}만원/월</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px">은퇴 후 매월 필요</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#0F2A1E,#1A4A2E);border-radius:12px;padding:16px;color:white">
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px">필요 은퇴일시금</div>
+            <div style="font-size:26px;font-weight:700;color:#2ECC71">${d.lumpSum}만원</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px">${d.retireAge || 65}세~${d.lifeExp || 90}세 (${(d.lifeExp||90)-(d.retireAge||65)}년)</div>
+          </div>`;
+        setNoteData(p => ({ ...p, chartContent: html }));
+        setActiveNoteTab('chart');
+      }
+    }
+
+    // 계산 탭
+    else if (nt === 'calc') {
+      const d = msg.data || {};
+      const items: any[] = [];
+      if (d.wealth_index !== undefined) {
+        items.push({ label: '부자지수', value: `${d.wealth_index}점`, sub: `${d.grade || ''} · 100점이 평균` });
+      }
+      if (d.diff !== undefined) {
+        items.push({
+          label: `${d.family || 1}인 가구 생활비 진단`,
+          value: d.diff > 0 ? `+${d.diff}만원 초과` : `${Math.abs(d.diff)}만원 여유`,
+          sub: `기준 ${d.stdAmt || 0}만원 · 현재 ${d.living || 0}만원`,
+        });
+      }
+      if (items.length > 0) {
+        setNoteData(p => ({ ...p, calcContent: items }));
+        setActiveNoteTab('calc');
+      }
+    }
+
+    // 웹자료 탭
+    else if (nt === 'web') {
+      if (msg.query) {
+        const html = `
+          <div style="background:#F8F9FA;border-radius:10px;padding:12px;border:1px solid #E5E5E5">
+            <div style="font-size:11px;color:#666;margin-bottom:8px">🔍 검색 키워드: <strong>${msg.query}</strong></div>
+            <div style="font-size:12px;color:#333;line-height:1.6">${msg.content || 'RAG 지식베이스에서 관련 자료를 검색했습니다.'}</div>
+          </div>`;
+        setNoteData(p => ({ ...p, webContent: html }));
+        setActiveNoteTab('web');
+      }
+    }
+  }, []);
+
+  // 단계 추적 — transcript 내용으로 자동 업데이트
+  const detectStep = useCallback((text: string) => {
+    const stepKeywords = [
+      ['수입','지출','소득','월급'], ['보험','보장','실손'], ['저축','적금','예금'],
+      ['부채','대출','빚'], ['은퇴','노후','연금'], ['투자','주식','펀드'],
+      ['세금','절세','IRP'], ['부동산','아파트','전세']
+    ];
+    for (let i = stepKeywords.length - 1; i >= 0; i--) {
+      if (stepKeywords[i].some(kw => text.includes(kw))) { setCurrentStep(i + 1); break; }
+    }
   }, []);
 
   const initPeerConnection = useCallback(async (ws: WebSocket) => {
@@ -567,7 +656,8 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
       wsRef.current = ws; ws.binaryType = 'arraybuffer';
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'video_create_room' }));
-        ws.send(JSON.stringify({ type: 'start_consult', displayName, mode: 'video' }));
+        // 서버는 userName 필드를 사용 (start_consult 핸들러 확인)
+        ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, mode: 'video' }));
         const ac = new AudioContext({ sampleRate: 16000 });
         const src = ac.createMediaStreamSource(stream);
         const prc = ac.createScriptProcessor(4096, 1, 1);
@@ -577,13 +667,16 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           const f32 = e.inputBuffer.getChannelData(0);
           const i16 = new Int16Array(f32.length);
           for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
-          ws.send(JSON.stringify({ type: 'audio_chunk', audio: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+          // 서버가 'audio' 타입으로 처리하므로 맞춤
+          ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
         };
       };
       ws.onmessage = (event) => {
         if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
         try {
           const msg = JSON.parse(event.data);
+
+          // WebRTC 시그널링
           if (msg.type === 'video_room_created') initPeerConnection(ws);
           if (msg.type === 'video_signal') {
             const pc = pcRef.current; if (!pc) return;
@@ -591,23 +684,50 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             else if (msg.signal.type === 'ice') pc.addIceCandidate(new RTCIceCandidate(msg.signal.candidate));
           }
           if (msg.type === 'video_ended') endCall();
+
+          // AI 세션 시작
           if (msg.type === 'session_started') {
             const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
             setMessages([{ role:'ai', text:`안녕하세요, ${displayName} 고객님! 저는 AI 머니야입니다. 오상열 CFP 20년 노하우로 학습한 AI 재무상담사예요. 오늘 90분 동안 금융집짓기® 8단계로 고객님의 재무설계를 함께 완성해 드릴게요. 편하게 말씀해 주세요. 😊`, tag:'📊 1단계 수입지출 분석 시작', time:t }]);
             setPhase('active');
             timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
           }
+
+          // 대화 텍스트 (STT 자막)
           if (msg.type === 'transcript') {
             const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
             setMessages(p => [...p, { role: msg.role === 'assistant' ? 'ai' : 'user', text: msg.text, time: t }]);
+            if (msg.role === 'assistant') detectStep(msg.text || '');
           }
-          if (msg.type === 'function_call_result' && msg.name === 'update_smart_note') handleSmartNoteUpdate(msg.args);
-          if (msg.type === 'function_call_result' && msg.name === 'update_analysis' && msg.args.step) setCurrentStep(msg.args.step);
+
+          // 오디오 (서버가 base64로 보낼 때 — Realtime delta)
+          if (msg.type === 'audio' && msg.data) {
+            try {
+              const raw = atob(msg.data);
+              const i16 = new Int16Array(raw.length / 2);
+              for (let i = 0; i < i16.length; i++) {
+                i16[i] = (raw.charCodeAt(i*2)) | (raw.charCodeAt(i*2+1) << 8);
+              }
+              playAudioChunk(i16);
+            } catch {}
+          }
+
+          // 스마트 노트 업데이트 — 서버가 'note_update' 타입으로 전송
+          if (msg.type === 'note_update') {
+            handleNoteUpdate(msg);
+          }
+
+          // 인터럽트 (사용자가 말 시작할 때)
+          if (msg.type === 'interrupt') {
+            audioQueueRef.current = [];
+            isPlayingRef.current = false;
+          }
+
         } catch {}
       };
       ws.onerror = () => { onToast('연결에 문제가 발생했습니다.'); setPhase('idle'); };
     } catch { onToast('카메라/마이크 권한이 필요합니다.'); setPhase('idle'); }
-  }, [displayName, playAudioChunk, initPeerConnection, handleSmartNoteUpdate, endCall, onToast]);
+  }, [displayName, playAudioChunk, initPeerConnection, handleNoteUpdate, detectStep, endCall, onToast]);
 
   useEffect(() => { return () => { endCall(); audioCtxRef.current?.close(); }; }, []);
 
@@ -720,7 +840,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         </div>
         {/* 스마트 노트 */}
         <div style={{ flex: 1, overflow: 'hidden', padding: isMobile ? '8px 10px' : 10, background: '#F5F5F5' }}>
-          <SmartNote noteData={noteData} />
+          <SmartNote noteData={noteData} activeTab={activeNoteTab} onTabChange={setActiveNoteTab} />
         </div>
         {/* 대화 기록 */}
         <div style={{ background: '#111', display: 'flex', flexDirection: 'column', height: isMobile ? 150 : '100%', flexShrink: 0, borderTop: isMobile ? '1px solid rgba(255,255,255,0.08)' : 'none', borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
