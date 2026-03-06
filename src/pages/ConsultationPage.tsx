@@ -1071,7 +1071,7 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
   const scores = userData.consultationScores || {};
   const latestScore = userData.latestScore || 0;
   const floorLabels = ['1층 기초체력','2층 안전장치','3층 부동산','4층 보장자산','5층 은퇴설계','6층 투자성장'];
-  const floorScores = [noteState.content?.scores?.f1||0,noteState.content?.scores?.f2||0,noteState.content?.scores?.f3||0,noteState.content?.scores?.f4||0,noteState.content?.scores?.f5||0,noteState.content?.scores?.f6||0];
+  const floorScores = [scores.f1||0, scores.f2||0, scores.f3||0, scores.f4||0, scores.f5||0, scores.f6||0];
   let weakestIdx = 0; let weakestScore = 100;
   floorScores.forEach((s,i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
   let dDay: number|null = null; let consultDateStr = '';
