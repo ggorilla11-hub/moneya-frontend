@@ -1,6 +1,5 @@
-// App.tsx v5.3: 상담 탭 추가 (5번째 탭 💬)
-// ★★★ v5.3 변경사항: ConsultationPage import + MainTab 'consultation' 추가 + 렌더링 추가 ★★★
-// ★★★ 기존 v5.2 코드 일절 변경 없음 ★★★
+// App.tsx v5.3 수정: consultation 탭 → ConsultingPage로 올바르게 연결
+// ★★★ ConsultationPage(화상상담)는 ConsultingPage 내부 줌상담 탭에서만 진입 ★★★
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -34,8 +33,6 @@ import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import FinancialTicker from './components/FinancialTicker';
 import PinLockScreen from './components/PinLockScreen';
-// ★★★ v5.3 추가 ★★★
-import ConsultationPage from './pages/ConsultationPage';
 import { SpendProvider } from './context/SpendContext';
 import { FinancialHouseProvider } from './context/FinancialHouseContext';
 import type { IncomeExpenseData } from './types/incomeExpense';
@@ -90,7 +87,6 @@ type AppStep =
   | 'video-player'
   | 'podcast';
 
-// ★★★ v5.3 수정: 'consultation' 추가 ★★★
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage';
 
 function App() {
@@ -143,14 +139,16 @@ function App() {
           setCurrentStep('financial-check');
           return;
         } else if (targetPage === 'consulting') {
-          setCurrentStep('consulting');
+          setCurrentStep('main');
+          setCurrentTab('consultation');
           return;
         } else if (targetPage === 'mypage') {
           setCurrentStep('main');
           setCurrentTab('mypage');
           return;
         } else if (targetPage === 'mypage-consulting') {
-          setCurrentStep('consulting');
+          setCurrentStep('main');
+          setCurrentTab('consultation');
           return;
         }
 
@@ -263,14 +261,14 @@ function App() {
 
   const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast') => {
     if (page === 'subscription') setCurrentStep('subscription');
-    else if (page === 'consulting') setCurrentStep('consulting');
+    else if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
     else if (page === 'monthly-report') setCurrentStep('monthly-report');
     else if (page === 'online-course') setCurrentStep('online-course');
     else if (page === 'podcast') setCurrentStep('podcast');
   };
 
   const handleHomeNavigate = (page: string) => {
-    if (page === 'consulting') setCurrentStep('consulting');
+    if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
   };
 
   const handleConsultingApply = (product: ConsultingProduct) => {
@@ -372,8 +370,7 @@ function App() {
   if (currentStep === 'detail-report') return <DetailReportPage adjustedBudget={adjustedBudget} onBack={handleDetailReportBack} />;
   if (currentStep === 'faq-more') return <FAQMorePage onBack={handleFAQBack} onSelectQuestion={handleSelectQuestion} />;
   if (currentStep === 'subscription') return <SubscriptionPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} />;
-  if (currentStep === 'consulting') return <ConsultingPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} onApply={handleConsultingApply} />;
-  if (currentStep === 'consulting-apply' && selectedProduct) return <ConsultingApplyPage product={selectedProduct} onBack={() => { setSelectedProduct(null); setCurrentStep('consulting'); }} />;
+  if (currentStep === 'consulting-apply' && selectedProduct) return <ConsultingApplyPage product={selectedProduct} onBack={() => { setSelectedProduct(null); setCurrentTab('consultation'); setCurrentStep('main'); }} />;
   if (currentStep === 'monthly-report') return <SpendProvider userId={user.uid}><MonthlyReportPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} adjustedBudget={adjustedBudget} /></SpendProvider>;
   if (currentStep === 'online-course') return <OnlineCoursePage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} onLessonSelect={(lesson) => handleLessonSelect(lesson, [])} isSubscribed={isSubscribed} />;
   if (currentStep === 'podcast') return <PodcastPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} />;
@@ -455,7 +452,7 @@ function App() {
                   onBack={() => { setDesignInitialTab('insurance'); setFinancialHouseStep('design'); }}
                   onTabClick={(tabId) => { setDesignInitialTab(tabId); setFinancialHouseStep('design'); }}
                   onNavigate={(path) => {
-                    if (path === 'mypage-consulting') setCurrentStep('consulting');
+                    if (path === 'mypage-consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
                     else if (path === 'ai-spend') setCurrentTab('ai-spend');
                     else if (path === 'home') setCurrentTab('home');
                     else if (path === 'mypage') setCurrentTab('mypage');
@@ -464,9 +461,14 @@ function App() {
               )}
             </FinancialHouseProvider>
           )}
-          {/* ★★★ v5.3 수정: user prop 제거 (ConsultationPage는 props 불필요) ★★★ */}
+          {/* ★★★ 상담탭 → ConsultingPage (기존 홈/내재무/줌상담 탭 구조) ★★★ */}
           {currentTab === 'consultation' && (
-            <ConsultationPage />
+            <ConsultingPage
+              onBack={() => setCurrentTab('home')}
+              onApply={handleConsultingApply}
+              displayName={financialResult?.name || user.displayName || '고객'}
+              financialResult={financialResult}
+            />
           )}
           {currentTab === 'mypage' && (
             <MyPage
