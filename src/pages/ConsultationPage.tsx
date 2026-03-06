@@ -1093,7 +1093,7 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
             {dDay !== null && <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: GOLD }}>D-{dDay}</span>}
             <div className="mt-4">
               <p className="text-xs text-gray-400 mb-2">준비사항</p>
-              {([{key:'q',label:'사전 질문지 작성 완료'},{key:'camera',label:'카메라/마이크 테스트'},{key:'env',label:'조용한 환경 확보'}]).map(item => (
+              {([{key:'q' as const,label:'사전 질문지 작성 완료'},{key:'camera' as const,label:'카메라/마이크 테스트'},{key:'env' as const,label:'조용한 환경 확보'}]).map(item => (
                 <div key={item.key} onClick={() => setChecks(p => ({...p,[item.key]:!p[item.key]}))} className="flex items-center gap-2 py-2 border-b border-gray-50 cursor-pointer">
                   <span className={checks[item.key] ? 'text-green-500' : 'text-gray-300'}>{checks[item.key] ? '☑' : '☐'}</span>
                   <span className={`text-sm ${checks[item.key] ? 'text-green-600' : 'text-gray-600'}`}>{item.label}</span>
@@ -1187,7 +1187,7 @@ function Documents({ onToast }: { onToast: (msg: string) => void }) {
         <div className="flex justify-between items-center mb-2"><p className="text-sm font-bold text-gray-700">필수 서류 제출 현황</p><span className="text-sm font-bold" style={{ color: GOLD }}>{completedRequired}/{requiredDocs.length} 완료</span></div>
         <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: GOLD }} /></div>
       </div>
-      {(['필수','선택'] as any).map(section => (
+      {(['필수','선택'] as string[]).map((section: string) => (
         <div key={section} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{section} 서류</p>
           {docDefs.filter(d => section === '필수' ? d.required : !d.required).map(def => (
