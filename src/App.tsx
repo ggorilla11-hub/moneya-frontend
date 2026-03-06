@@ -273,12 +273,6 @@ function App() {
     if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleConsultingApply = (product: ConsultingProduct) => {
-    setSelectedProduct(product);
-    setCurrentStep('consulting-apply');
-  };
-
   const handleLogout = () => auth.signOut();
 
   const handleRestart = () => {
