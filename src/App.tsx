@@ -464,9 +464,9 @@ function App() {
               )}
             </FinancialHouseProvider>
           )}
-          {/* ★★★ v5.3 추가: 상담 탭 ★★★ */}
+          {/* ★★★ v5.3 수정: user prop 제거 (ConsultationPage는 props 불필요) ★★★ */}
           {currentTab === 'consultation' && (
-            <ConsultationPage user={user} />
+            <ConsultationPage />
           )}
           {currentTab === 'mypage' && (
             <MyPage
