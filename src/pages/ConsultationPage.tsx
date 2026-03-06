@@ -357,144 +357,42 @@ function HubDashboard({ user }: { user: any }) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── AI 화상상담 탭 (신규 — WebRTC + 스마트노트) ────────────────
+// ── AI 화상상담 탭 (WebRTC + 스마트노트 + Function Calling) ────
 // ══════════════════════════════════════════════════════════════
 
+// ── 프롬프트 명세 기준 인터페이스 ──
+type NoteType = 'house_svg' | 'chart' | 'calculation' | 'video' | 'web' | 'image' | 'checklist';
+type HighlightFloor = 'basement' | 'pillar_debt' | 'pillar_savings' | 'pillar_retirement' | 'eaves' | 'roof_investment' | 'roof_tax' | 'chimney' | 'none';
 
-interface NoteData {
-  houseHighlights?: string[];
-  chips?: { label: string; bg: string; color: string; border: string }[];
-  chartContent?: string;
-  calcContent?: { label: string; value: string; sub: string; rows?: { val: string; label: string; color?: string }[] }[];
-  webContent?: string;
+interface NoteState {
+  noteType: NoteType;
+  title: string;
+  content: any;          // JSON 파싱된 객체 (타입별 상이)
+  highlightFloor: HighlightFloor;
 }
 interface VCMessage { role: 'ai' | 'user'; text: string; tag?: string; time: string; }
 
-function FinancialHouseSVG({ highlights = [] }: { highlights?: string[] }) {
-  return (
-    <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', borderRadius: 8, overflow: 'hidden' }}>
-      <defs>
-        <linearGradient id="vcGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#C8920F' }} /><stop offset="100%" style={{ stopColor: '#E8C040' }} />
-        </linearGradient>
-        <linearGradient id="vcNavyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#1A3A6E' }} /><stop offset="100%" style={{ stopColor: '#0F2A5C' }} />
-        </linearGradient>
-        <filter id="vcShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15" /></filter>
-      </defs>
-      <rect width="520" height="340" fill="#F8F9FC" />
-      <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity={highlights.includes('real_estate') ? 1 : 0.7} />
-      <text x="380" y="55" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
-      <text x="380" y="68" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
-      <polygon points="80,130 260,40 440,130" fill="url(#vcNavyGrad)" filter="url(#vcShadow)" opacity={highlights.includes('investment') ? 1 : 0.9} />
-      <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
-      <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
-      <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity="0.85" />
-      <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
-      <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity={highlights.includes('debt') ? 1 : 0.8} filter="url(#vcShadow)" />
-      <text x="132" y="200" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채설계</text>
-      <text x="132" y="215" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
-      <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity={highlights.includes('savings') ? 1 : 0.8} filter="url(#vcShadow)" />
-      <text x="260" y="200" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축설계</text>
-      <text x="260" y="215" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
-      <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#vcGoldGrad)" filter="url(#vcShadow)" />
-      {highlights.includes('retirement') && <rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="#D4A017" strokeWidth="3" />}
-      <text x="390" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴설계 ★</text>
-      <text x="390" y="210" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
-      <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity={highlights.includes('insurance') ? 1 : 0.9} filter="url(#vcShadow)" />
-      {highlights.includes('insurance') && <rect x="82" y="262" width="360" height="60" rx="4" fill="none" stroke="#E74C3C" strokeWidth="2" />}
-      <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
-      <text x="200" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.65)">지하층 — 재무 토대</text>
-      <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
-      <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">생활비 3~6개월</text>
-    </svg>
-  );
-}
+const DEFAULT_NOTE_STATE: NoteState = {
+  noteType: 'house_svg',
+  title: '금융집짓기®',
+  content: {},
+  highlightFloor: 'none',
+};
 
-function SmartNote({ noteData, activeTab, onTabChange }: { noteData: NoteData; activeTab: 'house'|'chart'|'calc'|'video'|'web'; onTabChange: (tab: 'house'|'chart'|'calc'|'video'|'web') => void }) {
-  const tabs = [
-    { id: 'house' as const, label: '🏠 금융집짓기' },
-    { id: 'chart' as const, label: '📊 차트' },
-    { id: 'calc' as const, label: '🧮 계산' },
-    { id: 'video' as const, label: '🎬 영상' },
-    { id: 'web' as const, label: '🌐 웹자료' },
-  ];
-  return (
-    <div style={{ background: 'white', borderRadius: 16, border: '1px solid #E5E5E5', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-      <div style={{ display: 'flex', gap: 2, padding: '8px 8px 0', borderBottom: '1px solid #F0F0F0', background: '#FAFAFA', overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: '8px 8px 0 0', border: 'none', background: activeTab === tab.id ? 'white' : 'transparent', color: activeTab === tab.id ? '#D4A017' : '#888', fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 11, cursor: 'pointer', borderBottom: activeTab === tab.id ? '2px solid #D4A017' : '2px solid transparent', transition: 'all 0.2s', fontFamily: 'inherit' }}>{tab.label}</button>
-        ))}
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
-        {activeTab === 'house' && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 3, height: 14, background: '#D4A017', borderRadius: 2, display: 'inline-block' }} />금융집짓기® — 고객 현황
-            </div>
-            <FinancialHouseSVG highlights={noteData.houseHighlights || []} />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-              {noteData.chips?.map((chip, i) => <span key={i} style={{ background: chip.bg, color: chip.color, fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 20, border: `1px solid ${chip.border}` }}>{chip.label}</span>)}
-            </div>
-          </div>
-        )}
-        {activeTab === 'chart' && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#3498DB', borderRadius: 2, display: 'inline-block' }} />자산 포트폴리오 분석</div>
-            {noteData.chartContent ? <div dangerouslySetInnerHTML={{ __html: noteData.chartContent }} /> : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>AI 머니야와 대화하시면<br />차트가 자동으로 생성됩니다</div>}
-          </div>
-        )}
-        {activeTab === 'calc' && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#27AE60', borderRadius: 2, display: 'inline-block' }} />재무 계산 결과</div>
-            {noteData.calcContent ? noteData.calcContent.map((item, i) => (
-              <div key={i} style={{ background: 'linear-gradient(135deg,#1A1A2E,#2D2D4E)', borderRadius: 12, padding: 16, marginBottom: 10, color: 'white' }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: 4 }}>{item.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#D4A017' }}>{item.value}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{item.sub}</div>
-                {item.rows && <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.1)' }}>{item.rows.map((r, j) => <div key={j} style={{ textAlign: 'center' }}><div style={{ fontSize: 15, fontWeight: 700, color: r.color || 'white' }}>{r.val}</div><div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{r.label}</div></div>)}</div>}
-              </div>
-            )) : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>🧮</div>은퇴자금, 보험료 등<br />계산 결과가 여기 표시됩니다</div>}
-          </div>
-        )}
-        {activeTab === 'video' && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#9B59B6', borderRadius: 2, display: 'inline-block' }} />니즈환기 영상 라이브러리</div>
-            {[
-              { emoji: '👴👵', title: '노후준비, 왜 지금 해야 하나요?', duration: '2:34', bg: 'linear-gradient(145deg,#1a1a2e,#16213e)' },
-              { emoji: '🛡️', title: '보험, 제대로 알고 계신가요?', duration: '1:58', bg: 'linear-gradient(145deg,#1a2a1a,#163016)' },
-              { emoji: '📈', title: '복리의 기적 — 10년의 차이', duration: '3:12', bg: 'linear-gradient(145deg,#2a1a0a,#3a2a10)' },
-            ].map((v, i) => (
-              <div key={i} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: '1px solid #E5E5E5' }}>
-                <div style={{ background: v.bg, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  <div style={{ fontSize: 32 }}>{v.emoji}</div>
-                  <div style={{ position: 'absolute', width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>▶</div>
-                  <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>{v.duration}</div>
-                </div>
-                <div style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600, color: '#1A1A1A' }}>{v.title}</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {activeTab === 'web' && (
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#E74C3C', borderRadius: 2, display: 'inline-block' }} />실시간 웹 참조 자료</div>
-            {noteData.webContent ? <div dangerouslySetInnerHTML={{ __html: noteData.webContent }} /> : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>🌐</div>AI 머니야가 상담 중<br />관련 자료를 여기 가져옵니다</div>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── 탭 ID → noteType 매핑 (수동 탭 전환용) ──
+type NoteTabId = 'house' | 'chart' | 'calc' | 'video' | 'web';
+const NOTE_TYPE_TO_TAB: Partial<Record<NoteType, NoteTabId>> = {
+  house_svg: 'house', chart: 'chart', calculation: 'calc', video: 'video', web: 'web', checklist: 'house',
+};
 
 function VideoConsult({ displayName, onToast }: { displayName: string; onToast: (msg: string) => void }) {
   const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'chat'|'ended'>('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [activeNoteTab, setActiveNoteTab] = useState<'house'|'chart'|'calc'|'video'|'web'>('house');
-  const [subtitleIdx, setSubtitleIdx] = useState(0);
-  const [noteData, setNoteData] = useState<NoteData>({ houseHighlights: [], chips: [{ label: '💰 월 수입 입력 전', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' }] });
+  // ── 노트 상태 — 프롬프트 명세 구조 ──
+  const [noteState, setNoteState] = useState<NoteState>(DEFAULT_NOTE_STATE);
+  const [activeNoteTab, setActiveNoteTab] = useState<NoteTabId>('house');
   const [messages, setMessages] = useState<VCMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [aiStatus, setAiStatus] = useState('🤖 분석 중...');
@@ -503,29 +401,10 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const subtitleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<Int16Array[]>([]);
   const isPlayingRef = useRef(false);
-  const steps = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
   const formatTime = (s: number) => { const m = Math.floor(s/60); const sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
-
-  // 시뮬레이터 자막 (서버 연결 전에도 자연스럽게 보이도록)
-  const SUBTITLES = [
-    { speaker: '🤖 AI 머니야', text: `안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다.` },
-    { speaker: `👤 ${displayName}`, text: '네, 월급은 400만원인데 생활비로 200만원 정도 쓰는 것 같아요.' },
-    { speaker: '🤖 AI 머니야', text: '보험료나 저축은 따로 나가고 계신가요? RAG 데이터를 분석해보면...' },
-    { speaker: `👤 ${displayName}`, text: '보험은 30만원, 저축 50만원 적금 넣고 있어요.' },
-    { speaker: '🤖 AI 머니야', text: '수입 400만원 중 지출이 280만원이시네요. 은퇴자금 계획은 세우고 계신가요?' },
-    { speaker: '🤖 AI 머니야', text: '걱정 마세요. 지금부터 금융집짓기® 8단계로 차근차근 설계해드릴게요.' },
-  ];
-
-  // 실시간 분석 패널 데이터
-  const ANALYSIS_ITEMS = [
-    { color: '#FC8181', text: '보험 사망보장\n1억 부족 감지' },
-    { color: '#F6E05E', text: '생활비 52만원\n초과 중' },
-    { color: '#68D391', text: '은퇴자금 목표\n달성률 68%' },
-  ];
 
   const processAudioQueue = useCallback(() => {
     if (!audioQueueRef.current.length) { isPlayingRef.current = false; return; }
@@ -544,88 +423,37 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     if (!isPlayingRef.current) processAudioQueue();
   }, [processAudioQueue]);
 
-  // 서버 note_update 이벤트 → 스마트 노트 반영
-  // 서버 구조: { type:'note_update', note_type, highlight, data, query, content }
-  const handleNoteUpdate = useCallback((msg: any) => {
-    const nt = msg.note_type;
+  // ── smart_note_update 수신 처리 — 프롬프트 명세 기준 ──
+  // 서버 → 프론트: { type:'smart_note_update', noteType, title, content, highlightFloor }
+  const handleSmartNoteUpdate = useCallback((msg: any) => {
+    const noteType: NoteType = msg.noteType || 'house_svg';
+    const title: string = msg.title || '';
+    const content = msg.content || {};
+    const highlightFloor: HighlightFloor = msg.highlightFloor || 'none';
 
-    // 금융집짓기 SVG 하이라이트
-    if (nt === 'house') {
-      const highlightMap: Record<string, string> = {
-        insurance: 'insurance', retirement: 'retirement', debt_savings: 'debt',
-        investment_tax: 'investment', realestate: 'real_estate', budget: 'savings', general: '',
-      };
-      const highlight = msg.highlight ? (highlightMap[msg.highlight] || msg.highlight) : '';
-      const chipMap: Record<string, { label: string; bg: string; color: string; border: string }> = {
-        insurance:     { label: '🛡️ 보장자산 분석 중', bg: '#FFF0F0', color: '#C0392B', border: 'rgba(192,57,43,0.3)' },
-        retirement:    { label: '🏠 은퇴설계 분석 중', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' },
-        debt_savings:  { label: '💰 저축/부채 분석 중', bg: '#F0FFF4', color: '#27AE60', border: 'rgba(39,174,96,0.3)' },
-        investment_tax:{ label: '📈 투자/세금 분석 중', bg: '#EFF8FF', color: '#2980B9', border: 'rgba(41,128,185,0.3)' },
-        realestate:    { label: '🏢 부동산 분석 중',   bg: '#F5F0FF', color: '#8E44AD', border: 'rgba(142,68,173,0.3)' },
-        budget:        { label: '📊 예산 분석 중',     bg: '#F0F4FF', color: '#2C3E50', border: 'rgba(44,62,80,0.3)'  },
-      };
-      const chip = msg.highlight ? chipMap[msg.highlight] : null;
-      setNoteData(p => ({
-        ...p,
-        houseHighlights: highlight ? [highlight] : [],
-        chips: chip ? [chip] : p.chips,
-      }));
-      setActiveNoteTab('house');
-    }
+    setNoteState({ noteType, title, content, highlightFloor });
 
-    // 차트 탭
-    else if (nt === 'chart') {
-      const d = msg.data || {};
-      if (d.gap !== undefined && d.lumpSum !== undefined) {
-        // 은퇴자금 계산 결과
-        const html = `
-          <div style="background:linear-gradient(135deg,#1A1A2E,#2D2D4E);border-radius:12px;padding:16px;color:white;margin-bottom:10px">
-            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px">월 부족 자금</div>
-            <div style="font-size:26px;font-weight:700;color:#D4A017">${d.gap}만원/월</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px">은퇴 후 매월 필요</div>
-          </div>
-          <div style="background:linear-gradient(135deg,#0F2A1E,#1A4A2E);border-radius:12px;padding:16px;color:white">
-            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px">필요 은퇴일시금</div>
-            <div style="font-size:26px;font-weight:700;color:#2ECC71">${d.lumpSum}만원</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px">${d.retireAge || 65}세~${d.lifeExp || 90}세 (${(d.lifeExp||90)-(d.retireAge||65)}년)</div>
-          </div>`;
-        setNoteData(p => ({ ...p, chartContent: html }));
-        setActiveNoteTab('chart');
-      }
-    }
+    // 해당 탭으로 자동 전환
+    const tab = NOTE_TYPE_TO_TAB[noteType];
+    if (tab) setActiveNoteTab(tab);
 
-    // 계산 탭
-    else if (nt === 'calc') {
-      const d = msg.data || {};
-      const items: any[] = [];
-      if (d.wealth_index !== undefined) {
-        items.push({ label: '부자지수', value: `${d.wealth_index}점`, sub: `${d.grade || ''} · 100점이 평균` });
-      }
-      if (d.diff !== undefined) {
-        items.push({
-          label: `${d.family || 1}인 가구 생활비 진단`,
-          value: d.diff > 0 ? `+${d.diff}만원 초과` : `${Math.abs(d.diff)}만원 여유`,
-          sub: `기준 ${d.stdAmt || 0}만원 · 현재 ${d.living || 0}만원`,
-        });
-      }
-      if (items.length > 0) {
-        setNoteData(p => ({ ...p, calcContent: items }));
-        setActiveNoteTab('calc');
-      }
-    }
+    // AI 상태 태그 업데이트
+    const statusMap: Partial<Record<NoteType, string>> = {
+      house_svg: '🏠 금융집짓기 분석 중',
+      chart: '📊 차트 생성 중',
+      calculation: '🧮 계산 완료',
+      video: '🎬 영상 준비됨',
+      web: '🌐 웹 자료 검색 완료',
+      checklist: '✅ 액션플랜 생성됨',
+    };
+    if (statusMap[noteType]) setAiStatus(statusMap[noteType]!);
+  }, []);
 
-    // 웹자료 탭
-    else if (nt === 'web') {
-      if (msg.query) {
-        const html = `
-          <div style="background:#F8F9FA;border-radius:10px;padding:12px;border:1px solid #E5E5E5">
-            <div style="font-size:11px;color:#666;margin-bottom:8px">🔍 검색 키워드: <strong>${msg.query}</strong></div>
-            <div style="font-size:12px;color:#333;line-height:1.6">${msg.content || 'RAG 지식베이스에서 관련 자료를 검색했습니다.'}</div>
-          </div>`;
-        setNoteData(p => ({ ...p, webContent: html }));
-        setActiveNoteTab('web');
-      }
-    }
+  // ── smart_note_clear 수신 처리 ──
+  const handleSmartNoteClear = useCallback(() => {
+    setNoteState(DEFAULT_NOTE_STATE);
+    setActiveNoteTab('house');
+    setAiStatus('🤖 분석 중...');
   }, []);
 
   // 단계 추적 — transcript 내용으로 자동 업데이트
@@ -644,7 +472,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); }
     localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
-    if (subtitleTimerRef.current) clearInterval(subtitleTimerRef.current);
     setElapsed(0);
     setPhase('ended');
   }, []);
@@ -665,7 +492,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
       const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setMessages([{ role:'ai', text:`안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다. 현재 월 수입과 지출을 말씀해 주세요.`, tag:'📊 1단계: 수입지출 분석 시작', time:t }]);
       timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
-      subtitleTimerRef.current = setInterval(() => setSubtitleIdx(i => (i+1) % 6), 3500);
       // 서버 연결 시도 (실패해도 UI는 정상 작동)
       try {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -704,14 +530,16 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 playAudioChunk(i16);
               } catch {}
             }
-            if (msg.type === 'note_update') handleNoteUpdate(msg);
+            // ── 프롬프트 명세 기준 메시지 타입 ──
+            if (msg.type === 'smart_note_update') handleSmartNoteUpdate(msg);
+            if (msg.type === 'smart_note_clear') handleSmartNoteClear();
             if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
           } catch {}
         };
         ws.onerror = () => {}; // 서버 에러는 조용히 처리
       } catch {}
     }, 2000);
-  }, [displayName, playAudioChunk, handleNoteUpdate, detectStep, onToast]);
+  }, [displayName, playAudioChunk, handleSmartNoteUpdate, handleSmartNoteClear, detectStep, onToast]);
 
   useEffect(() => { return () => { endCall(); audioCtxRef.current?.close(); }; }, []);
 
@@ -906,214 +734,287 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             </div>
           </div>
 
-          {/* 노트 콘텐츠 */}
+
+          {/* ── 노트 콘텐츠 — noteState 기반 (프롬프트 명세 기준) ── */}
           <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'20px 24px', scrollbarWidth:'thin' as any, scrollbarColor:'rgba(0,0,0,0.1) transparent' }}>
 
-            {/* ── 탭1: 금융집짓기 SVG ── */}
-            {activeNoteTab === 'house' && (
-              <div style={{ animation:'sFadeIn 0.3s ease' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
-                  <span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🏠 금융집짓기® — {displayName} 고객님 현황
-                </div>
-                <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{ display:'block', borderRadius:8, overflow:'hidden' }}>
-                  <defs>
-                    <linearGradient id="snGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor:'#C8920F'}}/><stop offset="100%" style={{stopColor:'#E8C040'}}/></linearGradient>
-                    <linearGradient id="snNavy" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style={{stopColor:'#1A3A6E'}}/><stop offset="100%" style={{stopColor:'#0F2A5C'}}/></linearGradient>
-                    <filter id="snShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/></filter>
-                  </defs>
-                  <rect width="520" height="340" fill="#F8F9FC"/>
-                  <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity="0.7"/>
-                  <text x="380" y="55" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
-                  <text x="380" y="68" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
-                  <polygon points="80,130 260,40 440,130" fill="url(#snNavy)" filter="url(#snShadow)"/>
-                  <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
-                  <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
-                  <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity="0.85"/>
-                  <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
-                  <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity="0.8" filter="url(#snShadow)"/>
-                  <text x="132" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채</text>
-                  <text x="132" y="210" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.8)">설계</text>
-                  <text x="132" y="225" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
-                  <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity="0.8" filter="url(#snShadow)"/>
-                  <text x="260" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축</text>
-                  <text x="260" y="210" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.8)">설계</text>
-                  <text x="260" y="225" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
-                  <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#snGold)" filter="url(#snShadow)"/>
-                  <rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="#D4A017" strokeWidth="2.5"/>
-                  <text x="390" y="188" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴</text>
-                  <text x="390" y="203" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.9)">설계 ★</text>
-                  <text x="390" y="218" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
-                  <text x="390" y="233" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">2.4억</text>
-                  <text x="390" y="247" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">목표 68%</text>
-                  <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity="0.9" filter="url(#snShadow)"/>
-                  <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
-                  <text x="200" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.65)">사망보장 1억 부족 ⚠️</text>
-                  <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
-                  <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">목표: 600만원</text>
-                </svg>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:12 }}>
-                  {[
-                    {bg:'#FFF3CC',color:'#C8920F',border:'rgba(200,146,15,0.3)',label:'💰 월 수입 400만'},
-                    {bg:'#FFE5E5',color:'#C0392B',border:'rgba(192,57,43,0.3)',label:'⚠️ 사망보장 부족'},
-                    {bg:'#E8F5E9',color:'#1E7E34',border:'rgba(30,126,52,0.3)',label:'✅ 보험료 비율 적정'},
-                    {bg:'#E3F2FD',color:'#1A5CA8',border:'rgba(26,92,168,0.3)',label:'🎯 은퇴 목표 68%'},
-                    {bg:'#F3E5F5',color:'#7B1FA2',border:'rgba(123,31,162,0.3)',label:'🕳 지출 블랙홀 120만'},
-                  ].map((c,i) => <span key={i} style={{ background:c.bg, color:c.color, fontSize:10, fontWeight:700, padding:'4px 10px', borderRadius:20, border:`1px solid ${c.border}` }}>{c.label}</span>)}
-                </div>
+            {/* AI가 설정한 제목 배너 */}
+            {noteState.title && noteState.title !== '금융집짓기®' && (
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, padding:'8px 12px', background:'rgba(212,160,23,0.08)', borderRadius:10, border:'1px solid rgba(212,160,23,0.2)' }}>
+                <div style={{ width:3, height:14, background:'#D4A017', borderRadius:2, flexShrink:0 }} />
+                <span style={{ fontSize:12, fontWeight:700, color:'#0F2A5C' }}>{noteState.title}</span>
+                <span style={{ fontSize:10, color:'#888', marginLeft:'auto' }}>AI 머니야 분석</span>
               </div>
             )}
 
-            {/* ── 탭2: 포트폴리오 ── */}
-            {activeNoteTab === 'chart' && (
-              <div style={{ animation:'sFadeIn 0.3s ease' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:14, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />📊 자산 포트폴리오 분석</div>
-                <svg width="100%" viewBox="0 0 320 180" style={{ display:'block', margin:'0 auto 16px' }}>
-                  <text x="160" y="20" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">현재 자산배분</text>
-                  <circle cx="100" cy="100" r="60" fill="none" stroke="#F0F0F0" strokeWidth="28"/>
-                  <circle cx="100" cy="100" r="60" fill="none" stroke="#2C3E50" strokeWidth="28" strokeDasharray="113 264" strokeDashoffset="0" transform="rotate(-90 100 100)"/>
-                  <circle cx="100" cy="100" r="60" fill="none" stroke="#27AE60" strokeWidth="28" strokeDasharray="75 264" strokeDashoffset="-113" transform="rotate(-90 100 100)"/>
-                  <circle cx="100" cy="100" r="60" fill="none" stroke="#3498DB" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-188" transform="rotate(-90 100 100)"/>
-                  <circle cx="100" cy="100" r="60" fill="none" stroke="#E8C040" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-226" transform="rotate(-90 100 100)"/>
-                  <text x="100" y="97" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">총 자산</text>
-                  <text x="100" y="112" textAnchor="middle" fontSize="13" fill="#0F2A5C" fontWeight="700">3,200만</text>
-                  <rect x="185" y="40" width="10" height="10" rx="2" fill="#2C3E50"/><text x="200" y="50" fontSize="10" fill="#444">보험자산 43%</text>
-                  <rect x="185" y="60" width="10" height="10" rx="2" fill="#27AE60"/><text x="200" y="70" fontSize="10" fill="#444">저축 28%</text>
-                  <rect x="185" y="80" width="10" height="10" rx="2" fill="#3498DB"/><text x="200" y="90" fontSize="10" fill="#444">투자 14%</text>
-                  <rect x="185" y="100" width="10" height="10" rx="2" fill="#E8C040"/><text x="200" y="110" fontSize="10" fill="#444">부동산 15%</text>
-                  <text x="185" y="135" fontSize="9" fill="#888">권장 배분</text>
-                  <text x="185" y="150" fontSize="10" fill="#C8920F" fontWeight="600">보험20/저축30/투자35/부동산15</text>
-                  <text x="185" y="165" fontSize="9" fill="#E74C3C">→ 투자 비중 21% 부족</text>
-                </svg>
-                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:10, display:'flex', alignItems:'center', gap:6, marginTop:8 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />📈 은퇴자금 시뮬레이션</div>
-                <svg width="100%" viewBox="0 0 480 160" style={{ display:'block', background:'#F8F9FC', borderRadius:8 }}>
-                  <line x1="50" y1="20" x2="50" y2="130" stroke="#ddd" strokeWidth="1"/>
-                  <line x1="50" y1="130" x2="460" y2="130" stroke="#ddd" strokeWidth="1"/>
-                  <line x1="50" y1="80" x2="460" y2="80" stroke="#eee" strokeWidth="1" strokeDasharray="4,3"/>
-                  <text x="44" y="25" textAnchor="end" fontSize="8" fill="#888">4억</text>
-                  <text x="44" y="83" textAnchor="end" fontSize="8" fill="#888">2억</text>
-                  <text x="44" y="133" textAnchor="end" fontSize="8" fill="#888">0</text>
-                  <text x="80" y="145" textAnchor="middle" fontSize="8" fill="#888">현재(45)</text>
-                  <text x="185" y="145" textAnchor="middle" fontSize="8" fill="#888">50세</text>
-                  <text x="290" y="145" textAnchor="middle" fontSize="8" fill="#888">55세</text>
-                  <text x="395" y="145" textAnchor="middle" fontSize="8" fill="#888">60세</text>
-                  <polyline points="80,122 185,110 290,92 395,68" fill="none" stroke="#E74C3C" strokeWidth="2" strokeDasharray="6,3"/>
-                  <polyline points="80,122 185,102 290,75 395,38" fill="none" stroke="#D4A017" strokeWidth="2.5"/>
-                  <line x1="50" y1="38" x2="460" y2="38" stroke="#27AE60" strokeWidth="1" strokeDasharray="4,3" opacity="0.6"/>
-                  <line x1="280" y1="18" x2="300" y2="18" stroke="#E74C3C" strokeWidth="2" strokeDasharray="5,3"/>
-                  <text x="305" y="22" fontSize="9" fill="#888">현재 추세 2.4억</text>
-                  <line x1="370" y1="18" x2="390" y2="18" stroke="#D4A017" strokeWidth="2.5"/>
-                  <text x="395" y="22" fontSize="9" fill="#C8920F" fontWeight="600">개선 후 4억</text>
-                  <circle cx="395" cy="68" r="4" fill="#E74C3C"/><text x="395" y="60" textAnchor="middle" fontSize="9" fill="#E74C3C" fontWeight="700">2.4억</text>
-                  <circle cx="395" cy="38" r="4" fill="#D4A017"/><text x="395" y="30" textAnchor="middle" fontSize="9" fill="#C8920F" fontWeight="700">4억 ✓</text>
-                </svg>
-              </div>
-            )}
-
-            {/* ── 탭3: 계산기 ── */}
-            {activeNoteTab === 'calc' && (
-              <div style={{ animation:'sFadeIn 0.3s ease' }}>
-                <div style={{ background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)', borderRadius:12, padding:16, marginBottom:16, color:'white' }}>
-                  <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', marginBottom:4 }}>📌 은퇴자금 시뮬레이션</div>
-                  <div style={{ fontSize:28, fontWeight:700, color:'#E8C040' }}>3억 8,400만원</div>
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginTop:2 }}>월 170만원 저축 × 15년 (연 4% 수익률)</div>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.1)' }}>
-                    {[{val:'60세',label:'목표 은퇴'},{val:'25년',label:'사용 기간'},{val:'월 128만',label:'수령 가능액',color:'#34C759'},{val:'+국민연금',label:'예상 65만',color:'#FF9500'}].map((r,i) => (
-                      <div key={i} style={{ textAlign:'center' }}>
-                        <div style={{ fontSize:15, fontWeight:700, color: r.color||'white' }}>{r.val}</div>
-                        <div style={{ fontSize:9, color:'rgba(255,255,255,0.5)', marginTop:2 }}>{r.label}</div>
-                      </div>
-                    ))}
+            {/* TYPE 1: house_svg — 금융집짓기® SVG + highlight_floor */}
+            {activeNoteTab === 'house' && noteState.noteType !== 'checklist' && (()=>{
+              const hl = noteState.noteType==='house_svg' ? noteState.highlightFloor : 'none';
+              const scores = noteState.noteType==='house_svg' ? (noteState.content?.scores||{}) : {};
+              const msg = noteState.noteType==='house_svg' ? noteState.content?.message : '';
+              const isHL = (f:string) => hl===f;
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:3,height:14,background:'#D4A017',borderRadius:2,display:'inline-block'}}/>
+                    🏠 금융집짓기® — {displayName} 고객님 현황
                   </div>
+                  <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{display:'block',borderRadius:8,overflow:'hidden'}}>
+                    <defs>
+                      <linearGradient id="snGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor:'#C8920F'}}/><stop offset="100%" style={{stopColor:'#E8C040'}}/></linearGradient>
+                      <linearGradient id="snNavy" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style={{stopColor:'#1A3A6E'}}/><stop offset="100%" style={{stopColor:'#0F2A5C'}}/></linearGradient>
+                      <filter id="snShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/></filter>
+                    </defs>
+                    <rect width="520" height="340" fill="#F8F9FC"/>
+                    {/* 굴뚝 chimney */}
+                    <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity={isHL('chimney')?1:0.7}/>
+                    {isHL('chimney')&&<rect x="360" y="30" width="40" height="60" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                    <text x="380" y="53" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
+                    <text x="380" y="66" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
+                    {scores.chimney!==undefined&&<text x="380" y="82" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{scores.chimney}점</text>}
+                    {/* 지붕 roof */}
+                    <polygon points="80,130 260,40 440,130" fill="url(#snNavy)" filter="url(#snShadow)" opacity={isHL('roof_investment')||isHL('roof_tax')?1:0.9}/>
+                    {(isHL('roof_investment')||isHL('roof_tax'))&&<polygon points="80,130 260,40 440,130" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                    <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
+                    <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
+                    {/* 처마보 eaves */}
+                    <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity={isHL('eaves')?1:0.85}/>
+                    {isHL('eaves')&&<rect x="80" y="128" width="360" height="22" fill="none" stroke="#D4A017" strokeWidth="2"/>}
+                    <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
+                    {/* 기둥1 부채 pillar_debt */}
+                    <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity={isHL('pillar_debt')?1:0.8} filter="url(#snShadow)"/>
+                    {isHL('pillar_debt')&&<rect x="82" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                    <text x="132" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채설계</text>
+                    <text x="132" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
+                    {scores.pillar_debt!==undefined&&<text x="132" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{scores.pillar_debt}점</text>}
+                    {/* 기둥2 저축 pillar_savings */}
+                    <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity={isHL('pillar_savings')?1:0.8} filter="url(#snShadow)"/>
+                    {isHL('pillar_savings')&&<rect x="210" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                    <text x="260" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축설계</text>
+                    <text x="260" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
+                    {scores.pillar_savings!==undefined&&<text x="260" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{scores.pillar_savings}점</text>}
+                    {/* 기둥3 은퇴 pillar_retirement (골드) */}
+                    <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#snGold)" filter="url(#snShadow)" opacity={isHL('pillar_retirement')?1:0.95}/>
+                    {isHL('pillar_retirement')&&<rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="white" strokeWidth="3"/>}
+                    <text x="390" y="193" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴설계 ★</text>
+                    <text x="390" y="208" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
+                    {scores.pillar_retirement!==undefined&&<text x="390" y="226" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">{scores.pillar_retirement}점</text>}
+                    {/* 지하 보험 basement */}
+                    <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity={isHL('basement')?1:0.9} filter="url(#snShadow)"/>
+                    {isHL('basement')&&<rect x="82" y="262" width="360" height="60" rx="4" fill="none" stroke="#E74C3C" strokeWidth="3"/>}
+                    <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
+                    <text x="200" y="308" textAnchor="middle" fontSize="9" fill={isHL('basement')?'#FF6B6B':'rgba(255,255,255,0.65)'}>
+                      {scores.basement!==undefined?`${scores.basement}점`:'지하층 — 재무 토대'}
+                    </text>
+                    <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
+                    <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">생활비 3~6개월</text>
+                  </svg>
+                  {msg&&<div style={{marginTop:10,padding:'10px 14px',background:'rgba(212,160,23,0.08)',border:'1px solid rgba(212,160,23,0.2)',borderRadius:10,fontSize:12,color:'#0F2A5C',lineHeight:1.6}}>💡 {msg}</div>}
                 </div>
-                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', padding:16, marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:14, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />💸 월 지출 구조 분석</div>
-                  <svg width="100%" viewBox="0 0 400 140" style={{ display:'block' }}>
-                    <rect x="40" y="30" width="44" height="80" rx="4" fill="#3498DB" opacity="0.8"/><text x="62" y="25" textAnchor="middle" fontSize="9" fill="#3498DB" fontWeight="700">생활비</text><text x="62" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">200만</text>
-                    <rect x="110" y="62" width="44" height="48" rx="4" fill="#2C3E50" opacity="0.8"/><text x="132" y="57" textAnchor="middle" fontSize="9" fill="#2C3E50" fontWeight="700">보험료</text><text x="132" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">30만</text>
-                    <rect x="180" y="54" width="44" height="56" rx="4" fill="#27AE60" opacity="0.8"/><text x="202" y="49" textAnchor="middle" fontSize="9" fill="#27AE60" fontWeight="700">저축</text><text x="202" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">50만</text>
-                    <rect x="250" y="46" width="44" height="64" rx="4" fill="#E74C3C" opacity="0.7" stroke="#E74C3C" strokeWidth="2" strokeDasharray="4,2"/><text x="272" y="41" textAnchor="middle" fontSize="9" fill="#E74C3C" fontWeight="700">블랙홀?</text><text x="272" y="120" textAnchor="middle" fontSize="10" fill="#E74C3C" fontWeight="700">120만!</text>
-                    <line x1="30" y1="130" x2="310" y2="130" stroke="#eee" strokeWidth="1"/>
-                    <text x="340" y="82" fontSize="10" fill="#333">합계</text><text x="340" y="96" fontSize="14" fill="#0F2A5C" fontWeight="700">400만</text><text x="340" y="110" fontSize="9" fill="#888">= 수입 전액</text>
+              );
+            })()}
+
+            {/* TYPE 2: chart — 차트/그래프 */}
+            {activeNoteTab === 'chart' && (()=>{
+              const d = noteState.noteType==='chart' ? noteState.content : null;
+              if (!d?.labels) return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:3,height:14,background:'#0A84FF',borderRadius:2,display:'inline-block'}}/>📊 자산 포트폴리오 분석
+                  </div>
+                  <svg width="100%" viewBox="0 0 320 180" style={{display:'block',margin:'0 auto 16px'}}>
+                    <text x="160" y="20" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">현재 자산배분</text>
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#F0F0F0" strokeWidth="28"/>
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#2C3E50" strokeWidth="28" strokeDasharray="113 264" strokeDashoffset="0" transform="rotate(-90 100 100)"/>
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#27AE60" strokeWidth="28" strokeDasharray="75 264" strokeDashoffset="-113" transform="rotate(-90 100 100)"/>
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#3498DB" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-188" transform="rotate(-90 100 100)"/>
+                    <circle cx="100" cy="100" r="60" fill="none" stroke="#E8C040" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-226" transform="rotate(-90 100 100)"/>
+                    <text x="100" y="97" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">총 자산</text>
+                    <text x="100" y="112" textAnchor="middle" fontSize="13" fill="#0F2A5C" fontWeight="700">3,200만</text>
+                    <rect x="185" y="40" width="10" height="10" rx="2" fill="#2C3E50"/><text x="200" y="50" fontSize="10" fill="#444">보험자산 43%</text>
+                    <rect x="185" y="60" width="10" height="10" rx="2" fill="#27AE60"/><text x="200" y="70" fontSize="10" fill="#444">저축 28%</text>
+                    <rect x="185" y="80" width="10" height="10" rx="2" fill="#3498DB"/><text x="200" y="90" fontSize="10" fill="#444">투자 14%</text>
+                    <rect x="185" y="100" width="10" height="10" rx="2" fill="#E8C040"/><text x="200" y="110" fontSize="10" fill="#444">부동산 15%</text>
+                    <text x="185" y="135" fontSize="9" fill="#888">권장: 보험20/저축30/투자35/부동산15</text>
+                    <text x="185" y="150" fontSize="9" fill="#E74C3C">→ 투자 비중 21% 부족</text>
                   </svg>
                 </div>
-                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', padding:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />🛡️ 보험 구조 최적화</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                    <div style={{ background:'#FFF3F3', borderRadius:8, padding:12, border:'1px solid #FFCDD2' }}>
-                      <div style={{ fontSize:10, color:'#C62828', fontWeight:700, marginBottom:6 }}>현재 구조</div>
-                      <div style={{ fontSize:11, color:'#333', lineHeight:1.8 }}>종신보험 20만<br/>실손보험 10만<br/>─────<br/>합계 30만<br/><span style={{ color:'#E74C3C', fontSize:10 }}>사망보장 1억 부족</span></div>
-                    </div>
-                    <div style={{ background:'#F1F8E9', borderRadius:8, padding:12, border:'1px solid #C5E1A5' }}>
-                      <div style={{ fontSize:10, color:'#2E7D32', fontWeight:700, marginBottom:6 }}>권장 구조</div>
-                      <div style={{ fontSize:11, color:'#333', lineHeight:1.8 }}>정기보험 12만<br/>실손보험 8만<br/>CI보험 10만<br/>─────<br/><span style={{ color:'#27AE60', fontWeight:700 }}>30만 유지 + 보장↑</span></div>
-                    </div>
-                  </div>
+              );
+              const COLORS = ['#3498DB','#2C3E50','#27AE60','#E74C3C','#E8C040','#9B59B6'];
+              const maxVal = Math.max(...d.values,...(d.standard||[]));
+              const barW = Math.floor(280/d.labels.length)-8;
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <svg width="100%" viewBox="0 0 320 150" style={{display:'block',background:'#F8F9FC',borderRadius:8}}>
+                    <text x="160" y="16" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">{d.title||noteState.title}</text>
+                    {d.labels.map((label:string,i:number)=>{
+                      const x=20+i*(barW+8);
+                      const h=Math.round((d.values[i]/maxVal)*90);
+                      const sh=d.standard?Math.round((d.standard[i]/maxVal)*90):0;
+                      return(<g key={i}>
+                        {d.standard&&<rect x={x+barW*0.55} y={120-sh} width={barW*0.4} height={sh} rx="2" fill="#E8E8E8"/>}
+                        <rect x={x} y={120-h} width={barW*0.5} height={h} rx="2" fill={COLORS[i%COLORS.length]}/>
+                        <text x={x+barW*0.25} y={115-h} textAnchor="middle" fontSize="8" fill={COLORS[i%COLORS.length]} fontWeight="700">{d.values[i]}{d.unit||''}</text>
+                        <text x={x+barW*0.25} y={135} textAnchor="middle" fontSize="8" fill="#555">{label}</text>
+                      </g>);
+                    })}
+                  </svg>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {/* ── 탭4: 영상 ── */}
-            {activeNoteTab === 'video' && (
-              <div style={{ animation:'sFadeIn 0.3s ease' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🎬 니즈환기 영상 라이브러리</div>
-                {[
-                  {emoji:'👴👵',title:'노후준비, 왜 지금 해야 하나요?',duration:'2:34',bg:'linear-gradient(145deg,#1a1a2e,#16213e)',sub:'노후준비 니즈환기'},
-                  {emoji:'🛡️',title:'보험, 제대로 알고 계신가요?',duration:'1:58',bg:'linear-gradient(145deg,#1a2a1a,#163016)',sub:'보험 니즈환기'},
-                  {emoji:'📈',title:'복리의 기적 — 10년의 차이',duration:'3:12',bg:'linear-gradient(145deg,#2a1a0a,#3a2a10)',sub:'투자 니즈환기'},
-                ].map((v,i) => (
-                  <div key={i} onClick={() => setPlayingVideo(v.title)} style={{ marginBottom:12, cursor:'pointer', borderRadius:12, overflow:'hidden', boxShadow:'0 4px 16px rgba(0,0,0,0.2)', position:'relative', aspectRatio:'16/9' }}>
-                    <div style={{ background:v.bg, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:6 }}>
-                      <div style={{ fontSize:36 }}>{v.emoji}</div>
-                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)' }}>{v.sub}</div>
-                      <div style={{ width:52, height:52, background:'rgba(212,160,23,0.9)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, boxShadow:'0 4px 20px rgba(212,160,23,0.4)', position:'absolute' }}>▶</div>
+            {/* TYPE 3: calculation — 계산결과 */}
+            {activeNoteTab === 'calc' && (()=>{
+              const d = noteState.noteType==='calculation' ? noteState.content : null;
+              if (!d?.result) return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)',borderRadius:12,padding:16,color:'white'}}>
+                    <div style={{fontSize:10,color:'rgba(255,255,255,0.55)',marginBottom:4}}>📌 은퇴자금 시뮬레이션</div>
+                    <div style={{fontSize:28,fontWeight:700,color:'#E8C040'}}>3억 8,400만원</div>
+                    <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',marginTop:2}}>월 170만원 저축 × 15년 (연 4% 수익률)</div>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+                      {[{val:'60세',label:'목표 은퇴'},{val:'25년',label:'사용 기간'},{val:'월 128만',label:'수령 가능',color:'#34C759'},{val:'국민연금',label:'예상 65만',color:'#FF9500'}].map((r,i)=>(
+                        <div key={i} style={{textAlign:'center'}}>
+                          <div style={{fontSize:13,fontWeight:700,color:r.color||'white'}}>{r.val}</div>
+                          <div style={{fontSize:9,color:'rgba(255,255,255,0.5)',marginTop:2}}>{r.label}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{ position:'absolute', bottom:10, left:12, fontSize:11, fontWeight:700, color:'white', textShadow:'0 1px 4px rgba(0,0,0,0.8)' }}>{v.title}</div>
-                    <div style={{ position:'absolute', bottom:10, right:12, background:'rgba(0,0,0,0.7)', color:'white', fontSize:10, padding:'2px 6px', borderRadius:4 }}>{v.duration}</div>
                   </div>
-                ))}
-                {playingVideo && <div style={{ background:'rgba(212,160,23,0.1)', border:'1px solid rgba(212,160,23,0.3)', borderRadius:8, padding:10, fontSize:12, color:'#D4A017' }}>▶ 재생 중: {playingVideo}</div>}
-              </div>
-            )}
+                </div>
+              );
+              const urgC = d.urgency==='high'?'#E74C3C':d.urgency==='medium'?'#FF9500':'#27AE60';
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)',borderRadius:12,padding:18,color:'white',marginBottom:12}}>
+                    <div style={{fontSize:10,color:'rgba(255,255,255,0.55)',marginBottom:6}}>{d.formula||noteState.title}</div>
+                    <div style={{fontSize:32,fontWeight:700,color:'#E8C040',letterSpacing:'-1px'}}>{d.result}</div>
+                    {d.current&&<div style={{fontSize:11,color:'rgba(255,255,255,0.6)',marginTop:4}}>현재: {d.current}</div>}
+                    {d.gap&&<div style={{marginTop:10,padding:'8px 12px',background:'rgba(231,76,60,0.2)',borderRadius:8,border:'1px solid rgba(231,76,60,0.3)',fontSize:12,color:'#FF6B6B',fontWeight:700}}>⚠️ {d.gap}</div>}
+                  </div>
+                  {d.monthlyNeeded&&<div style={{background:'white',borderRadius:10,padding:'12px 14px',border:`2px solid ${urgC}`}}>
+                    <div style={{fontSize:10,color:'#888',marginBottom:4}}>권장 액션</div>
+                    <div style={{fontSize:14,fontWeight:700,color:urgC}}>💡 {d.monthlyNeeded}</div>
+                  </div>}
+                </div>
+              );
+            })()}
 
-            {/* ── 탭5: 웹자료 ── */}
-            {activeNoteTab === 'web' && (
-              <div style={{ animation:'sFadeIn 0.3s ease' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🌐 실시간 웹 참조 자료</div>
-                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', overflow:'hidden', marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ background:'#F5F5F5', padding:'8px 12px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid #E8E8E8' }}>
-                    <span style={{ fontSize:14 }}>🏛️</span><span style={{ fontSize:10, color:'#888' }}>nhis.or.kr — 국민건강보험공단</span>
+            {/* TYPE 4: video — 동영상 클립 */}
+            {activeNoteTab === 'video' && (()=>{
+              const d = noteState.noteType==='video' ? noteState.content : null;
+              const defaultVids = [
+                {emoji:'👴👵',title:'노후준비, 왜 지금 해야 하나요?',duration:'2:34',bg:'linear-gradient(145deg,#1a1a2e,#16213e)'},
+                {emoji:'🛡️',title:'보험, 제대로 알고 계신가요?',duration:'1:58',bg:'linear-gradient(145deg,#1a2a1a,#163016)'},
+                {emoji:'📈',title:'복리의 기적 — 10년의 차이',duration:'3:12',bg:'linear-gradient(145deg,#2a1a0a,#3a2a10)'},
+              ];
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:3,height:14,background:'#D4A017',borderRadius:2,display:'inline-block'}}/>🎬 니즈환기 영상 라이브러리
                   </div>
-                  <div style={{ padding:'14px 16px' }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:8 }}>2025년 국민연금 예상 수령액 기준표</div>
-                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                      <thead><tr style={{ background:'#F5F5F5' }}>
-                        <th style={{ padding:'5px 8px', textAlign:'left', border:'1px solid #E0E0E0' }}>가입기간</th>
-                        <th style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>월 수령액</th>
-                        <th style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>연 환산</th>
-                      </tr></thead>
-                      <tbody>
-                        <tr><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0' }}>10년</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>약 23만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>276만원</td></tr>
-                        <tr style={{ background:'#FFF9EC' }}><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>20년 (해당)</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>약 65만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>780만원</td></tr>
-                        <tr><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0' }}>30년</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>약 97만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>1,164만원</td></tr>
-                      </tbody>
-                    </table>
-                    <div style={{ fontSize:10, color:'#888', marginTop:6 }}>* 고객님 해당: 가입기간 약 20년 → 월 약 65만원 예상</div>
+                  {d?.url&&<div style={{marginBottom:14,borderRadius:12,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.15)',border:'2px solid rgba(212,160,23,0.4)'}}>
+                    <iframe src={d.url} title={d.title} width="100%" height="180" style={{border:'none',display:'block'}} allowFullScreen/>
+                    <div style={{padding:'10px 14px',background:'white'}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C'}}>{d.title}</div>
+                      {d.duration&&<div style={{fontSize:10,color:'#888',marginTop:2}}>재생시간 {d.duration}</div>}
+                    </div>
+                  </div>}
+                  {defaultVids.map((v,i)=>(
+                    <div key={i} onClick={()=>setPlayingVideo(v.title)} style={{marginBottom:12,cursor:'pointer',borderRadius:12,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',border:playingVideo===v.title?'2px solid #D4A017':'2px solid transparent'}}>
+                      <div style={{background:v.bg,height:90,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
+                        <div style={{fontSize:32}}>{v.emoji}</div>
+                        <div style={{position:'absolute',width:44,height:44,background:'rgba(212,160,23,0.9)',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>▶</div>
+                        <div style={{position:'absolute',bottom:6,right:8,background:'rgba(0,0,0,0.7)',color:'white',fontSize:10,padding:'2px 6px',borderRadius:4}}>{v.duration}</div>
+                      </div>
+                      <div style={{padding:'8px 12px',background:'white',fontSize:11,fontWeight:600,color:'#1A1A1A'}}>{v.title}</div>
+                    </div>
+                  ))}
+                  {playingVideo&&<div style={{background:'rgba(212,160,23,0.1)',border:'1px solid rgba(212,160,23,0.3)',borderRadius:8,padding:10,fontSize:12,color:'#D4A017'}}>▶ 재생 중: {playingVideo}</div>}
+                </div>
+              );
+            })()}
+
+            {/* TYPE 5: web — 웹자료 */}
+            {activeNoteTab === 'web' && (()=>{
+              const d = noteState.noteType==='web' ? noteState.content : null;
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:3,height:14,background:'#D4A017',borderRadius:2,display:'inline-block'}}/>🌐 실시간 웹 참조 자료
+                  </div>
+                  {d?.url&&<div style={{background:'white',borderRadius:12,border:'2px solid rgba(212,160,23,0.3)',overflow:'hidden',marginBottom:14,boxShadow:'0 2px 8px rgba(0,0,0,0.05)'}}>
+                    <div style={{background:'#F5F5F5',padding:'8px 12px',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #E8E8E8'}}>
+                      <span style={{fontSize:14}}>🔗</span>
+                      <a href={d.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:'#0A84FF',textDecoration:'none'}}>{String(d.url).slice(0,50)}...</a>
+                    </div>
+                    <div style={{padding:'14px 16px'}}>
+                      <div style={{fontSize:13,fontWeight:700,color:'#0F2A5C',marginBottom:6}}>{d.title}</div>
+                      {d.description&&<div style={{fontSize:11,color:'#555',lineHeight:1.6}}>{d.description}</div>}
+                    </div>
+                  </div>}
+                  <div style={{background:'white',borderRadius:12,border:'1px solid #E8E8E8',overflow:'hidden',boxShadow:'0 2px 8px rgba(0,0,0,0.05)'}}>
+                    <div style={{background:'#F5F5F5',padding:'8px 12px',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #E8E8E8'}}>
+                      <span style={{fontSize:14}}>🏛️</span><span style={{fontSize:10,color:'#888'}}>nps.or.kr — 국민연금공단</span>
+                    </div>
+                    <div style={{padding:'14px 16px'}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:8}}>2025년 국민연금 예상 수령액 기준표</div>
+                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                        <thead><tr style={{background:'#F5F5F5'}}>
+                          <th style={{padding:'5px 8px',textAlign:'left',border:'1px solid #E0E0E0'}}>가입기간</th>
+                          <th style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>월 수령액</th>
+                          <th style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>연 환산</th>
+                        </tr></thead>
+                        <tbody>
+                          <tr><td style={{padding:'5px 8px',border:'1px solid #E0E0E0'}}>10년</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>약 23만원</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>276만원</td></tr>
+                          <tr style={{background:'#FFF9EC'}}><td style={{padding:'5px 8px',border:'1px solid #E0E0E0',fontWeight:700,color:'#C8920F'}}>20년 (해당)</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0',fontWeight:700,color:'#C8920F'}}>약 65만원</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0',fontWeight:700,color:'#C8920F'}}>780만원</td></tr>
+                          <tr><td style={{padding:'5px 8px',border:'1px solid #E0E0E0'}}>30년</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>약 97만원</td><td style={{padding:'5px 8px',textAlign:'right' as const,border:'1px solid #E0E0E0'}}>1,164만원</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
-                  <div style={{ background:'#F5F5F5', padding:'8px 12px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid #E8E8E8' }}>
-                    <span style={{ fontSize:14 }}>📰</span><span style={{ fontSize:10, color:'#888' }}>관련 기사 — 2025.03</span>
+              );
+            })()}
+
+            {/* TYPE 6: checklist — 액션플랜 체크리스트 */}
+            {noteState.noteType === 'checklist' && activeNoteTab === 'house' && (()=>{
+              const d = noteState.content;
+              const items:({text:string;done:boolean;priority?:string})[] = d?.items||[];
+              const pColor=(p?:string)=>p==='high'?'#E74C3C':p==='medium'?'#FF9500':'#27AE60';
+              return (
+                <div style={{animation:'sFadeIn 0.3s ease'}}>
+                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{width:3,height:14,background:'#27AE60',borderRadius:2,display:'inline-block'}}/>✅ {d?.title||'오늘 상담 액션플랜'}
                   </div>
-                  <div style={{ padding:'14px 16px' }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:6 }}>"40대 직장인 은퇴 준비, 늦었다는 착각"</div>
-                    <div style={{ fontSize:11, color:'#555', lineHeight:1.6 }}>40대부터 시작해도 15~20년의 복리 효과로 충분한 은퇴자금 마련이 가능하다. 핵심은 지출 구조 개선과 투자 비중 확대...</div>
-                    <div style={{ fontSize:10, color:'#D4A017', marginTop:6, fontWeight:600 }}>→ AI 머니야가 이 기사를 참조하여 {displayName} 고객님 맞춤 분석을 진행했습니다</div>
-                  </div>
+                  {items.map((item,i)=>(
+                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',background:item.done?'#F0FFF4':'white',borderRadius:10,marginBottom:8,border:`1px solid ${item.done?'#C5E1A5':'#E8E8E8'}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                      <div style={{width:20,height:20,borderRadius:'50%',background:item.done?'#27AE60':'white',border:`2px solid ${item.done?'#27AE60':'#DDD'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+                        {item.done&&<span style={{fontSize:11,color:'white',fontWeight:700}}>✓</span>}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:600,color:item.done?'#27AE60':'#1A1A1A',textDecoration:item.done?'line-through':'none'}}>{item.text}</div>
+                        {item.priority&&<div style={{fontSize:10,color:pColor(item.priority),marginTop:3,fontWeight:600}}>{item.priority==='high'?'🔴 즉시 실행':item.priority==='medium'?'🟡 1개월 내':'🟢 3개월 내'}</div>}
+                      </div>
+                    </div>
+                  ))}
+                  {items.length===0&&<div style={{textAlign:'center',padding:'30px 20px',color:'#AAA',fontSize:12}}>AI 머니야가 상담 중 액션플랜을 생성합니다</div>}
                 </div>
+              );
+            })()}
+
+            {/* TYPE 7: image — PPT/이미지 */}
+            {noteState.noteType === 'image' && (
+              <div style={{animation:'sFadeIn 0.3s ease'}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:3,height:14,background:'#9B59B6',borderRadius:2,display:'inline-block'}}/>🖼 참조 자료
+                </div>
+                {noteState.content?.url&&<img src={noteState.content.url} alt={noteState.title} style={{width:'100%',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',border:'1px solid #E8E8E8'}}/>}
               </div>
             )}
 
           </div>
+        </div>
         </div>
 
         {/* ── 우측: 실시간 분석 패널 ── */}
