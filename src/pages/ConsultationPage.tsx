@@ -508,23 +508,26 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         wsRef.current = ws;
         ws.onopen = () => {
           ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, mode: 'video' }));
-          // 마이크 오디오를 서버로 전송 (24000Hz)
-          const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-          const src = ac.createMediaStreamSource(audioStream!);
-          const prc = ac.createScriptProcessor(4096, 1, 1);
-          src.connect(prc); prc.connect(ac.destination);
-          prc.onaudioprocess = (e) => {
-            if (ws.readyState !== WebSocket.OPEN) return;
-            const f32 = e.inputBuffer.getChannelData(0);
-            const i16 = new Int16Array(f32.length);
-            for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
-            ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
-          };
+          // session_started를 받은 후 마이크 캡처 시작 (ws.onmessage에서 처리)
         };
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
           try {
             const msg = JSON.parse(event.data);
+            // ★ 핵심: session_started를 받은 후 마이크 캡처 시작
+            if (msg.type === 'session_started') {
+              const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+              const src = ac.createMediaStreamSource(audioStream!);
+              const prc = ac.createScriptProcessor(4096, 1, 1);
+              src.connect(prc); prc.connect(ac.destination);
+              prc.onaudioprocess = (ev) => {
+                if (ws.readyState !== WebSocket.OPEN) return;
+                const f32 = ev.inputBuffer.getChannelData(0);
+                const i16 = new Int16Array(f32.length);
+                for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
+                ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+              };
+            }
             if (msg.type === 'transcript') {
               const t2 = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
               setMessages(p => [...p, { role: msg.role === 'assistant' ? 'ai' : 'user', text: msg.text, time: t2 }]);
