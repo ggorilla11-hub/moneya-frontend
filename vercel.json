@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+---
+
+**④ 커밋 메시지**
+```
+fix: Vercel SPA 라우팅 설정 추가
