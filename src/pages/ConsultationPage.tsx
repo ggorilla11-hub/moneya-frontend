@@ -272,7 +272,7 @@ export default function ConsultationPage() {
     localStreamRef.current = null;
     if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-    setIsVideoMode(false); setIsVoiceMode(false);
+    setIsVideoMode(false);
     setVideoStatus('idle'); stopTimer();
   }, [stopTimer]);
 
