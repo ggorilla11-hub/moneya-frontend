@@ -1,21 +1,18 @@
-// ConsultationPage.tsx v4.0
-// v4.0 수정사항:
-// 1. 홈 서브탭 → 기존 그대로 (대화하기 버튼 텍스트)
-// 2. 머니야 서브탭(3번째) → Claude AI 음성상담 화면
-//    - 상단: 머니야 프로필 + 상태 표시
-//    - 하단 고정: + 마이크 텍스트입력바
-//    - 텍스트/키워드 → 텍스트 답변만
-//    - 마이크 → ElevenLabs 음성 답변
-// 3. 키워드 칩: 재무상담/저축률 진단/보험 분석/은퇴 계산/투자 조언
-// 4. 나머지 서브탭 기존 그대로
+// ConsultationPage.tsx v5.0
+// v5.0 수정사항:
+// 1. 서브탭 "머니야" → "AI 화상상담" (id: 'chat', icon: 📹)
+// 2. chat 탭 렌더링: MoneyaInfo → VideoConsult (WebRTC)
+// 3. schedule 탭: 기존 Schedule + MoneyaInfo(금융집 현황) 합체 → ScheduleWithHouse
+// 4. 지출탭 및 기타 컴포넌트 일절 변경 없음
+// 5. VideoConsult: Phase1(WebRTC) + Phase2(스마트노트) 완전 통합
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface ConsultationDoc { docType: string; fileName: string; fileUrl: string; }
 interface ConsultationPageProps { user: any; }
 
 const API_URL = 'https://moneya-server.onrender.com';
-const WS_URL  = 'wss://moneya-server.onrender.com';
+const WS_URL = 'wss://moneya-server.onrender.com';
 const GOLD = '#c9a53e';
 const MONEYA_IMG = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a';
 
@@ -23,9 +20,9 @@ function sc(s: number) { return s >= 80 ? 'text-green-600' : s >= 60 ? 'text-yel
 function si(s: number) { return s >= 80 ? '✅' : s >= 60 ? '⚠️' : '🔴'; }
 function getCertGrade(n: number) {
   if (n >= 12) return { grade: 'S등급', icon: '💎', next: '최고 등급 달성!' };
-  if (n >= 7)  return { grade: 'A등급', icon: '🥇', next: '12회 이상 → S등급' };
-  if (n >= 3)  return { grade: 'B등급', icon: '🥈', next: '7회 이상 → A등급' };
-  if (n >= 1)  return { grade: 'C등급', icon: '🥉', next: '3회 이상 → B등급' };
+  if (n >= 7) return { grade: 'A등급', icon: '🥇', next: '12회 이상 → S등급' };
+  if (n >= 3) return { grade: 'B등급', icon: '🥈', next: '7회 이상 → A등급' };
+  if (n >= 1) return { grade: 'C등급', icon: '🥉', next: '3회 이상 → B등급' };
   return { grade: '-', icon: '⬜', next: '첫 상담 후 등급 부여' };
 }
 
@@ -114,7 +111,6 @@ function MoneyaInfo({ userData, displayName, onToast }: { userData: any; display
             {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, 안녕하세요! 첫 상담을 예약해보세요.`}
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -173,25 +169,24 @@ function MyFinance({ userData }: { userData: any }) {
   );
 }
 
-// ── 머니야 탭 (3번째) - Claude AI 음성상담 ─────────
+// ── 홈 탭 AI 음성상담 (기존 그대로 — 절대 수정 금지) ─────────
 function HubDashboard({ user }: { user: any }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
     { id: '1', role: 'assistant', text: `안녕하세요 ${displayName}님! 저는 AI 재무설계사 머니야입니다.\n오상열 CFP의 금융집짓기 방법론으로 재무상담을 도와드릴게요.\n\n텍스트 입력 또는 마이크 버튼으로 말씀해주세요! 😊` }
   ]);
-  const [inputText, setInputText]     = useState('');
-  const [isLoading, setIsLoading]     = useState(false);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('대기중');
   const [serverReady, setServerReady] = useState(false);
-
-  const chatAreaRef    = useRef<HTMLDivElement>(null);
-  const wsRef          = useRef<WebSocket | null>(null);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaStreamRef  = useRef<MediaStream | null>(null);
-  const processorRef    = useRef<any>(null);
-  const isPlayingRef    = useRef(false);
-  const isConnectedRef  = useRef(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<any>(null);
+  const isPlayingRef = useRef(false);
+  const isConnectedRef = useRef(false);
 
   useEffect(() => {
     const warmup = async () => {
@@ -208,7 +203,6 @@ function HubDashboard({ user }: { user: any }) {
     }, 80);
   }, [messages]);
 
-  // 텍스트 전송 → 텍스트 답변만 (음성 없음)
   const sendTextMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: text.trim() }]);
@@ -232,21 +226,14 @@ function HubDashboard({ user }: { user: any }) {
     } finally { setIsLoading(false); }
   };
 
-  // 음성모드 → ElevenLabs 음성 답변
-  // MP3 청크 누적 버퍼
   const pcmChunksRef = useRef<string[]>([]);
+  const playAudio = (b64: string) => { pcmChunksRef.current.push(b64); };
 
-  const playAudio = (b64: string) => {
-    pcmChunksRef.current.push(b64);
-  };
-
-  // audio_end 수신 시 누적 PCM16 청크 합쳐서 재생 (OpenAI Realtime shimmer)
   const playAccumulatedAudio = async () => {
     if (!pcmChunksRef.current.length) return;
     try {
       const chunks = pcmChunksRef.current;
       pcmChunksRef.current = [];
-      // base64 → Uint8Array 배열로 변환
       const arrays = chunks.map(b64 => {
         const raw = atob(b64);
         const arr = new Uint8Array(raw.length);
@@ -257,7 +244,6 @@ function HubDashboard({ user }: { user: any }) {
       const merged = new Uint8Array(totalLen);
       let offset = 0;
       for (const a of arrays) { merged.set(a, offset); offset += a.length; }
-      // PCM16 → Float32 변환
       const int16 = new Int16Array(merged.buffer);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768.0;
@@ -282,6 +268,7 @@ function HubDashboard({ user }: { user: any }) {
     }
     pcmChunksRef.current = []; isPlayingRef.current = false; isConnectedRef.current = false;
   };
+
   const startAudioCapture = (stream: MediaStream, ws: WebSocket) => {
     try {
       const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -298,11 +285,12 @@ function HubDashboard({ user }: { user: any }) {
       processorRef.current = { processor: prc, source: src, audioContext: ac };
     } catch (e) { console.error('오디오 캡처 에러:', e); }
   };
+
   const startVoiceMode = async () => {
     if (isConnectedRef.current) return;
     try {
       setVoiceStatus('연결중...'); setIsVoiceMode(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } as MediaTrackConstraints });
       mediaStreamRef.current = stream;
       const ws = new WebSocket(`${WS_URL}?mode=consult`);
       wsRef.current = ws;
@@ -324,15 +312,13 @@ function HubDashboard({ user }: { user: any }) {
       ws.onclose = () => { isConnectedRef.current = false; setVoiceStatus('대기중'); setIsVoiceMode(false); };
     } catch { alert('마이크 권한이 필요합니다.'); cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); }
   };
+
   const stopVoiceMode = () => { cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); };
   const toggleVoiceMode = () => { isVoiceMode ? stopVoiceMode() : startVoiceMode(); };
-
   const CHIPS = ['재무상담', '저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
 
   return (
     <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
-
-      {/* ── 상단 머니야 프로필 배너 ── */}
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
         <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
         <div className="flex items-center gap-3 relative z-10">
@@ -343,8 +329,7 @@ function HubDashboard({ user }: { user: any }) {
             <div className="flex items-center gap-2 mt-1">
               {isVoiceMode ? (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/30 text-green-100 text-xs rounded-full">
-                  <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
-                  {voiceStatus}
+                  <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />{voiceStatus}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-white/20 text-white/80 text-xs rounded-full">
@@ -355,7 +340,6 @@ function HubDashboard({ user }: { user: any }) {
             </div>
           </div>
         </div>
-        {/* 음성모드 파형 */}
         {isVoiceMode && (
           <div className="flex items-center gap-1 mt-3 justify-center">
             {[...Array(8)].map((_, i) => (
@@ -367,19 +351,13 @@ function HubDashboard({ user }: { user: any }) {
           </div>
         )}
       </div>
-
-      {/* ── 키워드 칩 ── */}
       <div className="px-4 pt-3 pb-1 flex gap-2 overflow-x-auto">
         {CHIPS.map(q => (
           <button key={q} onClick={() => sendTextMessage(q)}
             className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border"
-            style={{ color: GOLD, borderColor: GOLD, background: '#fffdf5' }}>
-            {q}
-          </button>
+            style={{ color: GOLD, borderColor: GOLD, background: '#fffdf5' }}>{q}</button>
         ))}
       </div>
-
-      {/* ── 대화창 ── */}
       <div ref={chatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map(m => (
           <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -404,18 +382,14 @@ function HubDashboard({ user }: { user: any }) {
           </div>
         )}
       </div>
-
-      {/* ── 하단 입력바 고정 ── */}
       <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
         <div className="flex items-center gap-2">
-          {/* + 버튼 */}
           <button className="w-10 h-10 rounded-full flex items-center justify-center border-2 flex-shrink-0"
             style={{ borderColor: GOLD, background: '#fffdf5' }}>
             <svg className="w-5 h-5" style={{ color: GOLD }} fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
           </button>
-          {/* 마이크 버튼 */}
           <button onClick={toggleVoiceMode}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{ background: isVoiceMode ? '#ef4444' : GOLD }}>
@@ -423,7 +397,6 @@ function HubDashboard({ user }: { user: any }) {
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
             </svg>
           </button>
-          {/* 텍스트 입력 */}
           <div className="flex-1 flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-2">
             <input type="text" value={inputText}
               onChange={e => setInputText(e.target.value)}
@@ -432,7 +405,6 @@ function HubDashboard({ user }: { user: any }) {
               className="flex-1 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-400"
               disabled={isLoading || isVoiceMode} />
           </div>
-          {/* 전송 버튼 */}
           <button onClick={() => sendTextMessage(inputText)}
             disabled={!inputText.trim() || isLoading || isVoiceMode}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
@@ -447,21 +419,434 @@ function HubDashboard({ user }: { user: any }) {
   );
 }
 
-// ── 일정 (기존 그대로) ────────────────────────────
-function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string) => void }) {
+// ══════════════════════════════════════════════════════════════
+// ── AI 화상상담 탭 (신규 — WebRTC + 스마트노트) ────────────────
+// ══════════════════════════════════════════════════════════════
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
+
+interface NoteData {
+  houseHighlights?: string[];
+  chips?: { label: string; bg: string; color: string; border: string }[];
+  chartContent?: string;
+  calcContent?: { label: string; value: string; sub: string; rows?: { val: string; label: string; color?: string }[] }[];
+  webContent?: string;
+}
+interface VCMessage { role: 'ai' | 'user'; text: string; tag?: string; time: string; }
+interface AnalysisItem { color: 'red' | 'yellow' | 'green' | 'blue'; label: string; value: string; sub: string; }
+
+function FinancialHouseSVG({ highlights = [] }: { highlights?: string[] }) {
+  return (
+    <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', borderRadius: 8, overflow: 'hidden' }}>
+      <defs>
+        <linearGradient id="vcGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: '#C8920F' }} /><stop offset="100%" style={{ stopColor: '#E8C040' }} />
+        </linearGradient>
+        <linearGradient id="vcNavyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style={{ stopColor: '#1A3A6E' }} /><stop offset="100%" style={{ stopColor: '#0F2A5C' }} />
+        </linearGradient>
+        <filter id="vcShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15" /></filter>
+      </defs>
+      <rect width="520" height="340" fill="#F8F9FC" />
+      <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity={highlights.includes('real_estate') ? 1 : 0.7} />
+      <text x="380" y="55" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
+      <text x="380" y="68" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
+      <polygon points="80,130 260,40 440,130" fill="url(#vcNavyGrad)" filter="url(#vcShadow)" opacity={highlights.includes('investment') ? 1 : 0.9} />
+      <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
+      <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
+      <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity="0.85" />
+      <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
+      <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity={highlights.includes('debt') ? 1 : 0.8} filter="url(#vcShadow)" />
+      <text x="132" y="200" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채설계</text>
+      <text x="132" y="215" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
+      <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity={highlights.includes('savings') ? 1 : 0.8} filter="url(#vcShadow)" />
+      <text x="260" y="200" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축설계</text>
+      <text x="260" y="215" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
+      <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#vcGoldGrad)" filter="url(#vcShadow)" />
+      {highlights.includes('retirement') && <rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="#D4A017" strokeWidth="3" />}
+      <text x="390" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴설계 ★</text>
+      <text x="390" y="210" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
+      <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity={highlights.includes('insurance') ? 1 : 0.9} filter="url(#vcShadow)" />
+      {highlights.includes('insurance') && <rect x="82" y="262" width="360" height="60" rx="4" fill="none" stroke="#E74C3C" strokeWidth="2" />}
+      <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
+      <text x="200" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.65)">지하층 — 재무 토대</text>
+      <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
+      <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">생활비 3~6개월</text>
+    </svg>
+  );
+}
+
+function SmartNote({ noteData }: { noteData: NoteData }) {
+  const [activeTab, setActiveTab] = useState<'house'|'chart'|'calc'|'video'|'web'>('house');
+  const tabs = [
+    { id: 'house' as const, label: '🏠 금융집짓기' },
+    { id: 'chart' as const, label: '📊 차트' },
+    { id: 'calc' as const, label: '🧮 계산' },
+    { id: 'video' as const, label: '🎬 영상' },
+    { id: 'web' as const, label: '🌐 웹자료' },
+  ];
+  return (
+    <div style={{ background: 'white', borderRadius: 16, border: '1px solid #E5E5E5', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
+      <div style={{ display: 'flex', gap: 2, padding: '8px 8px 0', borderBottom: '1px solid #F0F0F0', background: '#FAFAFA', overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: '8px 8px 0 0', border: 'none', background: activeTab === tab.id ? 'white' : 'transparent', color: activeTab === tab.id ? '#D4A017' : '#888', fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 11, cursor: 'pointer', borderBottom: activeTab === tab.id ? '2px solid #D4A017' : '2px solid transparent', transition: 'all 0.2s', fontFamily: 'inherit' }}>{tab.label}</button>
+        ))}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+        {activeTab === 'house' && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 3, height: 14, background: '#D4A017', borderRadius: 2, display: 'inline-block' }} />금융집짓기® — 고객 현황
+            </div>
+            <FinancialHouseSVG highlights={noteData.houseHighlights || []} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {noteData.chips?.map((chip, i) => <span key={i} style={{ background: chip.bg, color: chip.color, fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 20, border: `1px solid ${chip.border}` }}>{chip.label}</span>)}
+            </div>
+          </div>
+        )}
+        {activeTab === 'chart' && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#3498DB', borderRadius: 2, display: 'inline-block' }} />자산 포트폴리오 분석</div>
+            {noteData.chartContent ? <div dangerouslySetInnerHTML={{ __html: noteData.chartContent }} /> : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>AI 머니야와 대화하시면<br />차트가 자동으로 생성됩니다</div>}
+          </div>
+        )}
+        {activeTab === 'calc' && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#27AE60', borderRadius: 2, display: 'inline-block' }} />재무 계산 결과</div>
+            {noteData.calcContent ? noteData.calcContent.map((item, i) => (
+              <div key={i} style={{ background: 'linear-gradient(135deg,#1A1A2E,#2D2D4E)', borderRadius: 12, padding: 16, marginBottom: 10, color: 'white' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#D4A017' }}>{item.value}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{item.sub}</div>
+                {item.rows && <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.1)' }}>{item.rows.map((r, j) => <div key={j} style={{ textAlign: 'center' }}><div style={{ fontSize: 15, fontWeight: 700, color: r.color || 'white' }}>{r.val}</div><div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{r.label}</div></div>)}</div>}
+              </div>
+            )) : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>🧮</div>은퇴자금, 보험료 등<br />계산 결과가 여기 표시됩니다</div>}
+          </div>
+        )}
+        {activeTab === 'video' && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#9B59B6', borderRadius: 2, display: 'inline-block' }} />니즈환기 영상 라이브러리</div>
+            {[
+              { emoji: '👴👵', title: '노후준비, 왜 지금 해야 하나요?', duration: '2:34', bg: 'linear-gradient(145deg,#1a1a2e,#16213e)' },
+              { emoji: '🛡️', title: '보험, 제대로 알고 계신가요?', duration: '1:58', bg: 'linear-gradient(145deg,#1a2a1a,#163016)' },
+              { emoji: '📈', title: '복리의 기적 — 10년의 차이', duration: '3:12', bg: 'linear-gradient(145deg,#2a1a0a,#3a2a10)' },
+            ].map((v, i) => (
+              <div key={i} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: '1px solid #E5E5E5' }}>
+                <div style={{ background: v.bg, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  <div style={{ fontSize: 32 }}>{v.emoji}</div>
+                  <div style={{ position: 'absolute', width: 40, height: 40, background: 'rgba(255,255,255,0.9)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>▶</div>
+                  <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>{v.duration}</div>
+                </div>
+                <div style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600, color: '#1A1A1A' }}>{v.title}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {activeTab === 'web' && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 3, height: 14, background: '#E74C3C', borderRadius: 2, display: 'inline-block' }} />실시간 웹 참조 자료</div>
+            {noteData.webContent ? <div dangerouslySetInnerHTML={{ __html: noteData.webContent }} /> : <div style={{ textAlign: 'center', padding: '40px 20px', color: '#AAA', fontSize: 13 }}><div style={{ fontSize: 32, marginBottom: 8 }}>🌐</div>AI 머니야가 상담 중<br />관련 자료를 여기 가져옵니다</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VideoConsult({ displayName, onToast }: { displayName: string; onToast: (msg: string) => void }) {
+  const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'ended'>('idle');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isCamOff, setIsCamOff] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [noteData, setNoteData] = useState<NoteData>({ houseHighlights: [], chips: [{ label: '💰 월 수입 입력 전', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' }] });
+  const [messages, setMessages] = useState<VCMessage[]>([]);
+  const [currentStep, setCurrentStep] = useState(1);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<Int16Array[]>([]);
+  const isPlayingRef = useRef(false);
+  const steps = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
+  const formatTime = (s: number) => { const m = Math.floor(s/60); const sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
+
+  const processAudioQueue = useCallback(() => {
+    if (!audioQueueRef.current.length) { isPlayingRef.current = false; return; }
+    isPlayingRef.current = true;
+    const ctx = audioCtxRef.current; if (!ctx) { isPlayingRef.current = false; return; }
+    const chunk = audioQueueRef.current.shift()!;
+    const buf = ctx.createBuffer(1, chunk.length, 24000);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < chunk.length; i++) ch[i] = chunk[i] / 32768;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination);
+    src.onended = () => processAudioQueue(); src.start();
+  }, []);
+
+  const playAudioChunk = useCallback((chunk: Int16Array) => {
+    audioQueueRef.current.push(chunk);
+    if (!isPlayingRef.current) processAudioQueue();
+  }, [processAudioQueue]);
+
+  const handleSmartNoteUpdate = useCallback((args: { note_type: string; content: string }) => {
+    if (args.note_type === 'house_svg') { try { const d = JSON.parse(args.content); setNoteData(p => ({ ...p, houseHighlights: d.highlights||[], chips: d.chips||p.chips })); } catch {} }
+    else if (args.note_type === 'chart') setNoteData(p => ({ ...p, chartContent: args.content }));
+    else if (args.note_type === 'calculation') { try { const items = JSON.parse(args.content); setNoteData(p => ({ ...p, calcContent: Array.isArray(items)?items:[items] })); } catch {} }
+    else if (args.note_type === 'web') setNoteData(p => ({ ...p, webContent: args.content }));
+  }, []);
+
+  const initPeerConnection = useCallback(async (ws: WebSocket) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS); pcRef.current = pc;
+    if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
+    pc.ontrack = (e) => { if (remoteVideoRef.current && e.streams[0]) remoteVideoRef.current.srcObject = e.streams[0]; };
+    pc.onicecandidate = (e) => { if (e.candidate && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'ice', candidate: e.candidate } })); };
+    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+    await pc.setLocalDescription(offer);
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'offer', sdp: offer } }));
+  }, []);
+
+  const endCall = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'video_end' })); wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); }
+    pcRef.current?.close(); pcRef.current = null;
+    localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
+    if (timerRef.current) clearInterval(timerRef.current);
+    setPhase('ended');
+  }, []);
+
+  const startCall = useCallback(async () => {
+    setPhase('connecting');
+    try {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws; ws.binaryType = 'arraybuffer';
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'video_create_room' }));
+        ws.send(JSON.stringify({ type: 'start_consult', displayName, mode: 'video' }));
+        const ac = new AudioContext({ sampleRate: 16000 });
+        const src = ac.createMediaStreamSource(stream);
+        const prc = ac.createScriptProcessor(4096, 1, 1);
+        src.connect(prc); prc.connect(ac.destination);
+        prc.onaudioprocess = (e) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          const f32 = e.inputBuffer.getChannelData(0);
+          const i16 = new Int16Array(f32.length);
+          for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
+          ws.send(JSON.stringify({ type: 'audio_chunk', audio: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+        };
+      };
+      ws.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'video_room_created') initPeerConnection(ws);
+          if (msg.type === 'video_signal') {
+            const pc = pcRef.current; if (!pc) return;
+            if (msg.signal.type === 'answer') pc.setRemoteDescription(new RTCSessionDescription(msg.signal.sdp));
+            else if (msg.signal.type === 'ice') pc.addIceCandidate(new RTCIceCandidate(msg.signal.candidate));
+          }
+          if (msg.type === 'video_ended') endCall();
+          if (msg.type === 'session_started') {
+            const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+            setMessages([{ role:'ai', text:`안녕하세요, ${displayName} 고객님! 저는 AI 머니야입니다. 오상열 CFP 20년 노하우로 학습한 AI 재무상담사예요. 오늘 90분 동안 금융집짓기® 8단계로 고객님의 재무설계를 함께 완성해 드릴게요. 편하게 말씀해 주세요. 😊`, tag:'📊 1단계 수입지출 분석 시작', time:t }]);
+            setPhase('active');
+            timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
+          }
+          if (msg.type === 'transcript') {
+            const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+            setMessages(p => [...p, { role: msg.role === 'assistant' ? 'ai' : 'user', text: msg.text, time: t }]);
+          }
+          if (msg.type === 'function_call_result' && msg.name === 'update_smart_note') handleSmartNoteUpdate(msg.args);
+          if (msg.type === 'function_call_result' && msg.name === 'update_analysis' && msg.args.step) setCurrentStep(msg.args.step);
+        } catch {}
+      };
+      ws.onerror = () => { onToast('연결에 문제가 발생했습니다.'); setPhase('idle'); };
+    } catch { onToast('카메라/마이크 권한이 필요합니다.'); setPhase('idle'); }
+  }, [displayName, playAudioChunk, initPeerConnection, handleSmartNoteUpdate, endCall, onToast]);
+
+  useEffect(() => { return () => { endCall(); audioCtxRef.current?.close(); }; }, []);
+
+  const toggleMic = () => { localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = isMuted; }); setIsMuted(p => !p); };
+  const toggleCam = () => { localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = isCamOff; }); setIsCamOff(p => !p); };
+
+  // ── 대기/종료 화면 ──
+  if (phase === 'idle' || phase === 'ended') {
+    return (
+      <div style={{ overflowY: 'auto', height: '100%', padding: 16 }}>
+        <div style={{ background: 'linear-gradient(135deg,#B8820A 0%,#D4A017 40%,#E8C040 100%)', borderRadius: 20, padding: '28px 20px', textAlign: 'center', marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
+          <div style={{ position: 'absolute', bottom: -20, left: -20, width: 80, height: 80, background: 'rgba(255,255,255,0.06)', borderRadius: '50%' }} />
+          <img src={MONEYA_IMG} alt="머니야" style={{ width: 72, height: 72, borderRadius: '50%', margin: '0 auto 14px', display: 'block', objectFit: 'contain', background: 'rgba(255,255,255,0.2)', padding: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', position: 'relative', zIndex: 1 }} />
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4, position: 'relative', zIndex: 1 }}>AI 머니야 화상상담</h2>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', position: 'relative', zIndex: 1 }}>오상열 CFP · 금융집짓기® 전문</p>
+        </div>
+        <div style={{ background: 'white', borderRadius: 16, padding: '16px 18px', marginBottom: 12, boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#666', marginBottom: 12 }}>상담 안내</div>
+          {[
+            { icon: '⏱', label: '상담 시간', value: '90분 (8단계 금융집짓기)' },
+            { icon: '📹', label: '방식', value: 'AI 화상상담 (자체 WebRTC)' },
+            { icon: '📋', label: '내용', value: '수입지출 · 보험 · 저축 · 투자 · 은퇴' },
+            { icon: '🤖', label: 'AI 지원', value: 'RAG 5,706개 지식베이스 활용' },
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < 3 ? '1px solid #F2F2F2' : 'none' }}>
+              <span style={{ fontSize: 20, width: 28, flexShrink: 0 }}>{item.icon}</span>
+              <div>
+                <div style={{ fontSize: 11, color: '#AAA', marginBottom: 1 }}>{item.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{item.value}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {phase === 'ended' && (
+          <div style={{ background: '#F0F9F4', borderRadius: 12, padding: '12px 16px', marginBottom: 12, border: '1px solid #C5E1A5' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#2E7D32' }}>✅ 상담이 종료되었습니다</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>상담 리포트는 서류함 탭에서 확인하세요.</div>
+          </div>
+        )}
+        <button onClick={startCall} style={{ background: `linear-gradient(135deg,${GOLD},#e8c05a)`, color: 'white', border: 'none', width: '100%', padding: 18, borderRadius: 14, fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 20px rgba(212,160,23,0.4)', fontFamily: 'inherit' }}>
+          📹 화상상담 시작하기
+        </button>
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#AAA', marginTop: 8 }}>카메라와 마이크 권한이 필요합니다</p>
+      </div>
+    );
+  }
+
+  // ── 연결 중 화면 ──
+  if (phase === 'connecting') {
+    return (
+      <div style={{ background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 20px' }}>
+        <style>{`@keyframes vcPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,160,23,0.4)}50%{box-shadow:0 0 0 20px rgba(212,160,23,0)}} @keyframes vcBounce{0%,100%{transform:translateY(0);opacity:0.4}50%{transform:translateY(-8px);opacity:1}}`}</style>
+        <div style={{ width: 100, height: 100, background: `linear-gradient(135deg,${GOLD},#e8c05a)`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, animation: 'vcPulse 2s ease-in-out infinite', overflow: 'hidden' }}>
+          <img src={MONEYA_IMG} alt="머니야" style={{ width: 80, height: 80, objectFit: 'contain' }} />
+        </div>
+        <h3 style={{ color: 'white', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>AI 머니야 연결 중...</h3>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 32 }}>카메라와 AI 음성을 준비하고 있습니다</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[0, 0.2, 0.4].map((delay, i) => <div key={i} style={{ width: 8, height: 8, background: GOLD, borderRadius: '50%', animation: `vcBounce 1.2s ease-in-out ${delay}s infinite` }} />)}
+        </div>
+        <button onClick={() => { localStreamRef.current?.getTracks().forEach(t => t.stop()); setPhase('idle'); }} style={{ marginTop: 40, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 28px', borderRadius: 30, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>취소</button>
+      </div>
+    );
+  }
+
+  // ── 화상상담 활성 화면 ──
+  const isMobile = window.innerWidth < 768;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0A0A', overflow: 'hidden' }}>
+      <style>{`@keyframes vcLive{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes vcWave{0%,100%{height:4px;opacity:0.4}50%{height:20px;opacity:1}}`}</style>
+      {/* 상단 바 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(229,62,62,0.2)', border: '1px solid rgba(229,62,62,0.5)', borderRadius: 20, padding: '3px 10px' }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#E53E3E', animation: 'vcLive 1s infinite' }} />
+            <span style={{ color: '#FC8181', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>LIVE</span>
+          </div>
+          <span style={{ color: 'white', fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatTime(elapsed)}</span>
+        </div>
+        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{steps[currentStep-1]} ({currentStep}/8)</span>
+        <button onClick={endCall} style={{ background: '#E53E3E', color: 'white', border: 'none', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>종료</button>
+      </div>
+      {/* 메인 */}
+      <div style={{ flex: 1, display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '260px 1fr 260px', overflow: 'hidden' }}>
+        {/* 영상 */}
+        <div style={{ position: 'relative', background: '#1A1A1A', flexShrink: 0, height: isMobile ? 170 : '100%' }}>
+          <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#1A1A2E,#16213E)' }}>
+            <div style={{ width: 80, height: 80, background: `linear-gradient(135deg,${GOLD},#e8c05a)`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, boxShadow: '0 0 30px rgba(212,160,23,0.3)', overflow: 'hidden' }}>
+              <img src={MONEYA_IMG} alt="머니야" style={{ width: 68, height: 68, objectFit: 'contain' }} />
+            </div>
+            <div style={{ color: 'white', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>AI 머니야</div>
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center', height: 24 }}>
+              {[0,0.1,0.2,0.1,0].map((d,i) => <div key={i} style={{ width: 3, background: GOLD, borderRadius: 3, animation: `vcWave 0.8s ease-in-out ${d}s infinite` }} />)}
+            </div>
+          </div>
+          {/* PIP */}
+          <div style={{ position: 'absolute', bottom: 10, right: 10, width: 76, height: 100, background: '#2D2D2D', borderRadius: 10, border: '2px solid rgba(255,255,255,0.15)', overflow: 'hidden', zIndex: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+            <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+            {isCamOff && <div style={{ position: 'absolute', inset: 0, background: '#2D2D2D', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>👤</div>}
+          </div>
+          {/* 자막 */}
+          {messages.length > 0 && (
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%)', padding: '28px 10px 8px', zIndex: 5 }}>
+              <div style={{ color: GOLD, fontSize: 9, fontWeight: 700, marginBottom: 2 }}>{messages[messages.length-1].role==='ai'?'AI 머니야':'고객'}</div>
+              <div style={{ color: 'white', fontSize: 11, lineHeight: 1.5, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{messages[messages.length-1].text.slice(0,55)}{messages[messages.length-1].text.length>55?'...':''}</div>
+            </div>
+          )}
+        </div>
+        {/* 스마트 노트 */}
+        <div style={{ flex: 1, overflow: 'hidden', padding: isMobile ? '8px 10px' : 10, background: '#F5F5F5' }}>
+          <SmartNote noteData={noteData} />
+        </div>
+        {/* 대화 기록 */}
+        <div style={{ background: '#111', display: 'flex', flexDirection: 'column', height: isMobile ? 150 : '100%', flexShrink: 0, borderTop: isMobile ? '1px solid rgba(255,255,255,0.08)' : 'none', borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ color: 'white', fontSize: 11, fontWeight: 600 }}>💬 대화 기록</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 5, height: 5, borderRadius: '50%', background: '#38A169' }} /><span style={{ color: '#68D391', fontSize: 9 }}>음성인식 중</span></div>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'none' }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, flexDirection: msg.role==='user'?'row-reverse':'row' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: msg.role==='ai'?`linear-gradient(135deg,${GOLD},#e8c05a)`:'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                  {msg.role==='ai' ? <img src={MONEYA_IMG} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} /> : <span style={{ fontSize: 11 }}>👤</span>}
+                </div>
+                <div style={{ maxWidth: '72%' }}>
+                  <div style={{ background: msg.role==='ai'?'rgba(255,255,255,0.08)':'rgba(212,160,23,0.15)', borderRadius: msg.role==='ai'?'4px 10px 10px 10px':'10px 4px 10px 10px', padding: '6px 9px', color: 'white', fontSize: 10, lineHeight: 1.5, border: msg.role==='ai'?'1px solid rgba(255,255,255,0.06)':`1px solid rgba(212,160,23,0.3)` }}>{msg.text}</div>
+                  {msg.tag && <div style={{ fontSize: 9, color: GOLD, marginTop: 2, paddingLeft: 3 }}>{msg.tag}</div>}
+                </div>
+              </div>
+            ))}
+            {messages.length === 0 && <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 16 }}>대화가 시작되면 여기에 표시됩니다</div>}
+          </div>
+        </div>
+      </div>
+      {/* 컨트롤 바 */}
+      <div style={{ background: 'rgba(13,13,13,0.95)', padding: '10px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        {[
+          { icon: isMuted?'🔇':'🎤', label: isMuted?'음소거됨':'마이크', action: toggleMic, red: isMuted, size: 48 },
+          { icon: isCamOff?'🚫':'📹', label: isCamOff?'카메라꺼짐':'카메라', action: toggleCam, red: isCamOff, size: 48 },
+          { icon: '📞', label: '종료', action: endCall, red: true, size: 56 },
+        ].map((btn, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={btn.action}>
+            <div style={{ width: btn.size, height: btn.size, borderRadius: '50%', background: btn.red ? (i===2 ? '#E53E3E' : 'rgba(229,62,62,0.2)') : 'rgba(255,255,255,0.12)', border: btn.red && i!==2 ? '1px solid rgba(229,62,62,0.4)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: i===2?22:20, boxShadow: i===2?'0 4px 16px rgba(229,62,62,0.4)':'none', transition: 'all 0.2s' }}>{btn.icon}</div>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{btn.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 일정 + 금융집 현황 합체 (기존 Schedule + MoneyaInfo 흡수) ──
+function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
-  let dDay: number | null = null; let isZoomActive = false; let consultDateStr = '';
+  const scores = userData.consultationScores || {};
+  const latestScore = userData.latestScore || 0;
+  const floorLabels = ['1층 기초체력','2층 안전장치','3층 부동산','4층 보장자산','5층 은퇴설계','6층 투자성장'];
+  const floorScores = [scores.f1||0,scores.f2||0,scores.f3||0,scores.f4||0,scores.f5||0,scores.f6||0];
+  let weakestIdx = 0; let weakestScore = 100;
+  floorScores.forEach((s,i) => { if (s < weakestScore) { weakestScore = s; weakestIdx = i; } });
+  let dDay: number|null = null; let isZoomActive = false; let consultDateStr = '';
   if (nextConsult) {
     const now = new Date();
     const consult = nextConsult.toDate ? nextConsult.toDate() : new Date(nextConsult);
     const diff = consult.getTime() - now.getTime();
-    dDay = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    isZoomActive = diff > 0 && diff <= 10 * 60 * 1000;
-    consultDateStr = consult.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }) + ' ' + consult.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    dDay = Math.ceil(diff/(1000*60*60*24));
+    isZoomActive = diff > 0 && diff <= 10*60*1000;
+    consultDateStr = consult.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}) + ' ' + consult.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   }
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
+      {/* 다음 상담 */}
       <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: GOLD }}>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 상담</p>
         {nextConsult ? (
@@ -478,17 +863,46 @@ function Schedule({ userData, onToast }: { userData: any; onToast: (msg: string)
               ))}
             </div>
             <div className="h-px bg-gray-100 my-4" />
-            <button onClick={() => { if (isZoomActive && userData.zoomLink) window.open(userData.zoomLink,'_blank'); else onToast('상담 시작 10분 전에 활성화됩니다'); }} className={`w-full py-3 rounded-xl text-sm font-bold mb-2 ${isZoomActive ? 'text-white' : 'bg-gray-100 text-gray-400'}`} style={isZoomActive ? { background: GOLD } : {}}>💻 줌 상담 입장하기</button>
-            {!isZoomActive && <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>}
+            <button onClick={() => onToast('상담 시작 10분 전에 활성화됩니다')} className="w-full py-3 rounded-xl text-sm font-bold bg-gray-100 text-gray-400 mb-2">💻 AI 화상상담 입장하기</button>
+            <p className="text-center text-xs text-gray-400">상담 시작 10분 전 활성화</p>
             <button onClick={() => onToast('일정 변경은 3일 전까지 가능합니다')} className="mt-2 w-full py-3 rounded-xl text-sm font-bold bg-gray-50 text-gray-500 border border-gray-100">📅 일정 변경 요청</button>
           </>
-        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />첫 상담을 신청해보세요!</p>}
+        ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />AI 화상상담 탭에서 시작해보세요!</p>}
+      </div>
+      {/* 금융집 현황 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-3xl">🏠</span>
+          <div>
+            <span className="text-2xl font-extrabold" style={{ color: GOLD }}>{latestScore}점</span>
+            <div className="w-32 bg-gray-100 rounded-full h-2 mt-1 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${latestScore}%`, background: GOLD }} /></div>
+          </div>
+        </div>
+        {floorLabels.map((label, idx) => (
+          <div key={label} className="flex items-center gap-2 mb-2">
+            <span className="text-xs">{si(floorScores[idx])}</span>
+            <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
+            <ScoreBar score={floorScores[idx]} color={floorScores[idx]>=80?'#10B981':floorScores[idx]>=60?'#F59E0B':'#EF4444'} />
+            <span className={`text-xs font-bold w-6 text-right ${sc(floorScores[idx])}`}>{floorScores[idx]}</span>
+          </div>
+        ))}
+      </div>
+      {/* 머니야 메시지 */}
+      <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
+        <div className="flex gap-3">
+          <img src={MONEYA_IMG} alt="머니야" className="w-10 h-10 object-contain" />
+          <div className="bg-white rounded-xl p-3 text-sm text-gray-700 leading-relaxed shadow-sm flex-1">
+            {latestScore > 0 ? `${displayName}님, ${floorLabels[weakestIdx]}이 ${weakestScore}점으로 가장 취약합니다. 다음 상담에서 함께 개선해봐요!` : `${displayName}님, AI 화상상담 탭에서 첫 상담을 시작해보세요! 📹`}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── 상담 이력 (기존 그대로) ───────────────────────
+// ── 이력 (기존 그대로) ───────────────────────────
 function History() {
   const count = 0;
   const grade = getCertGrade(count);
@@ -561,21 +975,23 @@ function Documents({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 구독자 허브 ───────────────────────────────────
+// ── 구독자 허브 (핵심 변경: 탭 3개 수정) ─────────
 function ConsultationHub({ user }: { user: any }) {
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
   const [userData] = useState<any>({});
   const [toast, setToast] = useState<string | null>(null);
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
   const displayName = user.displayName || '고객';
+
   const subTabs = [
-    { id: 'dashboard', label: '홈',    icon: '🏠' },
-    { id: 'finance',   label: '내 재무', icon: '📊' },
-    { id: 'chat',      label: '머니야', icon: '💬' },
-    { id: 'schedule',  label: '일정',  icon: '📅' },
-    { id: 'history',   label: '이력',  icon: '📋' },
-    { id: 'files',     label: '서류함', icon: '📎' },
+    { id: 'dashboard', label: '홈',        icon: '🏠' },
+    { id: 'finance',   label: '내 재무',    icon: '📊' },
+    { id: 'chat',      label: 'AI 화상상담', icon: '📹' }, // ← 변경: 머니야 → AI 화상상담
+    { id: 'schedule',  label: '일정',       icon: '📅' },
+    { id: 'history',   label: '이력',       icon: '📋' },
+    { id: 'files',     label: '서류함',     icon: '📎' },
   ];
+
   return (
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-100 px-4">
@@ -592,8 +1008,8 @@ function ConsultationHub({ user }: { user: any }) {
       <div className="flex-1 overflow-hidden bg-gray-50">
         {activeSubTab === 'dashboard' && <HubDashboard user={user} />}
         {activeSubTab === 'finance'   && <MyFinance userData={userData} />}
-        {activeSubTab === 'chat'      && <MoneyaInfo userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
-        {activeSubTab === 'schedule'  && <Schedule userData={userData} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'chat'      && <VideoConsult displayName={displayName} onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'schedule'  && <ScheduleWithHouse userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
         {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
       </div>
@@ -603,7 +1019,7 @@ function ConsultationHub({ user }: { user: any }) {
   );
 }
 
-// ── 비구독자 서비스 소개 ───────────────────────────
+// ── 비구독자 서비스 소개 (기존 그대로) ───────────
 function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   return (
     <div className="overflow-y-auto h-full pb-6">
@@ -625,7 +1041,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 메인 페이지 ───────────────────────────────────
+// ── 메인 페이지 (기존 그대로) ─────────────────────
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
