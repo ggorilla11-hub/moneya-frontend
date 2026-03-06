@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 //  - 귀: OpenAI Whisper (음성입력) → moneya-server 경유
 //  - 입: ElevenLabs 오상열 목소리 클론 → moneya-server 경유
 //  - UI: AI지출탭(AIConversation.tsx) 입력바 100% 동일 구조
+//  - NEW: 음성 모드 중 보조 분석 패널 (RAG+멀티에이전트)
 // ════════════════════════════════════════════════════════════
 
 const API_URL = 'https://moneya-server.onrender.com';
@@ -54,7 +55,11 @@ export default function ConsultingChatPage({
   const [status, setStatus]           = useState('대기중');
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [serverReady, setServerReady]   = useState(false);
-  const [consultStep, setConsultStep]   = useState(1); // 현재 상담 단계 표시용
+  const [consultStep, setConsultStep]   = useState(1);
+
+  // ── [NEW] 보조 분석 패널 상태 ──────────────────────────────
+  const [panelData, setPanelData]       = useState<any[]>([]);
+  const [panelLoading, setPanelLoading] = useState(false);
 
   const chatAreaRef     = useRef<HTMLDivElement>(null);
   const wsRef           = useRef<WebSocket | null>(null);
@@ -140,7 +145,7 @@ export default function ConsultingChatPage({
       const data = await response.json();
       const aiText = data.success ? data.message : '다시 말씀해주세요!';
 
-      // 단계 감지 (응답 텍스트에서 단계 자동 파악)
+      // 단계 감지
       if (aiText.includes('수입') || aiText.includes('월 소득')) setConsultStep(3);
       else if (aiText.includes('금융집')) setConsultStep(4);
       else if (aiText.includes('버킷') || aiText.includes('포트폴리오')) setConsultStep(5);
@@ -148,10 +153,13 @@ export default function ConsultingChatPage({
       else if (aiText.includes('강점') || aiText.includes('등급')) setConsultStep(7);
       else if (aiText.includes('리포트') || aiText.includes('수료증')) setConsultStep(8);
 
+      // [NEW] 텍스트 모드에서도 panelData 수신 시 패널 업데이트
+      if (data.panelData) setPanelData(data.panelData);
+
       const aiMsg: Message = { id: (Date.now() + 1).toString(), type: 'ai', text: aiText, timestamp: new Date() };
       setMessages(prev => [...prev, aiMsg]);
 
-      // ElevenLabs TTS (음성 활성화 시)
+      // ElevenLabs TTS
       if (voiceEnabled) {
         try {
           const ttsRes = await fetch(`${API_URL}/api/consult-tts`, {
@@ -267,7 +275,6 @@ export default function ConsultingChatPage({
       });
       mediaStreamRef.current = stream;
 
-      // 상담탭 전용 WebSocket 엔드포인트
       const ws = new WebSocket(`${WS_URL}?mode=consult`);
       wsRef.current = ws;
 
@@ -292,8 +299,33 @@ export default function ConsultingChatPage({
             startAudioCapture(stream, ws);
           }
           if (msg.type === 'audio' && msg.data) playAudio(msg.data);
-          if (msg.type === 'transcript' && msg.role === 'user')
+
+          // ── [NEW] 사용자 발화 수신 시 백그라운드 멀티에이전트 분석 ──
+          if (msg.type === 'transcript' && msg.role === 'user') {
             setMessages(prev => [...prev, { id: Date.now().toString(), type: 'user', text: msg.text, timestamp: new Date() }]);
+
+            // 백그라운드: 멀티에이전트+RAG 분석 요청 (음성 답변과 병렬)
+            if (msg.text.length > 5) {
+              setPanelLoading(true);
+              fetch(`${API_URL}/api/consult-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: msg.text,
+                  userName: displayName,
+                  financialContext: null,
+                  conversationHistory: messages.slice(-6).map(m => ({ role: m.type === 'user' ? 'user' : 'assistant', content: m.text })),
+                }),
+              })
+              .then(r => r.json())
+              .then(data => {
+                if (data.panelData) setPanelData(data.panelData);
+                setPanelLoading(false);
+              })
+              .catch(() => setPanelLoading(false));
+            }
+          }
+
           if (msg.type === 'transcript' && msg.role === 'assistant')
             setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), type: 'ai', text: msg.text, timestamp: new Date() }]);
           if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
@@ -311,7 +343,7 @@ export default function ConsultingChatPage({
     }
   };
 
-  const stopVoiceMode  = () => { cleanupVoiceMode(); setIsVoiceMode(false); setStatus('대기중'); };
+  const stopVoiceMode   = () => { cleanupVoiceMode(); setIsVoiceMode(false); setStatus('대기중'); };
   const toggleVoiceMode = () => { isVoiceMode ? stopVoiceMode() : startVoiceMode(); };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -328,6 +360,17 @@ export default function ConsultingChatPage({
     6: '6단계 · 7대 영역 설계',
     7: '7단계 · 최종의견',
     8: '8단계 · Closing',
+  };
+
+  // ── [NEW] 에이전트 라벨 매핑 ───────────────────────────────
+  const agentNames: Record<string, string> = {
+    analysis:       '📊 예산진단',
+    insurance:      '🛡️ 보험분석',
+    retirement:     '🏦 은퇴설계',
+    debt_savings:   '💰 부채/저축',
+    investment_tax: '📈 투자/세금',
+    realestate:     '🏘️ 부동산',
+    emotion:        '😊 감정분석',
   };
 
   // ────────────────────────────────────────────────────────────
@@ -386,7 +429,7 @@ export default function ConsultingChatPage({
       <div
         ref={chatAreaRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-        style={{ paddingBottom: '100px' }}
+        style={{ paddingBottom: '160px' }}
       >
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-2.5 ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -417,11 +460,46 @@ export default function ConsultingChatPage({
         )}
       </div>
 
-      {/* ── 입력바 (AI지출탭과 동일한 구조) ── */}
+      {/* ── [NEW] 보조 분석 패널 (음성 모드에서만 표시) ── */}
+      {isVoiceMode && (panelData.length > 0 || panelLoading) && (
+        <div className="fixed bottom-[88px] left-0 right-0 mx-4 mb-2 rounded-xl border border-yellow-200 bg-yellow-50 p-3 z-40">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-yellow-800">📊 AI 분석</span>
+            {panelLoading && <span className="text-xs text-yellow-600 animate-pulse">분석중...</span>}
+          </div>
+          <div className="space-y-1">
+            {panelData.map((item, i) => {
+              const label = agentNames[item.agent] || item.agent;
+              const summary = item.summary;
+
+              let displayText = '';
+              if (summary.diagnosis)        displayText = summary.diagnosis;
+              else if (summary.coverageAnalysis) displayText = summary.coverageAnalysis;
+              else if (summary.retirementGap)    displayText = `부족: ${summary.retirementGap}`;
+              else if (summary.debtPlan)         displayText = summary.debtPlan;
+              else if (summary.readiness)        displayText = summary.readiness;
+              else if (summary.affordability)    displayText = summary.affordability;
+              else if (summary.emotion)          displayText = `${summary.emotion} → ${summary.suggestedTone}`;
+              else if (summary.warning)          displayText = `⚠️ ${summary.warning}`;
+              else if (summary.raw)              displayText = String(summary.raw).slice(0, 80);
+              else                               displayText = JSON.stringify(summary).slice(0, 80);
+
+              return (
+                <div key={i} className="flex items-start gap-2 text-xs text-yellow-900">
+                  <span className="font-medium whitespace-nowrap">{label}</span>
+                  <span className="text-yellow-700">{displayText}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 입력바 ── */}
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-50">
         <div className="flex items-center gap-2 max-w-md mx-auto">
 
-          {/* + 버튼 (상담탭에서는 파일첨부 예약) */}
+          {/* + 버튼 */}
           <button
             className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center"
             onClick={() => { /* 추후 파일첨부 기능 */ }}
