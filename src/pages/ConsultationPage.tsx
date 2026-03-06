@@ -8,8 +8,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // ── 환경설정 ─────────────────────────────────────────────────────
-const WS_URL  = process.env.NEXT_PUBLIC_WS_URL  || 'wss://moneya-server.onrender.com';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://moneya-server.onrender.com';
+const WS_URL  = (import.meta.env.VITE_WS_URL  as string) || 'wss://moneya-server.onrender.com';
 const MONEYA_LOGO = 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/AI%EB%A8%B8%EB%8B%88%EC%95%BC%20%ED%99%95%EC%A0%95%EC%9D%B4%EB%AF%B8%EC%A7%80%EC%95%88.png?alt=media&token=c250863d-7cda-424a-800d-884b20e30b1a';
 
 // ── ICE 서버 ─────────────────────────────────────────────────────
@@ -56,7 +55,6 @@ export default function ConsultationPage() {
   // ── 화상 / 음성 상태 ────────────────────────────────────────────
   const [isVideoMode,  setIsVideoMode]  = useState(false);
   const [videoStatus,  setVideoStatus]  = useState<'idle'|'connecting'|'connected'|'error'>('idle');
-  const [isVoiceMode,  setIsVoiceMode]  = useState(false);
   const [isMicOn,      setIsMicOn]      = useState(true);
   const [isCamOn,      setIsCamOn]      = useState(true);
   const [isRecording,  setIsRecording]  = useState(false);
@@ -74,7 +72,7 @@ export default function ConsultationPage() {
 
   // ── 대화 기록 ───────────────────────────────────────────────────
   const [messages,     setMessages]     = useState<Message[]>([]);
-  const [displayName,  setDisplayName]  = useState('고객');
+  const [displayName] = useState('고객');
 
   // ── refs ────────────────────────────────────────────────────────
   const wsRef           = useRef<WebSocket | null>(null);
@@ -85,7 +83,7 @@ export default function ConsultationPage() {
   const audioCtxRef     = useRef<AudioContext | null>(null);
   const recorderRef     = useRef<MediaRecorder | null>(null);
   const recordedRef     = useRef<Blob[]>([]);
-  const timerRef        = useRef<NodeJS.Timeout | null>(null);
+  const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef  = useRef<HTMLDivElement>(null);
 
   // URL 파라미터 roomId (고객 입장용)
@@ -251,7 +249,6 @@ export default function ConsultationPage() {
       };
 
       setIsVideoMode(true);
-      setIsVoiceMode(true);
       startTimer();
 
     } catch(e: any) {
