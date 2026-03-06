@@ -1,13 +1,5 @@
 {
-  "version": 2,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
-```
-
----
-
-**③ 커밋 메시지**
-```
-fix: vercel.json version 추가
