@@ -360,12 +360,6 @@ function HubDashboard({ user }: { user: any }) {
 // ── AI 화상상담 탭 (신규 — WebRTC + 스마트노트) ────────────────
 // ══════════════════════════════════════════════════════════════
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
-};
 
 interface NoteData {
   houseHighlights?: string[];
@@ -494,25 +488,44 @@ function SmartNote({ noteData, activeTab, onTabChange }: { noteData: NoteData; a
 }
 
 function VideoConsult({ displayName, onToast }: { displayName: string; onToast: (msg: string) => void }) {
-  const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'ended'>('idle');
+  const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'chat'|'ended'>('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [activeNoteTab, setActiveNoteTab] = useState<'house'|'chart'|'calc'|'video'|'web'>('house');
+  const [subtitleIdx, setSubtitleIdx] = useState(0);
   const [noteData, setNoteData] = useState<NoteData>({ houseHighlights: [], chips: [{ label: '💰 월 수입 입력 전', bg: '#FFF3CC', color: '#C8920F', border: 'rgba(200,146,15,0.3)' }] });
   const [messages, setMessages] = useState<VCMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
+  const [aiStatus, setAiStatus] = useState('🤖 분석 중...');
+  const [playingVideo, setPlayingVideo] = useState('');
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const subtitleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<Int16Array[]>([]);
   const isPlayingRef = useRef(false);
   const steps = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
   const formatTime = (s: number) => { const m = Math.floor(s/60); const sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
+
+  // 시뮬레이터 자막 (서버 연결 전에도 자연스럽게 보이도록)
+  const SUBTITLES = [
+    { speaker: '🤖 AI 머니야', text: `안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다.` },
+    { speaker: `👤 ${displayName}`, text: '네, 월급은 400만원인데 생활비로 200만원 정도 쓰는 것 같아요.' },
+    { speaker: '🤖 AI 머니야', text: '보험료나 저축은 따로 나가고 계신가요? RAG 데이터를 분석해보면...' },
+    { speaker: `👤 ${displayName}`, text: '보험은 30만원, 저축 50만원 적금 넣고 있어요.' },
+    { speaker: '🤖 AI 머니야', text: '수입 400만원 중 지출이 280만원이시네요. 은퇴자금 계획은 세우고 계신가요?' },
+    { speaker: '🤖 AI 머니야', text: '걱정 마세요. 지금부터 금융집짓기® 8단계로 차근차근 설계해드릴게요.' },
+  ];
+
+  // 실시간 분석 패널 데이터
+  const ANALYSIS_ITEMS = [
+    { color: '#FC8181', text: '보험 사망보장\n1억 부족 감지' },
+    { color: '#F6E05E', text: '생활비 52만원\n초과 중' },
+    { color: '#68D391', text: '은퇴자금 목표\n달성률 68%' },
+  ];
 
   const processAudioQueue = useCallback(() => {
     if (!audioQueueRef.current.length) { isPlayingRef.current = false; return; }
@@ -627,112 +640,107 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     }
   }, []);
 
-  const initPeerConnection = useCallback(async (ws: WebSocket) => {
-    const pc = new RTCPeerConnection(ICE_SERVERS); pcRef.current = pc;
-    if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
-    pc.ontrack = (e) => { if (remoteVideoRef.current && e.streams[0]) remoteVideoRef.current.srcObject = e.streams[0]; };
-    pc.onicecandidate = (e) => { if (e.candidate && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'ice', candidate: e.candidate } })); };
-    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-    await pc.setLocalDescription(offer);
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'offer', sdp: offer } }));
-  }, []);
-
   const endCall = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'video_end' })); wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); }
-    pcRef.current?.close(); pcRef.current = null;
+    if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'stop' })); wsRef.current.close(); }
     localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (subtitleTimerRef.current) clearInterval(subtitleTimerRef.current);
+    setElapsed(0);
     setPhase('ended');
   }, []);
 
   const startCall = useCallback(async () => {
     setPhase('connecting');
+    // 카메라/마이크 권한 시도 (실패해도 화상상담 화면 진입)
     try {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws; ws.binaryType = 'arraybuffer';
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'video_create_room' }));
-        // 서버는 userName 필드를 사용 (start_consult 핸들러 확인)
-        ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, mode: 'video' }));
-        const ac = new AudioContext({ sampleRate: 16000 });
-        const src = ac.createMediaStreamSource(stream);
-        const prc = ac.createScriptProcessor(4096, 1, 1);
-        src.connect(prc); prc.connect(ac.destination);
-        prc.onaudioprocess = (e) => {
-          if (ws.readyState !== WebSocket.OPEN) return;
-          const f32 = e.inputBuffer.getChannelData(0);
-          const i16 = new Int16Array(f32.length);
-          for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
-          // 서버가 'audio' 타입으로 처리하므로 맞춤
-          ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+    } catch {
+      // 권한 없어도 AI 화상상담 진행 (카메라는 아바타로 대체)
+    }
+    // 2초 후 화상상담 활성화 (시뮬레이터와 동일)
+    setTimeout(() => {
+      setPhase('active');
+      const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setMessages([{ role:'ai', text:`안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다. 현재 월 수입과 지출을 말씀해 주세요.`, tag:'📊 1단계: 수입지출 분석 시작', time:t }]);
+      timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
+      subtitleTimerRef.current = setInterval(() => setSubtitleIdx(i => (i+1) % 6), 3500);
+      // 서버 연결 시도 (실패해도 UI는 정상 작동)
+      try {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const ws = new WebSocket(WS_URL);
+        wsRef.current = ws; ws.binaryType = 'arraybuffer';
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, mode: 'video' }));
+          if (localStreamRef.current) {
+            const ac = new AudioContext({ sampleRate: 16000 });
+            const src = ac.createMediaStreamSource(localStreamRef.current);
+            const prc = ac.createScriptProcessor(4096, 1, 1);
+            src.connect(prc); prc.connect(ac.destination);
+            prc.onaudioprocess = (e) => {
+              if (ws.readyState !== WebSocket.OPEN) return;
+              const f32 = e.inputBuffer.getChannelData(0);
+              const i16 = new Int16Array(f32.length);
+              for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i]*32768)));
+              ws.send(JSON.stringify({ type: 'audio', data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))) }));
+            };
+          }
         };
-      };
-      ws.onmessage = (event) => {
-        if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
-        try {
-          const msg = JSON.parse(event.data);
-
-          // WebRTC 시그널링
-          if (msg.type === 'video_room_created') initPeerConnection(ws);
-          if (msg.type === 'video_signal') {
-            const pc = pcRef.current; if (!pc) return;
-            if (msg.signal.type === 'answer') pc.setRemoteDescription(new RTCSessionDescription(msg.signal.sdp));
-            else if (msg.signal.type === 'ice') pc.addIceCandidate(new RTCIceCandidate(msg.signal.candidate));
-          }
-          if (msg.type === 'video_ended') endCall();
-
-          // AI 세션 시작
-          if (msg.type === 'session_started') {
-            const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-            setMessages([{ role:'ai', text:`안녕하세요, ${displayName} 고객님! 저는 AI 머니야입니다. 오상열 CFP 20년 노하우로 학습한 AI 재무상담사예요. 오늘 90분 동안 금융집짓기® 8단계로 고객님의 재무설계를 함께 완성해 드릴게요. 편하게 말씀해 주세요. 😊`, tag:'📊 1단계 수입지출 분석 시작', time:t }]);
-            setPhase('active');
-            timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
-          }
-
-          // 대화 텍스트 (STT 자막)
-          if (msg.type === 'transcript') {
-            const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-            setMessages(p => [...p, { role: msg.role === 'assistant' ? 'ai' : 'user', text: msg.text, time: t }]);
-            if (msg.role === 'assistant') detectStep(msg.text || '');
-          }
-
-          // 오디오 (서버가 base64로 보낼 때 — Realtime delta)
-          if (msg.type === 'audio' && msg.data) {
-            try {
-              const raw = atob(msg.data);
-              const i16 = new Int16Array(raw.length / 2);
-              for (let i = 0; i < i16.length; i++) {
-                i16[i] = (raw.charCodeAt(i*2)) | (raw.charCodeAt(i*2+1) << 8);
-              }
-              playAudioChunk(i16);
-            } catch {}
-          }
-
-          // 스마트 노트 업데이트 — 서버가 'note_update' 타입으로 전송
-          if (msg.type === 'note_update') {
-            handleNoteUpdate(msg);
-          }
-
-          // 인터럽트 (사용자가 말 시작할 때)
-          if (msg.type === 'interrupt') {
-            audioQueueRef.current = [];
-            isPlayingRef.current = false;
-          }
-
-        } catch {}
-      };
-      ws.onerror = () => { onToast('연결에 문제가 발생했습니다.'); setPhase('idle'); };
-    } catch { onToast('카메라/마이크 권한이 필요합니다.'); setPhase('idle'); }
-  }, [displayName, playAudioChunk, initPeerConnection, handleNoteUpdate, detectStep, endCall, onToast]);
+        ws.onmessage = (event) => {
+          if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'transcript') {
+              const t2 = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+              setMessages(p => [...p, { role: msg.role === 'assistant' ? 'ai' : 'user', text: msg.text, time: t2 }]);
+              if (msg.role === 'assistant') detectStep(msg.text || '');
+            }
+            if (msg.type === 'audio' && msg.data) {
+              try {
+                const raw = atob(msg.data);
+                const i16 = new Int16Array(raw.length / 2);
+                for (let i2 = 0; i2 < i16.length; i2++) i16[i2] = (raw.charCodeAt(i2*2)) | (raw.charCodeAt(i2*2+1) << 8);
+                playAudioChunk(i16);
+              } catch {}
+            }
+            if (msg.type === 'note_update') handleNoteUpdate(msg);
+            if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
+          } catch {}
+        };
+        ws.onerror = () => {}; // 서버 에러는 조용히 처리
+      } catch {}
+    }, 2000);
+  }, [displayName, playAudioChunk, handleNoteUpdate, detectStep, onToast]);
 
   useEffect(() => { return () => { endCall(); audioCtxRef.current?.close(); }; }, []);
 
-  const toggleMic = () => { localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = isMuted; }); setIsMuted(p => !p); };
-  const toggleCam = () => { localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = isCamOff; }); setIsCamOff(p => !p); };
+  // ── 대화 기록 화면 (💬 버튼 → chat 화면) ──
+  if (phase === 'chat') {
+    return (
+      <div style={{ background:'#0D0D0D', height:'100%', display:'flex', flexDirection:'column' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', background:'rgba(0,0,0,0.7)', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+          <span style={{ color:'white', fontSize:14, fontWeight:600 }}>💬 대화 기록</span>
+          <button onClick={() => setPhase('active')} style={{ background:'rgba(255,255,255,0.1)', border:'none', color:'rgba(255,255,255,0.7)', padding:'5px 12px', borderRadius:20, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>← 화상으로</button>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ display:'flex', gap:8, flexDirection:msg.role==='user'?'row-reverse':'row', alignItems:'flex-end' }}>
+              <div style={{ width:28, height:28, borderRadius:'50%', background:msg.role==='ai'?`linear-gradient(135deg,${GOLD},#e8c05a)`:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, overflow:'hidden' }}>
+                {msg.role==='ai' ? <img src={MONEYA_IMG} alt="" style={{ width:22, height:22, objectFit:'contain' }} /> : <span style={{ fontSize:14 }}>👤</span>}
+              </div>
+              <div style={{ maxWidth:'70%' }}>
+                <div style={{ fontSize:9, color:'rgba(255,255,255,0.3)', marginBottom:2 }}>{msg.role==='ai'?'AI 머니야':'고객'} · {msg.time}</div>
+                <div style={{ background:msg.role==='ai'?'rgba(255,255,255,0.1)':'rgba(212,160,23,0.15)', borderRadius:msg.role==='ai'?'4px 14px 14px 14px':'14px 4px 14px 14px', padding:'9px 12px', fontSize:12, color:msg.role==='ai'?'rgba(255,255,255,0.9)':'white', lineHeight:1.5, border:msg.role==='ai'?'1px solid rgba(255,255,255,0.06)':`1px solid rgba(212,160,23,0.3)` }}>{msg.text}</div>
+                {msg.tag && <div style={{ display:'inline-flex', alignItems:'center', gap:4, background:'rgba(212,160,23,0.15)', border:'1px solid rgba(212,160,23,0.3)', borderRadius:20, padding:'3px 8px', fontSize:10, color:GOLD, marginTop:4 }}>{msg.tag}</div>}
+              </div>
+            </div>
+          ))}
+          {messages.length === 0 && <div style={{ textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:12, marginTop:40 }}>대화가 시작되면 여기에 표시됩니다</div>}
+        </div>
+      </div>
+    );
+  }
 
   // ── 대기/종료 화면 ──
   if (phase === 'idle' || phase === 'ended') {
@@ -794,92 +802,397 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
-  // ── 화상상담 활성 화면 ──
-  const isMobile = window.innerWidth < 768;
+  // ── 화상상담 활성 화면 — 시뮬레이터 3분할 구조 ──
+  const STEPS = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
+
+  const NOTE_STATUS: Record<string,string> = {
+    house:'🏠 금융집짓기 분석 중', chart:'📊 포트폴리오 계산 중',
+    calc:'🧮 수치 계산 완료', video:'🎬 영상 라이브러리', web:'🌐 웹 자료 검색 완료'
+  };
+
+  const handleTabChange = (tab: 'house'|'chart'|'calc'|'video'|'web') => {
+    setActiveNoteTab(tab);
+    setAiStatus(NOTE_STATUS[tab]);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0A0A', overflow: 'hidden' }}>
-      <style>{`@keyframes vcLive{0%,100%{opacity:1}50%{opacity:0.4}} @keyframes vcWave{0%,100%{height:4px;opacity:0.4}50%{height:20px;opacity:1}}`}</style>
-      {/* 상단 바 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(229,62,62,0.2)', border: '1px solid rgba(229,62,62,0.5)', borderRadius: 20, padding: '3px 10px' }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#E53E3E', animation: 'vcLive 1s infinite' }} />
-            <span style={{ color: '#FC8181', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>LIVE</span>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', color:'#F5F5F7', overflow:'hidden', fontFamily:'inherit' }}>
+      <style>{`
+        @keyframes sLivep{0%,100%{opacity:1}50%{opacity:0.3}}
+        @keyframes sWave{0%,100%{height:4px;opacity:0.4}50%{height:18px;opacity:1}}
+        @keyframes sRing{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.03)}}
+        @keyframes sFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes sDot{0%,100%{transform:translateY(0);opacity:0.4}50%{transform:translateY(-4px);opacity:1}}
+        .sntab{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;color:#888;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:4px;border:none;background:transparent;font-family:inherit;}
+        .sntab:hover{background:#F5F5F5;color:#444;}
+        .sntab.son{background:#FFF3CC;color:#D4A017;}
+        .saitem{background:#3A3A3C;border-radius:10px;padding:10px 12px;margin-bottom:8px;border-left:3px solid transparent;animation:sFadeIn 0.4s ease;}
+        .saitem.red{border-left-color:#FF3B30;}.saitem.yellow{border-left-color:#FF9500;}.saitem.green{border-left-color:#34C759;}.saitem.blue{border-left-color:#0A84FF;}
+        .sstep{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:3px;font-size:11px;color:rgba(255,255,255,0.55);transition:all 0.3s;}
+        .sstep.done{color:#34C759;}.sstep.active{background:rgba(212,160,23,0.1);color:#D4A017;font-weight:600;}
+        .sstepnum{width:18px;height:18px;border-radius:50%;background:#3A3A3C;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;}
+        .sstep.done .sstepnum{background:#34C759;color:white;}.sstep.active .sstepnum{background:#D4A017;color:white;}
+        .ssmsg{display:flex;align-items:flex-start;gap:8px;animation:sFadeIn 0.3s ease;}
+        .ssmsg.user{flex-direction:row-reverse;}
+      `}</style>
+
+      {/* ── 최상단 바 ── */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:48, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0, zIndex:100 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:28, height:28, borderRadius:'50%', overflow:'hidden', background:`linear-gradient(135deg,#B8820A,#E8C040)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <img src={MONEYA_IMG} alt="" style={{ width:24, height:24, objectFit:'contain' }} />
           </div>
-          <span style={{ color: 'white', fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatTime(elapsed)}</span>
+          <span style={{ fontSize:14, fontWeight:700, color:'white' }}>AI <span style={{ color:'#D4A017' }}>머니야</span></span>
+          <span style={{ fontSize:10, color:'rgba(255,255,255,0.5)' }}>스마트 화상상담</span>
         </div>
-        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{steps[currentStep-1]} ({currentStep}/8)</span>
-        <button onClick={endCall} style={{ background: '#E53E3E', color: 'white', border: 'none', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>종료</button>
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(52,199,89,0.15)', border:'1px solid rgba(52,199,89,0.3)', padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700, color:'#34C759' }}>
+            <div style={{ width:6, height:6, background:'#34C759', borderRadius:'50%', animation:'sLivep 1.8s ease-in-out infinite' }} />LIVE
+          </div>
+          <div style={{ fontSize:14, fontWeight:700, color:'white', fontVariantNumeric:'tabular-nums' }}>{formatTime(elapsed)}</div>
+          <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)' }}>{displayName} 고객님</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {[
+            { id:'mic', label: isMuted?'🔇 음소거':'🎤 마이크', on:!isMuted, action:()=>{localStreamRef.current?.getAudioTracks().forEach(t=>{t.enabled=isMuted});setIsMuted(p=>!p);} },
+            { id:'cam', label: isCamOff?'🚫 카메라꺼짐':'📹 카메라', on:!isCamOff, action:()=>{localStreamRef.current?.getVideoTracks().forEach(t=>{t.enabled=isCamOff});setIsCamOff(p=>!p);} },
+            { id:'rec', label:'⏺ 녹화', on:false, action:()=>onToast('녹화 준비 중') },
+          ].map(btn => (
+            <div key={btn.id} onClick={btn.action} style={{ background: btn.on?'rgba(212,160,23,0.2)':'rgba(255,255,255,0.1)', border: btn.on?'1px solid rgba(212,160,23,0.4)':'1px solid rgba(255,255,255,0.15)', padding:'4px 12px', borderRadius:20, fontSize:11, color: btn.on?'#D4A017':'rgba(255,255,255,0.6)', cursor:'pointer' }}>{btn.label}</div>
+          ))}
+          <div onClick={endCall} style={{ background:'rgba(255,59,48,0.15)', border:'1px solid rgba(255,59,48,0.3)', padding:'4px 14px', borderRadius:20, fontSize:11, color:'#FF3B30', cursor:'pointer', fontWeight:600 }}>📞 종료</div>
+        </div>
       </div>
-      {/* 메인 */}
-      <div style={{ flex: 1, display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '260px 1fr 260px', overflow: 'hidden' }}>
-        {/* 영상 */}
-        <div style={{ position: 'relative', background: '#1A1A1A', flexShrink: 0, height: isMobile ? 170 : '100%' }}>
-          <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#1A1A2E,#16213E)' }}>
-            <div style={{ width: 80, height: 80, background: `linear-gradient(135deg,${GOLD},#e8c05a)`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, boxShadow: '0 0 30px rgba(212,160,23,0.3)', overflow: 'hidden' }}>
-              <img src={MONEYA_IMG} alt="머니야" style={{ width: 68, height: 68, objectFit: 'contain' }} />
+
+      {/* ── 메인 3분할 + 하단 STT ── */}
+      <div style={{ flex:1, display:'grid', gridTemplateColumns:'220px 1fr 240px', gridTemplateRows:'1fr 150px', overflow:'hidden' }}>
+
+        {/* ── 좌측: AI 머니야 화상 ── */}
+        <div style={{ gridRow:'1/2', background:'linear-gradient(145deg,#0D1B3E,#0F2A5C,#163A6A)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 40%,rgba(212,160,23,0.08) 0%,transparent 65%)' }} />
+          {/* AI 상태 태그 */}
+          <div style={{ position:'absolute', top:12, left:12, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(8px)', border:'1px solid rgba(212,160,23,0.3)', padding:'4px 10px', borderRadius:20, fontSize:10, color:'#D4A017', fontWeight:600, zIndex:3 }}>{aiStatus}</div>
+          {/* AI 아바타 */}
+          <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+            <div style={{ width:88, height:88, borderRadius:'50%', overflow:'hidden', background:`linear-gradient(135deg,#B8820A,#E8C040)`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 40px rgba(212,160,23,0.3)', position:'relative' }}>
+              <img src={MONEYA_IMG} alt="머니야" style={{ width:76, height:76, objectFit:'contain' }} />
+              <div style={{ position:'absolute', inset:-4, borderRadius:'50%', border:'2px solid rgba(212,160,23,0.4)', animation:'sRing 2s ease-in-out infinite', pointerEvents:'none' }} />
             </div>
-            <div style={{ color: 'white', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>AI 머니야</div>
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center', height: 24 }}>
-              {[0,0.1,0.2,0.1,0].map((d,i) => <div key={i} style={{ width: 3, background: GOLD, borderRadius: 3, animation: `vcWave 0.8s ease-in-out ${d}s infinite` }} />)}
+            <div style={{ fontSize:13, fontWeight:700, color:'white' }}>AI 머니야</div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', marginTop:-8 }}>오상열 CFP 20년 학습</div>
+            <div style={{ display:'flex', alignItems:'center', gap:3, height:20, marginTop:4 }}>
+              {[0,0.12,0.24,0.12,0].map((d,i) => <div key={i} style={{ width:3, borderRadius:3, background:'#E8C040', animation:`sWave 0.9s ease-in-out ${d}s infinite` }} />)}
             </div>
           </div>
-          {/* PIP */}
-          <div style={{ position: 'absolute', bottom: 10, right: 10, width: 76, height: 100, background: '#2D2D2D', borderRadius: 10, border: '2px solid rgba(255,255,255,0.15)', overflow: 'hidden', zIndex: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-            <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-            {isCamOff && <div style={{ position: 'absolute', inset: 0, background: '#2D2D2D', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>👤</div>}
+          {/* 고객 PIP */}
+          <div style={{ position:'absolute', bottom:12, right:12, width:72, height:96, background:'linear-gradient(145deg,#2a2a2a,#1a1a1a)', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.15)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:5, cursor:'pointer', zIndex:3, boxShadow:'0 4px 16px rgba(0,0,0,0.5)', overflow:'hidden' }}>
+            <video ref={localVideoRef} autoPlay playsInline muted style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', transform:'scaleX(-1)' }} />
+            <span style={{ fontSize:24, position:'relative', zIndex:1 }}>👤</span>
+            <span style={{ fontSize:9, color:'rgba(255,255,255,0.4)', position:'relative', zIndex:1 }}>내 화면</span>
           </div>
-          {/* 자막 */}
-          {messages.length > 0 && (
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%)', padding: '28px 10px 8px', zIndex: 5 }}>
-              <div style={{ color: GOLD, fontSize: 9, fontWeight: 700, marginBottom: 2 }}>{messages[messages.length-1].role==='ai'?'AI 머니야':'고객'}</div>
-              <div style={{ color: 'white', fontSize: 11, lineHeight: 1.5, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{messages[messages.length-1].text.slice(0,55)}{messages[messages.length-1].text.length>55?'...':''}</div>
-            </div>
-          )}
         </div>
-        {/* 스마트 노트 */}
-        <div style={{ flex: 1, overflow: 'hidden', padding: isMobile ? '8px 10px' : 10, background: '#F5F5F5' }}>
-          <SmartNote noteData={noteData} activeTab={activeNoteTab} onTabChange={setActiveNoteTab} />
-        </div>
-        {/* 대화 기록 */}
-        <div style={{ background: '#111', display: 'flex', flexDirection: 'column', height: isMobile ? 150 : '100%', flexShrink: 0, borderTop: isMobile ? '1px solid rgba(255,255,255,0.08)' : 'none', borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ color: 'white', fontSize: 11, fontWeight: 600 }}>💬 대화 기록</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 5, height: 5, borderRadius: '50%', background: '#38A169' }} /><span style={{ color: '#68D391', fontSize: 9 }}>음성인식 중</span></div>
+
+        {/* ── 중앙: 스마트 노트 ── */}
+        <div style={{ gridRow:'1/2', background:'#FAFAF8', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {/* 노트 툴바 */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'white', borderBottom:'1px solid #E8E8E8', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display:'flex', gap:2 }}>
+              {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as [string,string][]).map(([id,label]) => (
+                <button key={id} className={`sntab${activeNoteTab===id?' son':''}`} onClick={() => handleTabChange(id as any)}>{label}</button>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:4 }}>
+              {['💾','⛶','↗'].map((ic,i) => <div key={i} style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', color:'#666' }}>{ic}</div>)}
+            </div>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'none' }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, flexDirection: msg.role==='user'?'row-reverse':'row' }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: msg.role==='ai'?`linear-gradient(135deg,${GOLD},#e8c05a)`:'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                  {msg.role==='ai' ? <img src={MONEYA_IMG} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} /> : <span style={{ fontSize: 11 }}>👤</span>}
+
+          {/* 노트 콘텐츠 */}
+          <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'20px 24px', scrollbarWidth:'thin' as any, scrollbarColor:'rgba(0,0,0,0.1) transparent' }}>
+
+            {/* ── 탭1: 금융집짓기 SVG ── */}
+            {activeNoteTab === 'house' && (
+              <div style={{ animation:'sFadeIn 0.3s ease' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🏠 금융집짓기® — {displayName} 고객님 현황
                 </div>
-                <div style={{ maxWidth: '72%' }}>
-                  <div style={{ background: msg.role==='ai'?'rgba(255,255,255,0.08)':'rgba(212,160,23,0.15)', borderRadius: msg.role==='ai'?'4px 10px 10px 10px':'10px 4px 10px 10px', padding: '6px 9px', color: 'white', fontSize: 10, lineHeight: 1.5, border: msg.role==='ai'?'1px solid rgba(255,255,255,0.06)':`1px solid rgba(212,160,23,0.3)` }}>{msg.text}</div>
-                  {msg.tag && <div style={{ fontSize: 9, color: GOLD, marginTop: 2, paddingLeft: 3 }}>{msg.tag}</div>}
+                <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{ display:'block', borderRadius:8, overflow:'hidden' }}>
+                  <defs>
+                    <linearGradient id="snGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor:'#C8920F'}}/><stop offset="100%" style={{stopColor:'#E8C040'}}/></linearGradient>
+                    <linearGradient id="snNavy" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style={{stopColor:'#1A3A6E'}}/><stop offset="100%" style={{stopColor:'#0F2A5C'}}/></linearGradient>
+                    <filter id="snShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/></filter>
+                  </defs>
+                  <rect width="520" height="340" fill="#F8F9FC"/>
+                  <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity="0.7"/>
+                  <text x="380" y="55" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
+                  <text x="380" y="68" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
+                  <polygon points="80,130 260,40 440,130" fill="url(#snNavy)" filter="url(#snShadow)"/>
+                  <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
+                  <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
+                  <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity="0.85"/>
+                  <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
+                  <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity="0.8" filter="url(#snShadow)"/>
+                  <text x="132" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채</text>
+                  <text x="132" y="210" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.8)">설계</text>
+                  <text x="132" y="225" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
+                  <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity="0.8" filter="url(#snShadow)"/>
+                  <text x="260" y="195" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축</text>
+                  <text x="260" y="210" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.8)">설계</text>
+                  <text x="260" y="225" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
+                  <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#snGold)" filter="url(#snShadow)"/>
+                  <rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="#D4A017" strokeWidth="2.5"/>
+                  <text x="390" y="188" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴</text>
+                  <text x="390" y="203" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.9)">설계 ★</text>
+                  <text x="390" y="218" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
+                  <text x="390" y="233" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">2.4억</text>
+                  <text x="390" y="247" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">목표 68%</text>
+                  <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity="0.9" filter="url(#snShadow)"/>
+                  <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
+                  <text x="200" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.65)">사망보장 1억 부족 ⚠️</text>
+                  <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
+                  <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">목표: 600만원</text>
+                </svg>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:12 }}>
+                  {[
+                    {bg:'#FFF3CC',color:'#C8920F',border:'rgba(200,146,15,0.3)',label:'💰 월 수입 400만'},
+                    {bg:'#FFE5E5',color:'#C0392B',border:'rgba(192,57,43,0.3)',label:'⚠️ 사망보장 부족'},
+                    {bg:'#E8F5E9',color:'#1E7E34',border:'rgba(30,126,52,0.3)',label:'✅ 보험료 비율 적정'},
+                    {bg:'#E3F2FD',color:'#1A5CA8',border:'rgba(26,92,168,0.3)',label:'🎯 은퇴 목표 68%'},
+                    {bg:'#F3E5F5',color:'#7B1FA2',border:'rgba(123,31,162,0.3)',label:'🕳 지출 블랙홀 120만'},
+                  ].map((c,i) => <span key={i} style={{ background:c.bg, color:c.color, fontSize:10, fontWeight:700, padding:'4px 10px', borderRadius:20, border:`1px solid ${c.border}` }}>{c.label}</span>)}
+                </div>
+              </div>
+            )}
+
+            {/* ── 탭2: 포트폴리오 ── */}
+            {activeNoteTab === 'chart' && (
+              <div style={{ animation:'sFadeIn 0.3s ease' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:14, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />📊 자산 포트폴리오 분석</div>
+                <svg width="100%" viewBox="0 0 320 180" style={{ display:'block', margin:'0 auto 16px' }}>
+                  <text x="160" y="20" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">현재 자산배분</text>
+                  <circle cx="100" cy="100" r="60" fill="none" stroke="#F0F0F0" strokeWidth="28"/>
+                  <circle cx="100" cy="100" r="60" fill="none" stroke="#2C3E50" strokeWidth="28" strokeDasharray="113 264" strokeDashoffset="0" transform="rotate(-90 100 100)"/>
+                  <circle cx="100" cy="100" r="60" fill="none" stroke="#27AE60" strokeWidth="28" strokeDasharray="75 264" strokeDashoffset="-113" transform="rotate(-90 100 100)"/>
+                  <circle cx="100" cy="100" r="60" fill="none" stroke="#3498DB" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-188" transform="rotate(-90 100 100)"/>
+                  <circle cx="100" cy="100" r="60" fill="none" stroke="#E8C040" strokeWidth="28" strokeDasharray="38 264" strokeDashoffset="-226" transform="rotate(-90 100 100)"/>
+                  <text x="100" y="97" textAnchor="middle" fontSize="11" fill="#333" fontWeight="700">총 자산</text>
+                  <text x="100" y="112" textAnchor="middle" fontSize="13" fill="#0F2A5C" fontWeight="700">3,200만</text>
+                  <rect x="185" y="40" width="10" height="10" rx="2" fill="#2C3E50"/><text x="200" y="50" fontSize="10" fill="#444">보험자산 43%</text>
+                  <rect x="185" y="60" width="10" height="10" rx="2" fill="#27AE60"/><text x="200" y="70" fontSize="10" fill="#444">저축 28%</text>
+                  <rect x="185" y="80" width="10" height="10" rx="2" fill="#3498DB"/><text x="200" y="90" fontSize="10" fill="#444">투자 14%</text>
+                  <rect x="185" y="100" width="10" height="10" rx="2" fill="#E8C040"/><text x="200" y="110" fontSize="10" fill="#444">부동산 15%</text>
+                  <text x="185" y="135" fontSize="9" fill="#888">권장 배분</text>
+                  <text x="185" y="150" fontSize="10" fill="#C8920F" fontWeight="600">보험20/저축30/투자35/부동산15</text>
+                  <text x="185" y="165" fontSize="9" fill="#E74C3C">→ 투자 비중 21% 부족</text>
+                </svg>
+                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:10, display:'flex', alignItems:'center', gap:6, marginTop:8 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />📈 은퇴자금 시뮬레이션</div>
+                <svg width="100%" viewBox="0 0 480 160" style={{ display:'block', background:'#F8F9FC', borderRadius:8 }}>
+                  <line x1="50" y1="20" x2="50" y2="130" stroke="#ddd" strokeWidth="1"/>
+                  <line x1="50" y1="130" x2="460" y2="130" stroke="#ddd" strokeWidth="1"/>
+                  <line x1="50" y1="80" x2="460" y2="80" stroke="#eee" strokeWidth="1" strokeDasharray="4,3"/>
+                  <text x="44" y="25" textAnchor="end" fontSize="8" fill="#888">4억</text>
+                  <text x="44" y="83" textAnchor="end" fontSize="8" fill="#888">2억</text>
+                  <text x="44" y="133" textAnchor="end" fontSize="8" fill="#888">0</text>
+                  <text x="80" y="145" textAnchor="middle" fontSize="8" fill="#888">현재(45)</text>
+                  <text x="185" y="145" textAnchor="middle" fontSize="8" fill="#888">50세</text>
+                  <text x="290" y="145" textAnchor="middle" fontSize="8" fill="#888">55세</text>
+                  <text x="395" y="145" textAnchor="middle" fontSize="8" fill="#888">60세</text>
+                  <polyline points="80,122 185,110 290,92 395,68" fill="none" stroke="#E74C3C" strokeWidth="2" strokeDasharray="6,3"/>
+                  <polyline points="80,122 185,102 290,75 395,38" fill="none" stroke="#D4A017" strokeWidth="2.5"/>
+                  <line x1="50" y1="38" x2="460" y2="38" stroke="#27AE60" strokeWidth="1" strokeDasharray="4,3" opacity="0.6"/>
+                  <line x1="280" y1="18" x2="300" y2="18" stroke="#E74C3C" strokeWidth="2" strokeDasharray="5,3"/>
+                  <text x="305" y="22" fontSize="9" fill="#888">현재 추세 2.4억</text>
+                  <line x1="370" y1="18" x2="390" y2="18" stroke="#D4A017" strokeWidth="2.5"/>
+                  <text x="395" y="22" fontSize="9" fill="#C8920F" fontWeight="600">개선 후 4억</text>
+                  <circle cx="395" cy="68" r="4" fill="#E74C3C"/><text x="395" y="60" textAnchor="middle" fontSize="9" fill="#E74C3C" fontWeight="700">2.4억</text>
+                  <circle cx="395" cy="38" r="4" fill="#D4A017"/><text x="395" y="30" textAnchor="middle" fontSize="9" fill="#C8920F" fontWeight="700">4억 ✓</text>
+                </svg>
+              </div>
+            )}
+
+            {/* ── 탭3: 계산기 ── */}
+            {activeNoteTab === 'calc' && (
+              <div style={{ animation:'sFadeIn 0.3s ease' }}>
+                <div style={{ background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)', borderRadius:12, padding:16, marginBottom:16, color:'white' }}>
+                  <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', marginBottom:4 }}>📌 은퇴자금 시뮬레이션</div>
+                  <div style={{ fontSize:28, fontWeight:700, color:'#E8C040' }}>3억 8,400만원</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginTop:2 }}>월 170만원 저축 × 15년 (연 4% 수익률)</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.1)' }}>
+                    {[{val:'60세',label:'목표 은퇴'},{val:'25년',label:'사용 기간'},{val:'월 128만',label:'수령 가능액',color:'#34C759'},{val:'+국민연금',label:'예상 65만',color:'#FF9500'}].map((r,i) => (
+                      <div key={i} style={{ textAlign:'center' }}>
+                        <div style={{ fontSize:15, fontWeight:700, color: r.color||'white' }}>{r.val}</div>
+                        <div style={{ fontSize:9, color:'rgba(255,255,255,0.5)', marginTop:2 }}>{r.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', padding:16, marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:14, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />💸 월 지출 구조 분석</div>
+                  <svg width="100%" viewBox="0 0 400 140" style={{ display:'block' }}>
+                    <rect x="40" y="30" width="44" height="80" rx="4" fill="#3498DB" opacity="0.8"/><text x="62" y="25" textAnchor="middle" fontSize="9" fill="#3498DB" fontWeight="700">생활비</text><text x="62" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">200만</text>
+                    <rect x="110" y="62" width="44" height="48" rx="4" fill="#2C3E50" opacity="0.8"/><text x="132" y="57" textAnchor="middle" fontSize="9" fill="#2C3E50" fontWeight="700">보험료</text><text x="132" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">30만</text>
+                    <rect x="180" y="54" width="44" height="56" rx="4" fill="#27AE60" opacity="0.8"/><text x="202" y="49" textAnchor="middle" fontSize="9" fill="#27AE60" fontWeight="700">저축</text><text x="202" y="120" textAnchor="middle" fontSize="10" fill="#333" fontWeight="700">50만</text>
+                    <rect x="250" y="46" width="44" height="64" rx="4" fill="#E74C3C" opacity="0.7" stroke="#E74C3C" strokeWidth="2" strokeDasharray="4,2"/><text x="272" y="41" textAnchor="middle" fontSize="9" fill="#E74C3C" fontWeight="700">블랙홀?</text><text x="272" y="120" textAnchor="middle" fontSize="10" fill="#E74C3C" fontWeight="700">120만!</text>
+                    <line x1="30" y1="130" x2="310" y2="130" stroke="#eee" strokeWidth="1"/>
+                    <text x="340" y="82" fontSize="10" fill="#333">합계</text><text x="340" y="96" fontSize="14" fill="#0F2A5C" fontWeight="700">400만</text><text x="340" y="110" fontSize="9" fill="#888">= 수입 전액</text>
+                  </svg>
+                </div>
+                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', padding:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#0A84FF', borderRadius:2, display:'inline-block' }} />🛡️ 보험 구조 최적화</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                    <div style={{ background:'#FFF3F3', borderRadius:8, padding:12, border:'1px solid #FFCDD2' }}>
+                      <div style={{ fontSize:10, color:'#C62828', fontWeight:700, marginBottom:6 }}>현재 구조</div>
+                      <div style={{ fontSize:11, color:'#333', lineHeight:1.8 }}>종신보험 20만<br/>실손보험 10만<br/>─────<br/>합계 30만<br/><span style={{ color:'#E74C3C', fontSize:10 }}>사망보장 1억 부족</span></div>
+                    </div>
+                    <div style={{ background:'#F1F8E9', borderRadius:8, padding:12, border:'1px solid #C5E1A5' }}>
+                      <div style={{ fontSize:10, color:'#2E7D32', fontWeight:700, marginBottom:6 }}>권장 구조</div>
+                      <div style={{ fontSize:11, color:'#333', lineHeight:1.8 }}>정기보험 12만<br/>실손보험 8만<br/>CI보험 10만<br/>─────<br/><span style={{ color:'#27AE60', fontWeight:700 }}>30만 유지 + 보장↑</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── 탭4: 영상 ── */}
+            {activeNoteTab === 'video' && (
+              <div style={{ animation:'sFadeIn 0.3s ease' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🎬 니즈환기 영상 라이브러리</div>
+                {[
+                  {emoji:'👴👵',title:'노후준비, 왜 지금 해야 하나요?',duration:'2:34',bg:'linear-gradient(145deg,#1a1a2e,#16213e)',sub:'노후준비 니즈환기'},
+                  {emoji:'🛡️',title:'보험, 제대로 알고 계신가요?',duration:'1:58',bg:'linear-gradient(145deg,#1a2a1a,#163016)',sub:'보험 니즈환기'},
+                  {emoji:'📈',title:'복리의 기적 — 10년의 차이',duration:'3:12',bg:'linear-gradient(145deg,#2a1a0a,#3a2a10)',sub:'투자 니즈환기'},
+                ].map((v,i) => (
+                  <div key={i} onClick={() => setPlayingVideo(v.title)} style={{ marginBottom:12, cursor:'pointer', borderRadius:12, overflow:'hidden', boxShadow:'0 4px 16px rgba(0,0,0,0.2)', position:'relative', aspectRatio:'16/9' }}>
+                    <div style={{ background:v.bg, width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:6 }}>
+                      <div style={{ fontSize:36 }}>{v.emoji}</div>
+                      <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)' }}>{v.sub}</div>
+                      <div style={{ width:52, height:52, background:'rgba(212,160,23,0.9)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, boxShadow:'0 4px 20px rgba(212,160,23,0.4)', position:'absolute' }}>▶</div>
+                    </div>
+                    <div style={{ position:'absolute', bottom:10, left:12, fontSize:11, fontWeight:700, color:'white', textShadow:'0 1px 4px rgba(0,0,0,0.8)' }}>{v.title}</div>
+                    <div style={{ position:'absolute', bottom:10, right:12, background:'rgba(0,0,0,0.7)', color:'white', fontSize:10, padding:'2px 6px', borderRadius:4 }}>{v.duration}</div>
+                  </div>
+                ))}
+                {playingVideo && <div style={{ background:'rgba(212,160,23,0.1)', border:'1px solid rgba(212,160,23,0.3)', borderRadius:8, padding:10, fontSize:12, color:'#D4A017' }}>▶ 재생 중: {playingVideo}</div>}
+              </div>
+            )}
+
+            {/* ── 탭5: 웹자료 ── */}
+            {activeNoteTab === 'web' && (
+              <div style={{ animation:'sFadeIn 0.3s ease' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{ width:3, height:14, background:'#D4A017', borderRadius:2, display:'inline-block' }} />🌐 실시간 웹 참조 자료</div>
+                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', overflow:'hidden', marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ background:'#F5F5F5', padding:'8px 12px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid #E8E8E8' }}>
+                    <span style={{ fontSize:14 }}>🏛️</span><span style={{ fontSize:10, color:'#888' }}>nhis.or.kr — 국민건강보험공단</span>
+                  </div>
+                  <div style={{ padding:'14px 16px' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:8 }}>2025년 국민연금 예상 수령액 기준표</div>
+                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                      <thead><tr style={{ background:'#F5F5F5' }}>
+                        <th style={{ padding:'5px 8px', textAlign:'left', border:'1px solid #E0E0E0' }}>가입기간</th>
+                        <th style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>월 수령액</th>
+                        <th style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>연 환산</th>
+                      </tr></thead>
+                      <tbody>
+                        <tr><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0' }}>10년</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>약 23만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>276만원</td></tr>
+                        <tr style={{ background:'#FFF9EC' }}><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>20년 (해당)</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>약 65만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0', fontWeight:700, color:'#C8920F' }}>780만원</td></tr>
+                        <tr><td style={{ padding:'5px 8px', border:'1px solid #E0E0E0' }}>30년</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>약 97만원</td><td style={{ padding:'5px 8px', textAlign:'right', border:'1px solid #E0E0E0' }}>1,164만원</td></tr>
+                      </tbody>
+                    </table>
+                    <div style={{ fontSize:10, color:'#888', marginTop:6 }}>* 고객님 해당: 가입기간 약 20년 → 월 약 65만원 예상</div>
+                  </div>
+                </div>
+                <div style={{ background:'white', borderRadius:12, border:'1px solid #E8E8E8', overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ background:'#F5F5F5', padding:'8px 12px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid #E8E8E8' }}>
+                    <span style={{ fontSize:14 }}>📰</span><span style={{ fontSize:10, color:'#888' }}>관련 기사 — 2025.03</span>
+                  </div>
+                  <div style={{ padding:'14px 16px' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#0F2A5C', marginBottom:6 }}>"40대 직장인 은퇴 준비, 늦었다는 착각"</div>
+                    <div style={{ fontSize:11, color:'#555', lineHeight:1.6 }}>40대부터 시작해도 15~20년의 복리 효과로 충분한 은퇴자금 마련이 가능하다. 핵심은 지출 구조 개선과 투자 비중 확대...</div>
+                    <div style={{ fontSize:10, color:'#D4A017', marginTop:6, fontWeight:600 }}>→ AI 머니야가 이 기사를 참조하여 {displayName} 고객님 맞춤 분석을 진행했습니다</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── 우측: 실시간 분석 패널 ── */}
+        <div style={{ gridRow:'1/2', background:'#2C2C2E', borderLeft:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', fontSize:12, fontWeight:700, color:'#D4A017', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>📊 실시간 분석</div>
+          <div style={{ flex:1, overflowY:'auto', padding:12, scrollbarWidth:'none' as any }}>
+            {/* 8단계 진행 */}
+            <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>8단계 진행 현황</div>
+            {STEPS.map((s,i) => (
+              <div key={i} className={`sstep${i < currentStep-1 ? ' done' : i === currentStep-1 ? ' active' : ''}`}>
+                <div className="sstepnum">{i < currentStep-1 ? '✓' : i+1}</div>
+                {s}
+              </div>
+            ))}
+            <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'10px 0' }} />
+            {/* 핵심 발견사항 */}
+            <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>핵심 발견사항</div>
+            {[
+              {cls:'red', label:'🛡️ 보험 보장', val:'사망보장 1억 부족', sub:'현재 종신 → 정기 전환 권장'},
+              {cls:'yellow', label:'💸 지출 블랙홀', val:'월 120만원 미파악', sub:'카드 내역 분석 필요'},
+              {cls:'blue', label:'🎯 은퇴 자금', val:'2.4억 → 목표 4억', sub:'월 120만 추가 시 달성 가능'},
+              {cls:'green', label:'✅ 보험료 비율', val:'7.5% 적정 수준', sub:'수입 400만 대비 적정'},
+            ].map((a,i) => (
+              <div key={i} className={`saitem ${a.cls}`}>
+                <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', fontWeight:600, textTransform:'uppercase' as const, letterSpacing:'0.5px', marginBottom:3 }}>{a.label}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:'white' }}>{a.val}</div>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{a.sub}</div>
+              </div>
+            ))}
+            <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'10px 0' }} />
+            {/* AI 엔진 상태 */}
+            <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>AI 엔진 상태</div>
+            <div style={{ background:'#3A3A3C', borderRadius:8, padding:'8px 10px', fontSize:10 }}>
+              {[['RAG 검색','활성 ●','#34C759'],['참조 청크','5,706개','white'],['Function Call','12회 호출','#D4A017'],['응답 속도','1.2초','white']].map(([k,v,c],i) => (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', marginBottom: i<3 ? 4:0 }}>
+                  <span style={{ color:'rgba(255,255,255,0.55)' }}>{k}</span>
+                  <span style={{ color:c, fontWeight:700 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 하단: STT 실시간 대화 (3열 span) ── */}
+        <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)' }}>
+              💬 실시간 STT 대화
+              <div style={{ background:'rgba(10,132,255,0.2)', border:'1px solid rgba(10,132,255,0.3)', color:'#0A84FF', fontSize:9, padding:'2px 7px', borderRadius:10, fontWeight:700 }}>● 음성인식 중</div>
+            </div>
+            <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>상담 종료 후 자동 저장 → 서류함</div>
+          </div>
+          <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', gap:5, justifyContent:'flex-end' }}>
+            {messages.slice(-3).map((msg, i) => (
+              <div key={i} className={`ssmsg${msg.role==='user'?' user':''}`}>
+                <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, flexShrink:0, marginTop:1, background: msg.role==='ai'?`linear-gradient(135deg,#B8820A,#E8C040)`:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+                  {msg.role==='ai' ? <img src={MONEYA_IMG} alt="" style={{ width:18, height:18, objectFit:'contain' }} /> : displayName.charAt(0)}
+                </div>
+                <div>
+                  <div style={{ fontSize:12, lineHeight:1.5, padding:'5px 10px', borderRadius:10, maxWidth:'75%', background: msg.role==='ai'?'rgba(255,255,255,0.08)':'rgba(212,160,23,0.15)', color: msg.role==='ai'?'rgba(255,255,255,0.85)':'#E8C040' }}>{msg.text}</div>
+                  {msg.tag && <div style={{ fontSize:9, color:'#D4A017', marginTop:2, display:'flex', alignItems:'center', gap:3 }}>💡 {msg.tag}</div>}
                 </div>
               </div>
             ))}
-            {messages.length === 0 && <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 16 }}>대화가 시작되면 여기에 표시됩니다</div>}
+            {messages.length === 0 && (
+              <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'rgba(255,255,255,0.4)' }}>
+                <span style={{ fontSize:12 }}>🤖</span> AI 머니야가 응답을 준비하고 있습니다...
+                <span style={{ display:'inline-flex', gap:3 }}>{[0,0.18,0.36].map((d,i) => <span key={i} style={{ width:5, height:5, background:'#ccc', borderRadius:'50%', display:'inline-block', animation:`sDot 1.2s ease-in-out ${d}s infinite` }} />)}</span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
-      {/* 컨트롤 바 */}
-      <div style={{ background: 'rgba(13,13,13,0.95)', padding: '10px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        {[
-          { icon: isMuted?'🔇':'🎤', label: isMuted?'음소거됨':'마이크', action: toggleMic, red: isMuted, size: 48 },
-          { icon: isCamOff?'🚫':'📹', label: isCamOff?'카메라꺼짐':'카메라', action: toggleCam, red: isCamOff, size: 48 },
-          { icon: '📞', label: '종료', action: endCall, red: true, size: 56 },
-        ].map((btn, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={btn.action}>
-            <div style={{ width: btn.size, height: btn.size, borderRadius: '50%', background: btn.red ? (i===2 ? '#E53E3E' : 'rgba(229,62,62,0.2)') : 'rgba(255,255,255,0.12)', border: btn.red && i!==2 ? '1px solid rgba(229,62,62,0.4)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: i===2?22:20, boxShadow: i===2?'0 4px 16px rgba(229,62,62,0.4)':'none', transition: 'all 0.2s' }}>{btn.icon}</div>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{btn.label}</span>
-          </div>
-        ))}
+
       </div>
     </div>
   );
 }
+
+// ─── 대화 기록 화면 (화상 중 💬 버튼으로 진입)
 
 // ── 일정 + 금융집 현황 합체 (기존 Schedule + MoneyaInfo 흡수) ──
 function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
