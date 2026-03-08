@@ -696,29 +696,138 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
                   >✕</button>
                 </div>
 
-                {/* house_svg: 금융집짓기 영역 강조 */}
+                {/* ── house_svg: 금융집짓기 SVG (층별 강조 + 펄스 애니메이션) ── */}
                 {smartNote.noteType === 'house_svg' && (
-                  <div className="space-y-1">
-                    {([
-                      { key: 'chimney',          label: '🏠 부동산 설계',   floor: 7 },
-                      { key: 'roof_tax',          label: '📋 세금 설계',    floor: 6 },
-                      { key: 'roof_investment',   label: '📈 투자 설계',    floor: 5 },
-                      { key: 'eaves',             label: '🛡 생로병사',      floor: 4 },
-                      { key: 'pillar_retirement', label: '🧓 은퇴 설계',    floor: 3 },
-                      { key: 'pillar_savings',    label: '💰 저축 설계',    floor: 2 },
-                      { key: 'pillar_debt',       label: '💳 부채 설계',    floor: 1 },
-                      { key: 'basement',          label: '🔐 보험·비상금', floor: 0 },
-                    ] as const).map(({ key, label }) => (
-                      <div key={key} className={`px-2 py-1 rounded text-xs transition-all ${
-                        smartNote.highlightFloor === key
-                          ? 'bg-yellow-500/40 text-yellow-200 font-bold border border-yellow-500/60'
-                          : 'text-gray-400'
-                      }`}>{label}</div>
-                    ))}
+                  <div className="w-full">
+                    <style>{`
+                      @keyframes floorPulse {
+                        0%,100% { opacity:1; filter:drop-shadow(0 0 3px #facc15); }
+                        50%     { opacity:0.7; filter:drop-shadow(0 0 8px #facc15) brightness(1.3); }
+                      }
+                      .floor-highlight { animation: floorPulse 1.4s ease-in-out infinite; }
+                    `}</style>
+                    <svg viewBox="0 0 220 260" className="w-full" xmlns="http://www.w3.org/2000/svg">
+                      {/* ── 굴뚝 (부동산) ── */}
+                      <g className={smartNote.highlightFloor === 'chimney' ? 'floor-highlight' : ''}>
+                        <rect x="155" y="20" width="28" height="30" rx="2"
+                          fill={smartNote.highlightFloor === 'chimney' ? '#854d0e' : '#374151'}
+                          stroke={smartNote.highlightFloor === 'chimney' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'chimney' ? 2 : 1}/>
+                        <text x="169" y="40" textAnchor="middle" fill={smartNote.highlightFloor === 'chimney' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">부동산</text>
+                      </g>
+
+                      {/* ── 지붕 투자 (좌) ── */}
+                      <g className={smartNote.highlightFloor === 'roof_investment' ? 'floor-highlight' : ''}>
+                        <polygon points="10,85 110,42 110,85"
+                          fill={smartNote.highlightFloor === 'roof_investment' ? '#1e3a5f' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'roof_investment' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'roof_investment' ? 2 : 1}/>
+                        <text x="55" y="72" textAnchor="middle" fill={smartNote.highlightFloor === 'roof_investment' ? '#fde047' : '#9ca3af'} fontSize="6.5" fontWeight="bold">📈 투자설계</text>
+                      </g>
+
+                      {/* ── 지붕 세금 (우) ── */}
+                      <g className={smartNote.highlightFloor === 'roof_tax' ? 'floor-highlight' : ''}>
+                        <polygon points="110,42 210,85 110,85"
+                          fill={smartNote.highlightFloor === 'roof_tax' ? '#3b1f5e' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'roof_tax' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'roof_tax' ? 2 : 1}/>
+                        <text x="160" y="72" textAnchor="middle" fill={smartNote.highlightFloor === 'roof_tax' ? '#fde047' : '#9ca3af'} fontSize="6.5" fontWeight="bold">📋 세금설계</text>
+                      </g>
+
+                      {/* ── 처마보 (생로병사) ── */}
+                      <g className={smartNote.highlightFloor === 'eaves' ? 'floor-highlight' : ''}>
+                        <rect x="10" y="85" width="200" height="22" rx="2"
+                          fill={smartNote.highlightFloor === 'eaves' ? '#1e4035' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'eaves' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'eaves' ? 2 : 1}/>
+                        <text x="110" y="100" textAnchor="middle" fill={smartNote.highlightFloor === 'eaves' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🛡 생로병사 (보장설계)</text>
+                      </g>
+
+                      {/* ── 기둥 3개 ── */}
+                      {/* 부채 (좌) */}
+                      <g className={smartNote.highlightFloor === 'pillar_debt' ? 'floor-highlight' : ''}>
+                        <rect x="10" y="107" width="60" height="70" rx="2"
+                          fill={smartNote.highlightFloor === 'pillar_debt' ? '#3b1f1f' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'pillar_debt' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'pillar_debt' ? 2 : 1}/>
+                        <text x="40" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">💳</text>
+                        <text x="40" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">부채설계</text>
+                        <text x="40" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(거실)</text>
+                      </g>
+                      {/* 저축 (중) */}
+                      <g className={smartNote.highlightFloor === 'pillar_savings' ? 'floor-highlight' : ''}>
+                        <rect x="80" y="107" width="60" height="70" rx="2"
+                          fill={smartNote.highlightFloor === 'pillar_savings' ? '#1a3a1f' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'pillar_savings' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'pillar_savings' ? 2 : 1}/>
+                        <text x="110" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">💰</text>
+                        <text x="110" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">저축설계</text>
+                        <text x="110" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(건넌방)</text>
+                      </g>
+                      {/* 은퇴 (우) ★ */}
+                      <g className={smartNote.highlightFloor === 'pillar_retirement' ? 'floor-highlight' : ''}>
+                        <rect x="150" y="107" width="60" height="70" rx="2"
+                          fill={smartNote.highlightFloor === 'pillar_retirement' ? '#1a2a3a' : '#1f2937'}
+                          stroke={smartNote.highlightFloor === 'pillar_retirement' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'pillar_retirement' ? 2.5 : 1}/>
+                        <text x="180" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🧓</text>
+                        <text x="180" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">은퇴설계★</text>
+                        <text x="180" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(안방)</text>
+                      </g>
+
+                      {/* ── 지하 (보험 + 비상금) ── */}
+                      <g className={smartNote.highlightFloor === 'basement' ? 'floor-highlight' : ''}>
+                        <rect x="10" y="177" width="200" height="35" rx="2"
+                          fill={smartNote.highlightFloor === 'basement' ? '#1a1a2e' : '#111827'}
+                          stroke={smartNote.highlightFloor === 'basement' ? '#facc15' : '#6b7280'}
+                          strokeWidth={smartNote.highlightFloor === 'basement' ? 2 : 1}/>
+                        <text x="110" y="193" textAnchor="middle" fill={smartNote.highlightFloor === 'basement' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🔐 보장자산(보험) + 비상예비자금</text>
+                        <text x="110" y="206" textAnchor="middle" fill={smartNote.highlightFloor === 'basement' ? '#fbbf24' : '#6b7280'} fontSize="5.5">지하 — 재무 기초체력</text>
+                      </g>
+
+                      {/* ── 수입지출 연료 표시 ── */}
+                      <text x="110" y="250" textAnchor="middle" fill="#6b7280" fontSize="6">🔄 수입지출분석 (연료)</text>
+                    </svg>
+
+                    {/* 현재 강조 층 라벨 */}
+                    {smartNote.highlightFloor && smartNote.highlightFloor !== 'none' && (
+                      <p className="text-center text-yellow-400 text-xs font-bold mt-1 animate-pulse">
+                        ▶ {{
+                          chimney: '부동산 설계',
+                          roof_investment: '투자 설계',
+                          roof_tax: '세금 설계',
+                          eaves: '생로병사 (보장설계)',
+                          pillar_debt: '부채 설계',
+                          pillar_savings: '저축 설계',
+                          pillar_retirement: '은퇴 설계 ★',
+                          basement: '보험 · 비상예비자금',
+                        }[smartNote.highlightFloor] || smartNote.highlightFloor} 상담 중
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* calculation: 계산 결과 */}
+                {/* ── video: Firebase MP4 재생 ── */}
+                {smartNote.noteType === 'video' && (
+                  <div className="w-full space-y-2">
+                    <video
+                      key={typeof smartNote.content.url === 'string' ? smartNote.content.url : 'default-video'}
+                      src={
+                        typeof smartNote.content.url === 'string' && smartNote.content.url
+                          ? smartNote.content.url
+                          : 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%20%EC%97%90%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98.mp4?alt=media&token=7b052cb9-4c71-407a-bddd-e8d60e96e95c'
+                      }
+                      controls autoPlay playsInline
+                      className="w-full rounded-lg border border-yellow-600/30"
+                      style={{ maxHeight: '140px' }}
+                    />
+                    {typeof smartNote.content.description === 'string' && (
+                      <p className="text-gray-300 text-xs leading-relaxed">{smartNote.content.description}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── calculation: 계산 결과 ── */}
                 {smartNote.noteType === 'calculation' && (
                   <div className="space-y-1">
                     {Object.entries(smartNote.content).map(([k, v]) => (
@@ -730,7 +839,7 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
                   </div>
                 )}
 
-                {/* chart / 기타: 텍스트 표시 */}
+                {/* ── chart / web / checklist / image: 텍스트 표시 ── */}
                 {(smartNote.noteType === 'chart' || smartNote.noteType === 'web' ||
                   smartNote.noteType === 'checklist' || smartNote.noteType === 'image') && (
                   <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">
@@ -739,10 +848,6 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
                       : JSON.stringify(smartNote.content, null, 2)}
                   </div>
                 )}
-
-                <p className="text-gray-600 text-xs mt-2 text-right">
-                  타입: {smartNote.noteType}
-                </p>
               </div>
             )}
           </div>
