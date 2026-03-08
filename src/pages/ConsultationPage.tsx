@@ -696,116 +696,156 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
                   >✕</button>
                 </div>
 
-                {/* ── house_svg: 금융집짓기 SVG (층별 강조 + 펄스 애니메이션) ── */}
-                {smartNote.noteType === 'house_svg' && (
+                {/* ── house_svg: 금융집짓기 손글씨 노트 스타일 SVG ── */}
+                {smartNote.noteType === 'house_svg' && (() => {
+                  const hl = smartNote.highlightFloor;
+                  const c = smartNote.content as Record<string, string>;
+                  // 강조 층별 색상 헬퍼
+                  const hlFill  = (key: string) => hl === key ? '#fff8e7' : '#f5f0e8';
+                  const hlStroke= (key: string) => hl === key ? '#dc2626' : '#16a34a';
+                  const hlSW    = (key: string) => hl === key ? 2.5 : 1.5;
+                  const hlText  = (key: string) => hl === key ? '#dc2626' : '#15803d';
+                  const hlAnim  = (key: string) => hl === key ? 'floor-highlight' : '';
+                  return (
                   <div className="w-full">
                     <style>{`
                       @keyframes floorPulse {
-                        0%,100% { opacity:1; filter:drop-shadow(0 0 3px #facc15); }
-                        50%     { opacity:0.7; filter:drop-shadow(0 0 8px #facc15) brightness(1.3); }
+                        0%,100% { filter: drop-shadow(0 0 0px #dc2626); }
+                        50%     { filter: drop-shadow(0 0 5px #dc2626); }
                       }
-                      .floor-highlight { animation: floorPulse 1.4s ease-in-out infinite; }
+                      .floor-highlight { animation: floorPulse 1.2s ease-in-out infinite; }
                     `}</style>
-                    <svg viewBox="0 0 220 260" className="w-full" xmlns="http://www.w3.org/2000/svg">
+
+                    {/* 종이 배경 */}
+                    <svg viewBox="0 0 240 310" className="w-full" xmlns="http://www.w3.org/2000/svg"
+                      style={{ background: '#faf7f0', borderRadius: '6px', border: '1px solid #d4c9a8' }}>
+
+                      {/* ── 제목 ── */}
+                      <text x="120" y="14" textAnchor="middle" fill="#15803d" fontSize="8" fontWeight="bold" fontFamily="sans-serif">금융집짓기®</text>
+
                       {/* ── 굴뚝 (부동산) ── */}
-                      <g className={smartNote.highlightFloor === 'chimney' ? 'floor-highlight' : ''}>
-                        <rect x="155" y="20" width="28" height="30" rx="2"
-                          fill={smartNote.highlightFloor === 'chimney' ? '#854d0e' : '#374151'}
-                          stroke={smartNote.highlightFloor === 'chimney' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'chimney' ? 2 : 1}/>
-                        <text x="169" y="40" textAnchor="middle" fill={smartNote.highlightFloor === 'chimney' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">부동산</text>
+                      <g className={hlAnim('chimney')}>
+                        <rect x="162" y="18" width="26" height="22" rx="1"
+                          fill={hlFill('chimney')} stroke={hlStroke('chimney')} strokeWidth={hlSW('chimney')}/>
+                        <text x="175" y="27" textAnchor="middle" fill={hlText('chimney')} fontSize="5.5" fontWeight="bold">부동산</text>
+                        <text x="175" y="36" textAnchor="middle" fill={hlText('chimney')} fontSize="5">설계</text>
+                        {c.real_estate && <text x="175" y="34" textAnchor="middle" fill="#dc2626" fontSize="4.5">{c.real_estate}</text>}
                       </g>
 
-                      {/* ── 지붕 투자 (좌) ── */}
-                      <g className={smartNote.highlightFloor === 'roof_investment' ? 'floor-highlight' : ''}>
-                        <polygon points="10,85 110,42 110,85"
-                          fill={smartNote.highlightFloor === 'roof_investment' ? '#1e3a5f' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'roof_investment' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'roof_investment' ? 2 : 1}/>
-                        <text x="55" y="72" textAnchor="middle" fill={smartNote.highlightFloor === 'roof_investment' ? '#fde047' : '#9ca3af'} fontSize="6.5" fontWeight="bold">📈 투자설계</text>
+                      {/* ── 지붕 좌 (투자설계) ── */}
+                      <g className={hlAnim('roof_investment')}>
+                        <polygon points="8,88 120,40 120,88"
+                          fill={hlFill('roof_investment')}
+                          stroke={hlStroke('roof_investment')} strokeWidth={hlSW('roof_investment')}/>
+                        <text x="72" y="74" textAnchor="middle" fill={hlText('roof_investment')} fontSize="6.5" fontWeight="bold">투자설계</text>
+                        {c.investment && <text x="72" y="83" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">{c.investment}</text>}
                       </g>
 
-                      {/* ── 지붕 세금 (우) ── */}
-                      <g className={smartNote.highlightFloor === 'roof_tax' ? 'floor-highlight' : ''}>
-                        <polygon points="110,42 210,85 110,85"
-                          fill={smartNote.highlightFloor === 'roof_tax' ? '#3b1f5e' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'roof_tax' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'roof_tax' ? 2 : 1}/>
-                        <text x="160" y="72" textAnchor="middle" fill={smartNote.highlightFloor === 'roof_tax' ? '#fde047' : '#9ca3af'} fontSize="6.5" fontWeight="bold">📋 세금설계</text>
+                      {/* ── 지붕 우 (세금설계) ── */}
+                      <g className={hlAnim('roof_tax')}>
+                        <polygon points="120,40 232,88 120,88"
+                          fill={hlFill('roof_tax')}
+                          stroke={hlStroke('roof_tax')} strokeWidth={hlSW('roof_tax')}/>
+                        <text x="168" y="74" textAnchor="middle" fill={hlText('roof_tax')} fontSize="6.5" fontWeight="bold">세금설계</text>
+                        {c.tax && <text x="168" y="83" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">{c.tax}</text>}
                       </g>
 
                       {/* ── 처마보 (생로병사) ── */}
-                      <g className={smartNote.highlightFloor === 'eaves' ? 'floor-highlight' : ''}>
-                        <rect x="10" y="85" width="200" height="22" rx="2"
-                          fill={smartNote.highlightFloor === 'eaves' ? '#1e4035' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'eaves' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'eaves' ? 2 : 1}/>
-                        <text x="110" y="100" textAnchor="middle" fill={smartNote.highlightFloor === 'eaves' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🛡 생로병사 (보장설계)</text>
+                      <g className={hlAnim('eaves')}>
+                        <rect x="8" y="88" width="224" height="20" rx="1"
+                          fill={hlFill('eaves')} stroke={hlStroke('eaves')} strokeWidth={hlSW('eaves')}/>
+                        <text x="120" y="101" textAnchor="middle" fill={hlText('eaves')} fontSize="7" fontWeight="bold">생로병사 (보장설계)</text>
+                        {c.eaves && <text x="180" y="101" textAnchor="middle" fill="#dc2626" fontSize="6.5" fontWeight="bold">{c.eaves}</text>}
                       </g>
 
-                      {/* ── 기둥 3개 ── */}
-                      {/* 부채 (좌) */}
-                      <g className={smartNote.highlightFloor === 'pillar_debt' ? 'floor-highlight' : ''}>
-                        <rect x="10" y="107" width="60" height="70" rx="2"
-                          fill={smartNote.highlightFloor === 'pillar_debt' ? '#3b1f1f' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'pillar_debt' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'pillar_debt' ? 2 : 1}/>
-                        <text x="40" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">💳</text>
-                        <text x="40" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">부채설계</text>
-                        <text x="40" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_debt' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(거실)</text>
-                      </g>
-                      {/* 저축 (중) */}
-                      <g className={smartNote.highlightFloor === 'pillar_savings' ? 'floor-highlight' : ''}>
-                        <rect x="80" y="107" width="60" height="70" rx="2"
-                          fill={smartNote.highlightFloor === 'pillar_savings' ? '#1a3a1f' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'pillar_savings' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'pillar_savings' ? 2 : 1}/>
-                        <text x="110" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">💰</text>
-                        <text x="110" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">저축설계</text>
-                        <text x="110" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_savings' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(건넌방)</text>
-                      </g>
-                      {/* 은퇴 (우) ★ */}
-                      <g className={smartNote.highlightFloor === 'pillar_retirement' ? 'floor-highlight' : ''}>
-                        <rect x="150" y="107" width="60" height="70" rx="2"
-                          fill={smartNote.highlightFloor === 'pillar_retirement' ? '#1a2a3a' : '#1f2937'}
-                          stroke={smartNote.highlightFloor === 'pillar_retirement' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'pillar_retirement' ? 2.5 : 1}/>
-                        <text x="180" y="138" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🧓</text>
-                        <text x="180" y="150" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fde047' : '#9ca3af'} fontSize="6" fontWeight="bold">은퇴설계★</text>
-                        <text x="180" y="162" textAnchor="middle" fill={smartNote.highlightFloor === 'pillar_retirement' ? '#fbbf24' : '#6b7280'} fontSize="5.5">(안방)</text>
+                      {/* ── 기둥 좌 — 부채 (거실) ── */}
+                      <g className={hlAnim('pillar_debt')}>
+                        <rect x="8" y="108" width="72" height="72" rx="1"
+                          fill={hlFill('pillar_debt')} stroke={hlStroke('pillar_debt')} strokeWidth={hlSW('pillar_debt')}/>
+                        <text x="44" y="122" textAnchor="middle" fill={hlText('pillar_debt')} fontSize="6.5" fontWeight="bold">부채설계</text>
+                        <text x="44" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(거실)</text>
+                        {c.debt
+                          ? <text x="44" y="148" textAnchor="middle" fill="#dc2626" fontSize="9" fontWeight="bold">{c.debt}</text>
+                          : <text x="44" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
+                        <text x="44" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
+                        <text x="44" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">💳</text>
                       </g>
 
-                      {/* ── 지하 (보험 + 비상금) ── */}
-                      <g className={smartNote.highlightFloor === 'basement' ? 'floor-highlight' : ''}>
-                        <rect x="10" y="177" width="200" height="35" rx="2"
-                          fill={smartNote.highlightFloor === 'basement' ? '#1a1a2e' : '#111827'}
-                          stroke={smartNote.highlightFloor === 'basement' ? '#facc15' : '#6b7280'}
-                          strokeWidth={smartNote.highlightFloor === 'basement' ? 2 : 1}/>
-                        <text x="110" y="193" textAnchor="middle" fill={smartNote.highlightFloor === 'basement' ? '#fde047' : '#9ca3af'} fontSize="7" fontWeight="bold">🔐 보장자산(보험) + 비상예비자금</text>
-                        <text x="110" y="206" textAnchor="middle" fill={smartNote.highlightFloor === 'basement' ? '#fbbf24' : '#6b7280'} fontSize="5.5">지하 — 재무 기초체력</text>
+                      {/* ── 기둥 중 — 저축 (건넌방) ── */}
+                      <g className={hlAnim('pillar_savings')}>
+                        <rect x="84" y="108" width="72" height="72" rx="1"
+                          fill={hlFill('pillar_savings')} stroke={hlStroke('pillar_savings')} strokeWidth={hlSW('pillar_savings')}/>
+                        <text x="120" y="122" textAnchor="middle" fill={hlText('pillar_savings')} fontSize="6.5" fontWeight="bold">저축설계</text>
+                        <text x="120" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(건넌방)</text>
+                        {c.savings
+                          ? <text x="120" y="148" textAnchor="middle" fill="#15803d" fontSize="9" fontWeight="bold">{c.savings}</text>
+                          : <text x="120" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
+                        <text x="120" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
+                        <text x="120" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">💰</text>
                       </g>
 
-                      {/* ── 수입지출 연료 표시 ── */}
-                      <text x="110" y="250" textAnchor="middle" fill="#6b7280" fontSize="6">🔄 수입지출분석 (연료)</text>
+                      {/* ── 기둥 우 — 은퇴 ★ (안방) ── */}
+                      <g className={hlAnim('pillar_retirement')}>
+                        <rect x="160" y="108" width="72" height="72" rx="1"
+                          fill={hlFill('pillar_retirement')} stroke={hlStroke('pillar_retirement')} strokeWidth={hlSW('pillar_retirement')}/>
+                        <text x="196" y="122" textAnchor="middle" fill={hlText('pillar_retirement')} fontSize="6.5" fontWeight="bold">은퇴설계★</text>
+                        <text x="196" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(안방)</text>
+                        {c.retirement
+                          ? <text x="196" y="148" textAnchor="middle" fill="#1d4ed8" fontSize="9" fontWeight="bold">{c.retirement}</text>
+                          : <text x="196" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
+                        <text x="196" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
+                        <text x="196" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">🧓</text>
+                      </g>
+
+                      {/* ── 지하 (보험 + 비상예비금) ── */}
+                      <g className={hlAnim('basement')}>
+                        <rect x="8" y="180" width="224" height="36" rx="1"
+                          fill={hlFill('basement')} stroke={hlStroke('basement')} strokeWidth={hlSW('basement')}/>
+                        <text x="120" y="194" textAnchor="middle" fill={hlText('basement')} fontSize="7" fontWeight="bold">보장자산(보험)</text>
+                        <text x="120" y="205" textAnchor="middle" fill={hlText('basement')} fontSize="6.5">+ 비상예비자금</text>
+                        {c.insurance && <text x="60" y="205" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">보험: {c.insurance}</text>}
+                        {c.emergency && <text x="185" y="205" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">비상금: {c.emergency}</text>}
+                        <text x="120" y="213" textAnchor="middle" fill="#6b7280" fontSize="5">🔐 재무 기초체력</text>
+                      </g>
+
+                      {/* ── 수입지출 연료 바 ── */}
+                      <rect x="8" y="220" width="224" height="16" rx="1"
+                        fill="#f0fdf4" stroke="#16a34a" strokeWidth="1.5"/>
+                      <text x="120" y="231" textAnchor="middle" fill="#15803d" fontSize="6.5" fontWeight="bold">
+                        🔄 수입지출분석 {c.income ? `| 수입 ${c.income}만` : ''} {c.expense ? `| 지출 ${c.expense}만` : ''}
+                      </text>
+
+                      {/* ── 나이 표시 (좌측) ── */}
+                      {c.age && (
+                        <text x="18" y="247" fill="#dc2626" fontSize="7" fontWeight="bold">현재 {c.age}세</text>
+                      )}
+                      {/* ── 은퇴나이 / 목표 (우측) ── */}
+                      {c.retire_age && (
+                        <text x="222" y="247" textAnchor="end" fill="#1d4ed8" fontSize="7" fontWeight="bold">은퇴 {c.retire_age}세</text>
+                      )}
+
+                      {/* ── 강조 층 안내 텍스트 ── */}
+                      {hl && hl !== 'none' && (
+                        <g>
+                          <rect x="8" y="252" width="224" height="14" rx="2" fill="#fef2f2" stroke="#dc2626" strokeWidth="1"/>
+                          <text x="120" y="262" textAnchor="middle" fill="#dc2626" fontSize="6.5" fontWeight="bold">
+                            ▶ { ({
+                              chimney: '부동산 설계',
+                              roof_investment: '투자 설계',
+                              roof_tax: '세금 설계',
+                              eaves: '생로병사 보장설계',
+                              pillar_debt: '부채 설계',
+                              pillar_savings: '저축 설계',
+                              pillar_retirement: '은퇴 설계 ★',
+                              basement: '보험 · 비상예비자금',
+                            } as Record<string,string>)[hl] ?? hl } 분석 중
+                          </text>
+                        </g>
+                      )}
                     </svg>
-
-                    {/* 현재 강조 층 라벨 */}
-                    {smartNote.highlightFloor && smartNote.highlightFloor !== 'none' && (
-                      <p className="text-center text-yellow-400 text-xs font-bold mt-1 animate-pulse">
-                        ▶ {{
-                          chimney: '부동산 설계',
-                          roof_investment: '투자 설계',
-                          roof_tax: '세금 설계',
-                          eaves: '생로병사 (보장설계)',
-                          pillar_debt: '부채 설계',
-                          pillar_savings: '저축 설계',
-                          pillar_retirement: '은퇴 설계 ★',
-                          basement: '보험 · 비상예비자금',
-                        }[smartNote.highlightFloor] || smartNote.highlightFloor} 상담 중
-                      </p>
-                    )}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* ── video: Firebase MP4 재생 ── */}
                 {smartNote.noteType === 'video' && (
