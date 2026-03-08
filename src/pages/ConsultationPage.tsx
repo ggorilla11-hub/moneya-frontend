@@ -200,9 +200,8 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
         insight:   msg.insight   || '',
         ragCount:  typeof msg.ragCount === 'number' ? msg.ragCount : 0,
       });
-      if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex); setRagSearching(false);
-    };
-      }
+      if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex);
+      setRagSearching(false);
     }
     if (msg.type === 'renew_session_ok') { console.log('[세션갱신] 완료'); setVoiceStatus('상담중'); }
     if (msg.type === 'note_update') {
