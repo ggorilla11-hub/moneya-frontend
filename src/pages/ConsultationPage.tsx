@@ -1,9 +1,12 @@
-// ConsultationPage.tsx v5.1
+// ConsultationPage.tsx v5.2
 // ✅ BUG-1: house탭 렌더링 조건 반전 수정
 // ✅ BUG-2: note_update 타입 누락 처리 추가
 // ✅ BUG-3: 모바일 그리드 레이아웃 isMobile 분기
 // ✅ BUG-4: STT 패널 모바일 fixed bottom
 // ✅ BUG-5: 상단 topbar 모바일 간소화
+// ✅ Phase1-A: endCall() AudioContext.close() + audioQueue 클리어 (종료 후 음성 지속 버그 수정)
+// ✅ Phase1-B: ws.onopen 25분 세션 자동갱신 (OpenAI 30분 타임아웃 방지)
+// ✅ Phase1-C: STT 패널 bottom → safe-area-inset-bottom + 64px (자막 탭바 묻힘 수정)
 // 🚫 절대 변경 금지: HubDashboard 컴포넌트 전체
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -365,6 +368,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const renewTimerRef = useRef<ReturnType<typeof setInterval> | null>(null); // [1-B] 세션 자동갱신 타이머
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<Int16Array[]>([]);
   const isPlayingRef = useRef(false);
@@ -416,9 +420,18 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   }, []);
 
   const endCall = useCallback(() => {
+    // WebSocket 종료
     if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({type:'stop'})); wsRef.current.close(); }
+    wsRef.current = null;
+    // 미디어 스트림 종료
     localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
+    // [1-A FIX] 오디오 큐 클리어 + AudioContext 완전 종료 (종료 후 음성 지속 버그 수정)
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} audioCtxRef.current = null; }
+    // 타이머 정리
     if (timerRef.current) clearInterval(timerRef.current);
+    if (renewTimerRef.current) clearInterval(renewTimerRef.current);
     setElapsed(0); setPhase('ended');
   }, []);
 
@@ -439,7 +452,15 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
       try {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const ws = new WebSocket(WS_URL); wsRef.current = ws;
-        ws.onopen = () => ws.send(JSON.stringify({ type:'start_consult', userName:displayName, mode:'video' }));
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type:'start_consult', userName:displayName, mode:'video' }));
+          // [1-B FIX] 25분마다 세션 갱신 — OpenAI Realtime API 30분 타임아웃 방지
+          renewTimerRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type:'renew_session' }));
+            }
+          }, 25 * 60 * 1000);
+        };
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) { enqueueAudio(new Int16Array(event.data)); return; }
           try {
@@ -744,7 +765,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   // ── STT 패널 렌더러 (BUG-4: 모바일 fixed)
   const renderSTT = (fixed = false) => (
     <div style={{
-      ...(fixed ? { position:'fixed', bottom:64, left:0, right:0, zIndex:40, height:110, background:'rgba(0,0,0,0.92)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.12)' }
+      ...(fixed ? { position:'fixed', bottom:'calc(env(safe-area-inset-bottom) + 64px)', left:0, right:0, zIndex:40, height:110, background:'rgba(0,0,0,0.92)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.12)' }
                 : { gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)' }),
       display:'flex', flexDirection:'column', padding:'8px 16px 10px', gap:6, overflow:'hidden',
     }}>
