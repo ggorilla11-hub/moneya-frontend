@@ -41,20 +41,14 @@ interface Message {
   timestamp: Date;
 }
 
-interface AnalysisPanel {
-  insurance?: string;
-  budget?: string;
-  goal?: string;
-}
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
-export default function ConsultationPage() {
+export default function ConsultationPage({ user }: { user?: any }) {
   // ── 기존 음성상담 상태 ──────────────────────────────────────
   const [isVoiceMode,   setIsVoiceMode]   = useState(false);
   const [voiceStatus,   setVoiceStatus]   = useState('대기중');
   const [messages,      setMessages]      = useState<Message[]>([]);
-  const [displayName,   setDisplayName]   = useState('고객');
-  const [analysis,      setAnalysis]      = useState<AnalysisPanel>({});
+  const [displayName] = useState('고객');
 
   // ── 화상상담 상태 ───────────────────────────────────────────
   const [isVideoMode,   setIsVideoMode]   = useState(false);
@@ -70,7 +64,6 @@ export default function ConsultationPage() {
   // ⑤ 실시간 분석 상태 (실제 대화 연동)
   const [currentStep,   setCurrentStep]   = useState(0);
   const [ragActive,     setRagActive]     = useState(false);
-  const [lastQuery,     setLastQuery]     = useState('');
   const ragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── refs ────────────────────────────────────────────────────
@@ -233,7 +226,6 @@ export default function ConsultationPage() {
     // ⑤ Function Calling note_update 신호 처리
     if (msg.type === 'note_update') {
       setRagActive(true);
-      setLastQuery(msg.query || msg.highlight || '');
       const step = msg.note_type === 'chart' ? 4
         : msg.note_type === 'calc' ? 3
         : msg.highlight === 'insurance' ? 1 : 0;
