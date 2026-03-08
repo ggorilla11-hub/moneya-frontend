@@ -41,14 +41,18 @@ interface Message {
   timestamp: Date;
 }
 
+// ★★★ user prop 인터페이스 ★★★
+interface ConsultationPageProps {
+  user?: any;
+}
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
-export default function ConsultationPage({ user: _user }: { user?: any }) {
+export default function ConsultationPage({ user }: ConsultationPageProps) {
   // ── 기존 음성상담 상태 ──────────────────────────────────────
   const [isVoiceMode,   setIsVoiceMode]   = useState(false);
   const [voiceStatus,   setVoiceStatus]   = useState('대기중');
   const [messages,      setMessages]      = useState<Message[]>([]);
-  const [displayName] = useState('고객');
+  const [displayName] = useState(user?.displayName || user?.email || '고객');
 
   // ── 화상상담 상태 ───────────────────────────────────────────
   const [isVideoMode,   setIsVideoMode]   = useState(false);
@@ -57,23 +61,17 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
   const [isCamOn,       setIsCamOn]       = useState(true);
   const [isRecording,   setIsRecording]   = useState(false);
   const [showChat,      setShowChat]      = useState(false);
-
-  // ② 일시정지 상태
   const [isPaused,      setIsPaused]      = useState(false);
-
-  // ⑤ 실시간 분석 상태 (Phase 3 — server.js analysis_update 실제 연동)
   const [currentStep,     setCurrentStep]     = useState(0);
   const [ragActive,       setRagActive]       = useState(false);
-  const [ragSearching,    setRagSearching]    = useState(false);   // Phase 3: RAG 검색 중
-  const [analysisData,    setAnalysisData]    = useState<{        // Phase 3: 분석 데이터
+  const [ragSearching,    setRagSearching]    = useState(false);
+  const [analysisData,    setAnalysisData]    = useState<{
     stepIndex: number;
     stepLabel: string;
     keywords: string[];
     insight: string;
     ragCount: number;
   } | null>(null);
-
-  // Phase 3: 스마트노트 상태
   const [smartNote, setSmartNote] = useState<{
     noteType: string;
     title: string;
@@ -83,8 +81,6 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
 
   const ragTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ragSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ── refs ────────────────────────────────────────────────────
   const wsRef             = useRef<WebSocket | null>(null);
   const pcRef             = useRef<RTCPeerConnection | null>(null);
   const localStreamRef    = useRef<MediaStream | null>(null);
@@ -97,19 +93,15 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
   const recordedChunksRef = useRef<Blob[]>([]);
   const messagesEndRef    = useRef<HTMLDivElement>(null);
 
-  // URL 파라미터에서 roomId 추출 (고객 입장용)
   const roomIdFromUrl = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('room')
     : null;
 
-  // ── 메시지 스크롤 ───────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── 오디오 재생 (기존 머니야 음성) ─────────────────────────
   const playAudio = useCallback(async (base64: string) => {
-    // ② 일시정지 중이면 재생 안 함
     if (isPaused) return;
     try {
       if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -120,7 +112,6 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
       const int16  = new Int16Array(bytes.buffer);
       const float  = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float[i] = int16[i] / 32768;
-
       const buf = audioCtxRef.current.createBuffer(1, float.length, 24000);
       buf.copyToChannel(float, 0);
       const src = audioCtxRef.current.createBufferSource();
@@ -132,7 +123,6 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
     }
   }, [isPaused]);
 
-  // ── 마이크 캡처 → WebSocket 전송 (기존 Realtime API) ───────
   const startAudioCapture = useCallback((stream: MediaStream, ws: WebSocket) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
@@ -140,10 +130,9 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
     const ctx    = audioCtxRef.current;
     const source = ctx.createMediaStreamSource(stream);
     const proc   = ctx.createScriptProcessor(4096, 1, 1);
-
     proc.onaudioprocess = (e) => {
       if (ws.readyState !== WebSocket.OPEN) return;
-      if (isPaused) return; // ② 일시정지 중 마이크 전송 중단
+      if (isPaused) return;
       const float  = e.inputBuffer.getChannelData(0);
       const int16  = new Int16Array(float.length);
       for (let i = 0; i < float.length; i++) {
@@ -152,108 +141,62 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
       const b64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
       ws.send(JSON.stringify({ type: 'audio', data: b64 }));
     };
-
     source.connect(proc);
     proc.connect(ctx.destination);
   }, []);
 
-  // ── WebSocket 메시지 핸들러 (공통) ─────────────────────────
   const handleWsMessage = useCallback(async (event: MessageEvent, ws: WebSocket) => {
     const msg = JSON.parse(event.data);
-
-    // ── 화상상담 시그널링 ──
-    if (msg.type === 'video_room_created') {
-      console.log('[화상] 방 생성됨:', msg.roomId);
-    }
-
-    if (msg.type === 'video_joined') {
-      console.log('[화상] 방 입장:', msg.roomId);
-    }
-
+    if (msg.type === 'video_room_created') { console.log('[화상] 방 생성됨:', msg.roomId); }
+    if (msg.type === 'video_joined') { console.log('[화상] 방 입장:', msg.roomId); }
     if (msg.type === 'video_guest_joined') {
-      // 호스트(대표님): 고객이 입장했으므로 offer 생성
       const pc = pcRef.current;
       if (!pc) return;
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        ws.send(JSON.stringify({
-          type: 'video_signal',
-          signal: { type: 'offer', sdp: offer }
-        }));
+        ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'offer', sdp: offer } }));
         setVideoStatus('connecting');
-      } catch (e) {
-        console.error('[화상] offer 생성 에러:', e);
-      }
+      } catch (e) { console.error('[화상] offer 생성 에러:', e); }
     }
-
     if (msg.type === 'video_signal') {
-      const pc     = pcRef.current;
+      const pc = pcRef.current;
       const signal = msg.signal;
       if (!pc) return;
-
       try {
         if (signal.type === 'offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          ws.send(JSON.stringify({
-            type: 'video_signal',
-            signal: { type: 'answer', sdp: answer }
-          }));
+          ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'answer', sdp: answer } }));
         } else if (signal.type === 'answer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
         } else if (signal.type === 'ice-candidate' && signal.candidate) {
           await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
         }
-      } catch (e) {
-        console.error('[화상] 시그널링 에러:', e);
-      }
+      } catch (e) { console.error('[화상] 시그널링 에러:', e); }
     }
-
-    if (msg.type === 'video_ended') {
-      stopVideoConsult();
-    }
-
-    if (msg.type === 'video_error') {
-      setVideoStatus('error');
-      alert('화상상담 오류: ' + msg.error);
-    }
-
-    // ── 기존 머니야 음성 메시지 ──
+    if (msg.type === 'video_ended') { stopVideoConsult(); }
+    if (msg.type === 'video_error') { setVideoStatus('error'); alert('화상상담 오류: ' + msg.error); }
     if (msg.type === 'session_started') { setVoiceStatus('상담중'); }
     if (msg.type === 'audio' && msg.data) { await playAudio(msg.data); }
     if (msg.type === 'transcript' && msg.role === 'user') {
       const text = msg.text as string;
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(), role: 'user', text, timestamp: new Date()
-      }]);
-      // ⑤ 대화 내용으로 8단계 자동 업데이트
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text, timestamp: new Date() }]);
       const step = detectConsultStep(text);
       if (step !== null) setCurrentStep(step);
     }
     if (msg.type === 'transcript' && msg.role === 'assistant') {
       const text = msg.text as string;
-      setMessages(prev => [...prev, {
-        id: (Date.now()+1).toString(), role: 'assistant', text, timestamp: new Date()
-      }]);
-      // ⑤ AI 응답으로도 단계 업데이트
+      setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text, timestamp: new Date() }]);
       const step = detectConsultStep(text);
       if (step !== null) setCurrentStep(step);
     }
-
-    // ── Phase 3: RAG 검색 중 신호 ──────────────────────────────
     if (msg.type === 'rag_searching') {
-      setRagSearching(true);
-      setRagActive(true);
+      setRagSearching(true); setRagActive(true);
       if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
-      // 최대 8초 후 자동 해제 (서버 응답 없을 때 대비)
-      ragSearchTimer.current = setTimeout(() => {
-        setRagSearching(false);
-      }, 8000);
+      ragSearchTimer.current = setTimeout(() => setRagSearching(false), 8000);
     }
-
-    // ── Phase 3: RAG 검색 완료 신호 ───────────────────────────
     if (msg.type === 'rag_done') {
       setRagSearching(false);
       if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
@@ -261,8 +204,6 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
       if (ragTimerRef.current) clearTimeout(ragTimerRef.current);
       ragTimerRef.current = setTimeout(() => setRagActive(false), 2000);
     }
-
-    // ── Phase 3: 분석패널 실시간 업데이트 ─────────────────────
     if (msg.type === 'analysis_update') {
       setAnalysisData({
         stepIndex: typeof msg.stepIndex === 'number' ? msg.stepIndex : currentStep,
@@ -272,11 +213,8 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
         ragCount:  typeof msg.ragCount === 'number' ? msg.ragCount : 0,
       });
       if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex);
-      setRagActive(false);
-      setRagSearching(false);
+      setRagActive(false); setRagSearching(false);
     }
-
-    // ── Phase 3: 스마트노트 업데이트 (server.js update_smart_note FC) ──
     if (msg.type === 'smart_note_update') {
       let parsedContent: Record<string, unknown> = {};
       if (typeof msg.content === 'string') {
@@ -284,636 +222,183 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
       } else if (msg.content && typeof msg.content === 'object') {
         parsedContent = msg.content as Record<string, unknown>;
       }
-      setSmartNote({
-        noteType:       msg.noteType       || 'house_svg',
-        title:          msg.title          || '',
-        content:        parsedContent,
-        highlightFloor: msg.highlightFloor || 'none',
-      });
+      setSmartNote({ noteType: msg.noteType || 'house_svg', title: msg.title || '', content: parsedContent, highlightFloor: msg.highlightFloor || 'none' });
     }
-
-    // ── Phase 3: 스마트노트 초기화 ────────────────────────────
-    if (msg.type === 'smart_note_clear') {
-      setSmartNote(null);
-    }
-
-    // ── Phase 3: 세션 갱신 완료 확인 ──────────────────────────
-    if (msg.type === 'renew_session_ok') {
-      console.log('[세션갱신] 완료 — 상담 계속 진행');
-      setVoiceStatus('상담중');
-    }
-
-    // ── 기존 호환: note_update (구형 신호) ────────────────────
+    if (msg.type === 'smart_note_clear') { setSmartNote(null); }
+    if (msg.type === 'renew_session_ok') { console.log('[세션갱신] 완료'); setVoiceStatus('상담중'); }
     if (msg.type === 'note_update') {
       setRagActive(true);
-      const step = msg.note_type === 'chart' ? 4
-        : msg.note_type === 'calc' ? 3
-        : msg.highlight === 'insurance' ? 1 : 0;
+      const step = msg.note_type === 'chart' ? 4 : msg.note_type === 'calc' ? 3 : msg.highlight === 'insurance' ? 1 : 0;
       setCurrentStep(step);
       if (ragTimerRef.current) clearTimeout(ragTimerRef.current);
       ragTimerRef.current = setTimeout(() => setRagActive(false), 1500);
     }
-    if (msg.type === 'interrupt') {
-      audioQueueRef.current = [];
-      isPlayingRef.current  = false;
-    }
+    if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
   }, [playAudio]);
 
-  // ── 화상상담 시작 ───────────────────────────────────────────
-  const startVideoConsult = useCallback(async (roomId?: string | null) => {
-    try {
-      setVideoStatus('connecting');
-
-      // 1. 카메라 + 마이크 권한 요청
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
-        audio: { sampleRate: 24000, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-      });
-      localStreamRef.current = stream;
-      // ③ 고객 카메라 — srcObject 연결 후 play() 명시 호출
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.play().catch(() => {});
-      }
-
-      // 2. WebSocket 연결 (시그널링 + AI 머니야 통합)
-      const ws = new WebSocket(`${WS_URL}?mode=video`);
-      wsRef.current = ws;
-
-      ws.onmessage = (e) => handleWsMessage(e, ws);
-      ws.onerror   = () => setVideoStatus('error');
-
-      // 3. RTCPeerConnection 생성
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      pcRef.current = pc;
-
-      // 로컬 트랙 추가
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-      // 원격 영상 수신
-      pc.ontrack = (event) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          setVideoStatus('connected');
-        }
-      };
-
-      // ICE candidate 전송
-      pc.onicecandidate = (event) => {
-        if (event.candidate && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'video_signal',
-            signal: { type: 'ice-candidate', candidate: event.candidate }
-          }));
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        console.log('[화상] 연결 상태:', pc.connectionState);
-        if (pc.connectionState === 'connected') setVideoStatus('connected');
-        if (pc.connectionState === 'failed')    setVideoStatus('error');
-      };
-
-      // 4. WebSocket 열리면 방 생성 또는 입장 + AI 머니야 시작
-      ws.onopen = () => {
-        if (roomId) {
-          // 고객: URL의 roomId로 입장
-          ws.send(JSON.stringify({ type: 'video_join_room', roomId }));
-        } else {
-          // 대표님: 새 방 생성
-          ws.send(JSON.stringify({ type: 'video_create_room' }));
-        }
-
-        // AI 머니야 음성 상담도 동시 시작
-        ws.send(JSON.stringify({
-          type: 'start_consult',
-          userName: displayName,
-          conversationHistory: messages.map(m => ({ role: m.role, content: m.text }))
-        }));
-
-        // 마이크 오디오를 Realtime API에도 전달
-        startAudioCapture(stream, ws);
-
-        // ⑥ 25분마다 세션 자동 갱신 (OpenAI 30분 제한 대응)
-        setTimeout(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            console.log('[세션갱신] 25분 경과 → 자동 갱신');
-            ws.send(JSON.stringify({ type: 'renew_session', userName: displayName }));
-          }
-        }, 25 * 60 * 1000);
-      };
-
-      setIsVideoMode(true);
-      setIsVoiceMode(true);
-      setIsPaused(false);
-
-    } catch (e: any) {
-      console.error('[화상] 시작 에러:', e);
-      setVideoStatus('error');
-      if (e.name === 'NotAllowedError') {
-        alert('카메라/마이크 권한이 필요합니다.\n브라우저 설정에서 권한을 허용해주세요.');
-      } else {
-        alert('화상상담 시작 중 오류가 발생했습니다: ' + e.message);
-      }
-    }
-  }, [displayName, messages, handleWsMessage, startAudioCapture]);
-
-  // ── 화상상담 종료 ───────────────────────────────────────────
   const stopVideoConsult = useCallback(() => {
-    // 녹화 중이면 종료
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-
-    // WebSocket 종료 신호
+    if (mediaRecorderRef.current?.state === 'recording') { mediaRecorderRef.current.stop(); }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'video_end' }));
       wsRef.current.send(JSON.stringify({ type: 'stop' }));
       wsRef.current.close();
     }
     wsRef.current = null;
-
-    // PeerConnection 닫기
     pcRef.current?.close();
     pcRef.current = null;
-
-    // 로컬 스트림 트랙 정지
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
-
-    // 비디오 엘리먼트 초기화
     if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-
-    // ① AudioContext 완전 종료 — 종료 후에도 음성이 계속 나오는 버그 수정
-    if (audioCtxRef.current) {
-      try { audioCtxRef.current.close(); } catch(e) {}
-      audioCtxRef.current = null;
-    }
-
-    setIsVideoMode(false);
-    setIsVoiceMode(false);
-    setVideoStatus('idle');
-    setVoiceStatus('대기중');
-    setIsRecording(false);
-    setIsPaused(false);
+    if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
+    setIsVideoMode(false); setIsVoiceMode(false); setVideoStatus('idle'); setVoiceStatus('대기중'); setIsRecording(false); setIsPaused(false);
   }, []);
 
-  // ② 일시정지 토글 ─────────────────────────────────────────
+  const startVideoConsult = useCallback(async (roomId?: string | null) => {
+    try {
+      setVideoStatus('connecting');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' },
+        audio: { sampleRate: 24000, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) { localVideoRef.current.srcObject = stream; localVideoRef.current.play().catch(() => {}); }
+      const ws = new WebSocket(`${WS_URL}?mode=video`);
+      wsRef.current = ws;
+      ws.onmessage = (e) => handleWsMessage(e, ws);
+      ws.onerror   = () => setVideoStatus('error');
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      pcRef.current = pc;
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      pc.ontrack = (event) => {
+        if (remoteVideoRef.current) { remoteVideoRef.current.srcObject = event.streams[0]; setVideoStatus('connected'); }
+      };
+      pc.onicecandidate = (event) => {
+        if (event.candidate && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'video_signal', signal: { type: 'ice-candidate', candidate: event.candidate } }));
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') setVideoStatus('connected');
+        if (pc.connectionState === 'failed')    setVideoStatus('error');
+      };
+      ws.onopen = () => {
+        if (roomId) { ws.send(JSON.stringify({ type: 'video_join_room', roomId })); }
+        else        { ws.send(JSON.stringify({ type: 'video_create_room' })); }
+        ws.send(JSON.stringify({ type: 'start_consult', userName: displayName, conversationHistory: messages.map(m => ({ role: m.role, content: m.text })) }));
+        startAudioCapture(stream, ws);
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: 'renew_session', userName: displayName })); }
+        }, 25 * 60 * 1000);
+      };
+      setIsVideoMode(true); setIsVoiceMode(true); setIsPaused(false);
+    } catch (e: any) {
+      setVideoStatus('error');
+      if (e.name === 'NotAllowedError') { alert('카메라/마이크 권한이 필요합니다.'); }
+      else { alert('화상상담 시작 중 오류: ' + e.message); }
+    }
+  }, [displayName, messages, handleWsMessage, startAudioCapture]);
+
   const togglePause = useCallback(() => {
     setIsPaused(prev => {
       const next = !prev;
-      if (next && audioCtxRef.current?.state === 'running') {
-        audioCtxRef.current.suspend();
-      } else if (!next && audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: next ? 'pause' : 'resume' }));
-      }
+      if (next && audioCtxRef.current?.state === 'running') { audioCtxRef.current.suspend(); }
+      else if (!next && audioCtxRef.current?.state === 'suspended') { audioCtxRef.current.resume(); }
+      if (wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: next ? 'pause' : 'resume' })); }
       return next;
     });
   }, []);
 
-  // ── 마이크 토글 ─────────────────────────────────────────────
   const toggleMic = useCallback(() => {
     const tracks = localStreamRef.current?.getAudioTracks();
-    if (tracks) {
-      const next = !isMicOn;
-      tracks.forEach(t => { t.enabled = next; });
-      setIsMicOn(next);
-    }
+    if (tracks) { const next = !isMicOn; tracks.forEach(t => { t.enabled = next; }); setIsMicOn(next); }
   }, [isMicOn]);
 
-  // ── 카메라 토글 ─────────────────────────────────────────────
   const toggleCam = useCallback(() => {
     const tracks = localStreamRef.current?.getVideoTracks();
-    if (tracks) {
-      const next = !isCamOn;
-      tracks.forEach(t => { t.enabled = next; });
-      setIsCamOn(next);
-    }
+    if (tracks) { const next = !isCamOn; tracks.forEach(t => { t.enabled = next; }); setIsCamOn(next); }
   }, [isCamOn]);
 
-  // ── 녹화 시작/중지 ──────────────────────────────────────────
   const toggleRecording = useCallback(() => {
     if (!isRecording) {
       const stream = remoteVideoRef.current?.srcObject as MediaStream;
       if (!stream) return;
-
       recordedChunksRef.current = [];
       const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-      };
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
       recorder.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `화상상담_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.webm`;
-        a.click();
+        a.href = url; a.download = `화상상담_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.webm`; a.click();
         URL.revokeObjectURL(url);
       };
-
-      recorder.start(1000); // 1초마다 청크
+      recorder.start(1000);
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
-    } else {
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
-    }
+    } else { mediaRecorderRef.current?.stop(); setIsRecording(false); }
   }, [isRecording]);
 
-  // ── 페이지 언마운트 시 정리 ─────────────────────────────────
-  useEffect(() => {
-    return () => { stopVideoConsult(); };
-  }, []);
+  useEffect(() => { return () => { stopVideoConsult(); }; }, []);
+  useEffect(() => { if (roomIdFromUrl && !isVideoMode) { startVideoConsult(roomIdFromUrl); } }, [roomIdFromUrl]);
 
-  // ── URL에 room 파라미터가 있으면 자동 입장 ──────────────────
-  useEffect(() => {
-    if (roomIdFromUrl && !isVideoMode) {
-      startVideoConsult(roomIdFromUrl);
-    }
-  }, [roomIdFromUrl]);
-
-  // ══════════════════════════════════════════════════════════════
-  //  렌더링
-  // ══════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {/* ── 화상상담 전체화면 모드 ─────────────────────────── */}
       {isVideoMode && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
-
-          {/* 상단 상태 바 */}
           <div className="flex items-center justify-between px-4 py-2 bg-gray-900/80">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                videoStatus === 'connected'  ? 'bg-green-400 animate-pulse' :
-                videoStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
-                videoStatus === 'error'      ? 'bg-red-400' : 'bg-gray-400'
-              }`} />
-              <span className="text-white text-sm">
-                {videoStatus === 'connected'  ? '화상상담 연결됨' :
-                 videoStatus === 'connecting' ? '연결 중...' :
-                 videoStatus === 'error'      ? '연결 오류' : ''}
-              </span>
+              <div className={`w-2 h-2 rounded-full ${videoStatus === 'connected' ? 'bg-green-400 animate-pulse' : videoStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' : videoStatus === 'error' ? 'bg-red-400' : 'bg-gray-400'}`} />
+              <span className="text-white text-sm">{videoStatus === 'connected' ? '화상상담 연결됨' : videoStatus === 'connecting' ? '연결 중...' : videoStatus === 'error' ? '연결 오류' : ''}</span>
             </div>
             <div className="flex items-center gap-3">
-              {isRecording && (
-                <span className="text-red-400 text-xs flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  녹화 중
-                </span>
-              )}
+              {isRecording && (<span className="text-red-400 text-xs flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />녹화 중</span>)}
               <span className="text-gray-400 text-xs">AI 머니야 활성</span>
             </div>
           </div>
-
-          {/* 영상 영역 */}
           <div className="flex-1 relative bg-gray-900 overflow-hidden">
-            {/* 상대방 영상 (큰 화면) */}
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-
-            {/* 연결 대기 오버레이 */}
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
             {videoStatus !== 'connected' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
-                <div className="text-6xl mb-4">
-                  {videoStatus === 'error' ? '❌' : '📹'}
-                </div>
-                <p className="text-white text-lg">
-                  {videoStatus === 'connecting' ? '상대방 연결 대기 중...' : '연결 오류가 발생했습니다'}
-                </p>
-                {videoStatus === 'connecting' && (
-                  <p className="text-gray-400 text-sm mt-2">상대방이 입장하면 자동으로 연결됩니다</p>
-                )}
+                <div className="text-6xl mb-4">{videoStatus === 'error' ? '❌' : '📹'}</div>
+                <p className="text-white text-lg">{videoStatus === 'connecting' ? '상대방 연결 대기 중...' : '연결 오류가 발생했습니다'}</p>
+                {videoStatus === 'connecting' && (<p className="text-gray-400 text-sm mt-2">상대방이 입장하면 자동으로 연결됩니다</p>)}
               </div>
             )}
-
-            {/* ③ 고객 카메라 PIP — 거울모드 적용 */}
             <div className="absolute bottom-4 right-4 w-32 h-24 rounded-xl overflow-hidden border-2 border-white shadow-lg bg-gray-800">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)', display: isCamOn ? 'block' : 'none' }}
-              />
-              {!isCamOn && (
-                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                  <span className="text-2xl">👤</span>
-                </div>
-              )}
+              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)', display: isCamOn ? 'block' : 'none' }} />
+              {!isCamOn && (<div className="absolute inset-0 bg-gray-800 flex items-center justify-center"><span className="text-2xl">👤</span></div>)}
               <div className="absolute bottom-1 left-0 right-0 text-center text-white text-xs opacity-60">나</div>
             </div>
-
-            {/* ⑤ Phase 3: 실시간 분석 패널 — server.js analysis_update 실제 연동 */}
             <div className="absolute top-4 left-4 bg-black/70 rounded-xl p-3 w-48 backdrop-blur">
-              <p className="text-yellow-400 text-xs font-bold mb-2">
-                📊 실시간 분석
-                {ragSearching && (
-                  <span className="ml-1 text-yellow-300 animate-pulse">🔍</span>
-                )}
-              </p>
-
-              {/* 8단계 진행 현황 */}
+              <p className="text-yellow-400 text-xs font-bold mb-2">📊 실시간 분석{ragSearching && (<span className="ml-1 text-yellow-300 animate-pulse">🔍</span>)}</p>
               {CONSULT_STEPS.map((s, i) => (
-                <div key={i} className="flex items-center gap-1.5 mb-1"
-                  style={{ opacity: i > currentStep + 1 ? 0.3 : 1 }}>
-                  <div style={{
-                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-                    background: i < currentStep ? '#34C759' : i === currentStep ? '#D4A017' : '#444',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 8, color: 'white', fontWeight: 700,
-                    transition: 'background 0.4s'
-                  }}>{i < currentStep ? '✓' : i + 1}</div>
-                  <span style={{
-                    fontSize: 10,
-                    color: i === currentStep ? '#FFD700' : i < currentStep ? '#34C759' : 'rgba(255,255,255,0.5)',
-                    fontWeight: i === currentStep ? 700 : 400
-                  }}>{s}</span>
-                  {i === currentStep && (
-                    <span style={{ fontSize: 8, color: '#FFD700', marginLeft: 'auto' }}>◀</span>
-                  )}
+                <div key={i} className="flex items-center gap-1.5 mb-1" style={{ opacity: i > currentStep + 1 ? 0.3 : 1 }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', flexShrink: 0, background: i < currentStep ? '#34C759' : i === currentStep ? '#D4A017' : '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'white', fontWeight: 700 }}>{i < currentStep ? '✓' : i + 1}</div>
+                  <span style={{ fontSize: 10, color: i === currentStep ? '#FFD700' : i < currentStep ? '#34C759' : 'rgba(255,255,255,0.5)', fontWeight: i === currentStep ? 700 : 400 }}>{s}</span>
                 </div>
               ))}
-
-              {/* Phase 3: RAG 검색 중 표시 */}
-              {ragSearching && (
-                <div className="mt-2 px-2 py-1 rounded-lg bg-yellow-900/60 border border-yellow-600/40">
-                  <p className="text-yellow-300 text-xs animate-pulse">🔍 RAG 검색 중...</p>
-                </div>
-              )}
-
-              {/* Phase 3: 분석 인사이트 표시 */}
+              {ragSearching && (<div className="mt-2 px-2 py-1 rounded-lg bg-yellow-900/60 border border-yellow-600/40"><p className="text-yellow-300 text-xs animate-pulse">🔍 RAG 검색 중...</p></div>)}
               {!ragSearching && analysisData && analysisData.insight && (
                 <div className="mt-2 px-2 py-1 rounded-lg bg-blue-900/50 border border-blue-600/30">
                   <p className="text-blue-300 text-xs leading-relaxed">{analysisData.insight}</p>
-                  {analysisData.ragCount > 0 && (
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      RAG {analysisData.ragCount}건 참조
-                    </p>
-                  )}
+                  {analysisData.ragCount > 0 && (<p className="text-gray-400 text-xs mt-0.5">RAG {analysisData.ragCount}건 참조</p>)}
                 </div>
-              )}
-
-              {/* Phase 3: 키워드 태그 */}
-              {!ragSearching && analysisData && analysisData.keywords.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {analysisData.keywords.slice(0, 3).map((kw, i) => (
-                    <span key={i} className="text-xs px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* 기존 호환: ragActive (note_update 신호) */}
-              {ragActive && !ragSearching && !analysisData?.insight && (
-                <div className="mt-2 text-yellow-300 text-xs animate-pulse">🔍 RAG 검색 중...</div>
               )}
             </div>
-
-            {/* Phase 3: 스마트노트 패널 (우측 상단, smart_note_update 수신 시) */}
-            {smartNote && (
-              <div className="absolute top-4 right-36 bg-black/80 rounded-xl p-3 w-52 backdrop-blur border border-yellow-600/30 max-h-64 overflow-y-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-yellow-400 text-xs font-bold truncate pr-1">
-                    📋 {smartNote.title || '스마트 노트'}
-                  </p>
-                  <button
-                    onClick={() => setSmartNote(null)}
-                    className="text-gray-500 hover:text-white text-xs flex-shrink-0"
-                  >✕</button>
-                </div>
-
-                {/* ── house_svg: 금융집짓기 손글씨 노트 스타일 SVG ── */}
-                {smartNote.noteType === 'house_svg' && (() => {
-                  const hl = smartNote.highlightFloor;
-                  const c = smartNote.content as Record<string, string>;
-                  // 강조 층별 색상 헬퍼
-                  const hlFill  = (key: string) => hl === key ? '#fff8e7' : '#f5f0e8';
-                  const hlStroke= (key: string) => hl === key ? '#dc2626' : '#16a34a';
-                  const hlSW    = (key: string) => hl === key ? 2.5 : 1.5;
-                  const hlText  = (key: string) => hl === key ? '#dc2626' : '#15803d';
-                  const hlAnim  = (key: string) => hl === key ? 'floor-highlight' : '';
-                  return (
-                  <div className="w-full">
-                    <style>{`
-                      @keyframes floorPulse {
-                        0%,100% { filter: drop-shadow(0 0 0px #dc2626); }
-                        50%     { filter: drop-shadow(0 0 5px #dc2626); }
-                      }
-                      .floor-highlight { animation: floorPulse 1.2s ease-in-out infinite; }
-                    `}</style>
-
-                    {/* 종이 배경 */}
-                    <svg viewBox="0 0 240 310" className="w-full" xmlns="http://www.w3.org/2000/svg"
-                      style={{ background: '#faf7f0', borderRadius: '6px', border: '1px solid #d4c9a8' }}>
-
-                      {/* ── 제목 ── */}
-                      <text x="120" y="14" textAnchor="middle" fill="#15803d" fontSize="8" fontWeight="bold" fontFamily="sans-serif">금융집짓기®</text>
-
-                      {/* ── 굴뚝 (부동산) ── */}
-                      <g className={hlAnim('chimney')}>
-                        <rect x="162" y="18" width="26" height="22" rx="1"
-                          fill={hlFill('chimney')} stroke={hlStroke('chimney')} strokeWidth={hlSW('chimney')}/>
-                        <text x="175" y="27" textAnchor="middle" fill={hlText('chimney')} fontSize="5.5" fontWeight="bold">부동산</text>
-                        <text x="175" y="36" textAnchor="middle" fill={hlText('chimney')} fontSize="5">설계</text>
-                        {c.real_estate && <text x="175" y="34" textAnchor="middle" fill="#dc2626" fontSize="4.5">{c.real_estate}</text>}
-                      </g>
-
-                      {/* ── 지붕 좌 (투자설계) ── */}
-                      <g className={hlAnim('roof_investment')}>
-                        <polygon points="8,88 120,40 120,88"
-                          fill={hlFill('roof_investment')}
-                          stroke={hlStroke('roof_investment')} strokeWidth={hlSW('roof_investment')}/>
-                        <text x="72" y="74" textAnchor="middle" fill={hlText('roof_investment')} fontSize="6.5" fontWeight="bold">투자설계</text>
-                        {c.investment && <text x="72" y="83" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">{c.investment}</text>}
-                      </g>
-
-                      {/* ── 지붕 우 (세금설계) ── */}
-                      <g className={hlAnim('roof_tax')}>
-                        <polygon points="120,40 232,88 120,88"
-                          fill={hlFill('roof_tax')}
-                          stroke={hlStroke('roof_tax')} strokeWidth={hlSW('roof_tax')}/>
-                        <text x="168" y="74" textAnchor="middle" fill={hlText('roof_tax')} fontSize="6.5" fontWeight="bold">세금설계</text>
-                        {c.tax && <text x="168" y="83" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">{c.tax}</text>}
-                      </g>
-
-                      {/* ── 처마보 (생로병사) ── */}
-                      <g className={hlAnim('eaves')}>
-                        <rect x="8" y="88" width="224" height="20" rx="1"
-                          fill={hlFill('eaves')} stroke={hlStroke('eaves')} strokeWidth={hlSW('eaves')}/>
-                        <text x="120" y="101" textAnchor="middle" fill={hlText('eaves')} fontSize="7" fontWeight="bold">생로병사 (보장설계)</text>
-                        {c.eaves && <text x="180" y="101" textAnchor="middle" fill="#dc2626" fontSize="6.5" fontWeight="bold">{c.eaves}</text>}
-                      </g>
-
-                      {/* ── 기둥 좌 — 부채 (거실) ── */}
-                      <g className={hlAnim('pillar_debt')}>
-                        <rect x="8" y="108" width="72" height="72" rx="1"
-                          fill={hlFill('pillar_debt')} stroke={hlStroke('pillar_debt')} strokeWidth={hlSW('pillar_debt')}/>
-                        <text x="44" y="122" textAnchor="middle" fill={hlText('pillar_debt')} fontSize="6.5" fontWeight="bold">부채설계</text>
-                        <text x="44" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(거실)</text>
-                        {c.debt
-                          ? <text x="44" y="148" textAnchor="middle" fill="#dc2626" fontSize="9" fontWeight="bold">{c.debt}</text>
-                          : <text x="44" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
-                        <text x="44" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
-                        <text x="44" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">💳</text>
-                      </g>
-
-                      {/* ── 기둥 중 — 저축 (건넌방) ── */}
-                      <g className={hlAnim('pillar_savings')}>
-                        <rect x="84" y="108" width="72" height="72" rx="1"
-                          fill={hlFill('pillar_savings')} stroke={hlStroke('pillar_savings')} strokeWidth={hlSW('pillar_savings')}/>
-                        <text x="120" y="122" textAnchor="middle" fill={hlText('pillar_savings')} fontSize="6.5" fontWeight="bold">저축설계</text>
-                        <text x="120" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(건넌방)</text>
-                        {c.savings
-                          ? <text x="120" y="148" textAnchor="middle" fill="#15803d" fontSize="9" fontWeight="bold">{c.savings}</text>
-                          : <text x="120" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
-                        <text x="120" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
-                        <text x="120" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">💰</text>
-                      </g>
-
-                      {/* ── 기둥 우 — 은퇴 ★ (안방) ── */}
-                      <g className={hlAnim('pillar_retirement')}>
-                        <rect x="160" y="108" width="72" height="72" rx="1"
-                          fill={hlFill('pillar_retirement')} stroke={hlStroke('pillar_retirement')} strokeWidth={hlSW('pillar_retirement')}/>
-                        <text x="196" y="122" textAnchor="middle" fill={hlText('pillar_retirement')} fontSize="6.5" fontWeight="bold">은퇴설계★</text>
-                        <text x="196" y="132" textAnchor="middle" fill="#6b7280" fontSize="5.5">(안방)</text>
-                        {c.retirement
-                          ? <text x="196" y="148" textAnchor="middle" fill="#1d4ed8" fontSize="9" fontWeight="bold">{c.retirement}</text>
-                          : <text x="196" y="148" textAnchor="middle" fill="#9ca3af" fontSize="7">—</text>}
-                        <text x="196" y="162" textAnchor="middle" fill="#6b7280" fontSize="5">만원</text>
-                        <text x="196" y="173" textAnchor="middle" fill="#6b7280" fontSize="5">🧓</text>
-                      </g>
-
-                      {/* ── 지하 (보험 + 비상예비금) ── */}
-                      <g className={hlAnim('basement')}>
-                        <rect x="8" y="180" width="224" height="36" rx="1"
-                          fill={hlFill('basement')} stroke={hlStroke('basement')} strokeWidth={hlSW('basement')}/>
-                        <text x="120" y="194" textAnchor="middle" fill={hlText('basement')} fontSize="7" fontWeight="bold">보장자산(보험)</text>
-                        <text x="120" y="205" textAnchor="middle" fill={hlText('basement')} fontSize="6.5">+ 비상예비자금</text>
-                        {c.insurance && <text x="60" y="205" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">보험: {c.insurance}</text>}
-                        {c.emergency && <text x="185" y="205" textAnchor="middle" fill="#dc2626" fontSize="6" fontWeight="bold">비상금: {c.emergency}</text>}
-                        <text x="120" y="213" textAnchor="middle" fill="#6b7280" fontSize="5">🔐 재무 기초체력</text>
-                      </g>
-
-                      {/* ── 수입지출 연료 바 ── */}
-                      <rect x="8" y="220" width="224" height="16" rx="1"
-                        fill="#f0fdf4" stroke="#16a34a" strokeWidth="1.5"/>
-                      <text x="120" y="231" textAnchor="middle" fill="#15803d" fontSize="6.5" fontWeight="bold">
-                        🔄 수입지출분석 {c.income ? `| 수입 ${c.income}만` : ''} {c.expense ? `| 지출 ${c.expense}만` : ''}
-                      </text>
-
-                      {/* ── 나이 표시 (좌측) ── */}
-                      {c.age && (
-                        <text x="18" y="247" fill="#dc2626" fontSize="7" fontWeight="bold">현재 {c.age}세</text>
-                      )}
-                      {/* ── 은퇴나이 / 목표 (우측) ── */}
-                      {c.retire_age && (
-                        <text x="222" y="247" textAnchor="end" fill="#1d4ed8" fontSize="7" fontWeight="bold">은퇴 {c.retire_age}세</text>
-                      )}
-
-                      {/* ── 강조 층 안내 텍스트 ── */}
-                      {hl && hl !== 'none' && (
-                        <g>
-                          <rect x="8" y="252" width="224" height="14" rx="2" fill="#fef2f2" stroke="#dc2626" strokeWidth="1"/>
-                          <text x="120" y="262" textAnchor="middle" fill="#dc2626" fontSize="6.5" fontWeight="bold">
-                            ▶ { ({
-                              chimney: '부동산 설계',
-                              roof_investment: '투자 설계',
-                              roof_tax: '세금 설계',
-                              eaves: '생로병사 보장설계',
-                              pillar_debt: '부채 설계',
-                              pillar_savings: '저축 설계',
-                              pillar_retirement: '은퇴 설계 ★',
-                              basement: '보험 · 비상예비자금',
-                            } as Record<string,string>)[hl] ?? hl } 분석 중
-                          </text>
-                        </g>
-                      )}
-                    </svg>
-                  </div>
-                  );
-                })()}
-
-                {/* ── video: Firebase MP4 재생 ── */}
-                {smartNote.noteType === 'video' && (
-                  <div className="w-full space-y-2">
-                    <video
-                      key={typeof smartNote.content.url === 'string' ? smartNote.content.url : 'default-video'}
-                      src={
-                        typeof smartNote.content.url === 'string' && smartNote.content.url
-                          ? smartNote.content.url
-                          : 'https://firebasestorage.googleapis.com/v0/b/moneya-72fe6.firebasestorage.app/o/%EA%B8%88%EC%9C%B5%EC%A7%91%EC%A7%93%EA%B8%B0%20%EC%97%90%EB%8B%88%EB%A9%94%EC%9D%B4%EC%85%98.mp4?alt=media&token=7b052cb9-4c71-407a-bddd-e8d60e96e95c'
-                      }
-                      controls autoPlay playsInline
-                      className="w-full rounded-lg border border-yellow-600/30"
-                      style={{ maxHeight: '140px' }}
-                    />
-                    {typeof smartNote.content.description === 'string' && (
-                      <p className="text-gray-300 text-xs leading-relaxed">{smartNote.content.description}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* ── calculation: 계산 결과 ── */}
-                {smartNote.noteType === 'calculation' && (
-                  <div className="space-y-1">
-                    {Object.entries(smartNote.content).map(([k, v]) => (
-                      <div key={k} className="flex justify-between text-xs">
-                        <span className="text-gray-400">{k}</span>
-                        <span className="text-white font-bold">{String(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* ── chart / web / checklist / image: 텍스트 표시 ── */}
-                {(smartNote.noteType === 'chart' || smartNote.noteType === 'web' ||
-                  smartNote.noteType === 'checklist' || smartNote.noteType === 'image') && (
-                  <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">
-                    {typeof smartNote.content.text === 'string'
-                      ? smartNote.content.text
-                      : JSON.stringify(smartNote.content, null, 2)}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-
-          {/* 대화 기록 패널 (채팅 토글 시) */}
           {showChat && (
             <div className="h-36 overflow-y-auto bg-gray-900/90 px-4 py-2 border-t border-gray-700">
-              {messages.length === 0 ? (
-                <p className="text-gray-500 text-sm text-center pt-4">대화를 시작해보세요</p>
-              ) : (
+              {messages.length === 0 ? (<p className="text-gray-500 text-sm text-center pt-4">대화를 시작해보세요</p>) : (
                 messages.slice(-8).map(m => (
-                  <p key={m.id} className={`text-sm mb-1 ${
-                    m.role === 'user' ? 'text-blue-300' : 'text-yellow-300'
-                  }`}>
-                    <span className="font-bold">
-                      {m.role === 'user' ? `${displayName}: ` : '머니야: '}
-                    </span>
-                    {m.text}
+                  <p key={m.id} className={`text-sm mb-1 ${m.role === 'user' ? 'text-blue-300' : 'text-yellow-300'}`}>
+                    <span className="font-bold">{m.role === 'user' ? `${displayName}: ` : '머니야: '}</span>{m.text}
                   </p>
                 ))
               )}
               <div ref={messagesEndRef} />
             </div>
           )}
-
-          {/* ④ AI 머니야 자막 — 항상 표시, safe-area 적용 */}
           {messages.length > 0 && (() => {
             const last = [...messages].reverse().find(m => m.role === 'assistant');
             return last ? (
@@ -925,138 +410,48 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
               </div>
             ) : null;
           })()}
-
-          {/* 컨트롤 바 — paddingBottom safe-area로 iOS 내비게이션 대응 */}
-          <div className="flex justify-center items-center gap-4 py-4 bg-gray-900"
-            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
-
-            {/* 마이크 */}
-            <button
-              onClick={toggleMic}
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${
-                isMicOn ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-              }`}
-              title={isMicOn ? '마이크 끄기' : '마이크 켜기'}
-            >
-              {isMicOn ? '🎤' : '🔇'}
+          <div className="flex justify-center items-center gap-4 py-4 bg-gray-900" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+            <button onClick={toggleMic} className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${isMicOn ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'}`}>{isMicOn ? '🎤' : '🔇'}</button>
+            <button onClick={toggleCam} className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${isCamOn ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'}`}>{isCamOn ? '📹' : '🚫'}</button>
+            <button onClick={togglePause} className={`w-14 h-14 rounded-full flex flex-col items-center justify-center text-xl transition-colors ${isPaused ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600'}`}>
+              {isPaused ? '▶' : '⏸'}<span className="text-xs mt-0.5" style={{ color: isPaused ? '#FFD' : 'rgba(255,255,255,0.5)', fontSize: 10 }}>{isPaused ? '재개' : '정지'}</span>
             </button>
-
-            {/* 카메라 */}
-            <button
-              onClick={toggleCam}
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${
-                isCamOn ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
-              }`}
-              title={isCamOn ? '카메라 끄기' : '카메라 켜기'}
-            >
-              {isCamOn ? '📹' : '🚫'}
-            </button>
-
-            {/* ② 일시정지 버튼 */}
-            <button
-              onClick={togglePause}
-              className={`w-14 h-14 rounded-full flex flex-col items-center justify-center text-xl transition-colors ${
-                isPaused ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title={isPaused ? '재개' : '일시정지'}
-            >
-              {isPaused ? '▶' : '⏸'}
-              <span className="text-xs mt-0.5" style={{ color: isPaused ? '#FFD' : 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-                {isPaused ? '재개' : '정지'}
-              </span>
-            </button>
-
-            {/* 종료 */}
-            <button
-              onClick={stopVideoConsult}
-              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-2xl transition-colors shadow-lg"
-              title="상담 종료"
-            >
-              📞
-            </button>
-
-            {/* 녹화 */}
-            <button
-              onClick={toggleRecording}
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${
-                isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title={isRecording ? '녹화 중지' : '녹화 시작'}
-            >
-              {isRecording ? '⏹️' : '⏺️'}
-            </button>
-
-            {/* 채팅 토글 */}
-            <button
-              onClick={() => setShowChat(p => !p)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${
-                showChat ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title="대화 기록 보기"
-            >
-              💬
-            </button>
+            <button onClick={stopVideoConsult} className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-2xl transition-colors shadow-lg">📞</button>
+            <button onClick={toggleRecording} className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600'}`}>{isRecording ? '⏹️' : '⏺️'}</button>
+            <button onClick={() => setShowChat(p => !p)} className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-colors ${showChat ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 hover:bg-gray-600'}`}>💬</button>
           </div>
         </div>
       )}
 
-      {/* ── 일반 상담 화면 (화상 비활성 시) ─────────────────── */}
       {!isVideoMode && (
         <div className="max-w-2xl mx-auto p-4">
-
-          {/* 헤더 */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">💰 AI 머니야</h1>
               <p className="text-sm text-gray-500">재무상담 AI 어시스턴트</p>
             </div>
             <div className="flex gap-2">
-              {/* 화상상담 버튼 */}
-              <button
-                onClick={() => startVideoConsult(roomIdFromUrl)}
-                disabled={isVoiceMode}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-              >
-                <span>🎥</span>
-                <span>화상상담</span>
+              <button onClick={() => startVideoConsult(roomIdFromUrl)} disabled={isVoiceMode} className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors disabled:opacity-50 shadow-md">
+                <span>🎥</span><span>화상상담</span>
               </button>
-
-              {/* 음성상담 버튼 (기존) */}
               {!isVoiceMode ? (
-                <button
-                  onClick={() => {/* 기존 음성상담 시작 로직 */}}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors shadow-md"
-                >
-                  <span>🎙️</span>
-                  <span>음성상담</span>
+                <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500 hover:bg-green-600 text-white text-sm font-medium transition-colors shadow-md">
+                  <span>🎙️</span><span>음성상담</span>
                 </button>
               ) : (
-                <button
-                  onClick={() => {/* 기존 음성상담 종료 로직 */}}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors shadow-md"
-                >
-                  <span>⏹️</span>
-                  <span>종료</span>
+                <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors shadow-md">
+                  <span>⏹️</span><span>종료</span>
                 </button>
               )}
             </div>
           </div>
-
-          {/* URL에 room 파라미터가 있으면 자동 입장 안내 */}
           {roomIdFromUrl && !isVideoMode && (
             <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
               <p className="text-blue-700 font-medium">📹 화상상담 초대를 받으셨습니다</p>
               <p className="text-blue-500 text-sm mt-1">방 번호: {roomIdFromUrl}</p>
-              <button
-                onClick={() => startVideoConsult(roomIdFromUrl)}
-                className="mt-3 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
-              >
-                지금 입장하기
-              </button>
+              <button onClick={() => startVideoConsult(roomIdFromUrl)} className="mt-3 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors">지금 입장하기</button>
             </div>
           )}
-
-          {/* 대화 기록 */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 h-96 overflow-y-auto p-4">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
@@ -1067,28 +462,15 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
             ) : (
               messages.map(m => (
                 <div key={m.id} className={`mb-3 flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${
-                    m.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {m.text}
-                  </div>
+                  <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'}`}>{m.text}</div>
                 </div>
               ))
             )}
             <div ref={messagesEndRef} />
           </div>
-
-          {/* 상태 표시 */}
           <div className="text-center">
-            <span className={`inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full ${
-              voiceStatus === '상담중' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${
-                voiceStatus === '상담중' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
-              }`} />
-              {voiceStatus}
+            <span className={`inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full ${voiceStatus === '상담중' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`w-2 h-2 rounded-full ${voiceStatus === '상담중' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />{voiceStatus}
             </span>
           </div>
         </div>
