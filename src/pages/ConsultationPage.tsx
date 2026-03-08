@@ -201,13 +201,7 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
         ragCount:  typeof msg.ragCount === 'number' ? msg.ragCount : 0,
       });
       if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex); setRagSearching(false);
-    }
-    if (msg.type === 'smart_note_update') {
-      let parsedContent: Record<string, unknown> = {};
-      if (typeof msg.content === 'string') {
-        try { parsedContent = JSON.parse(msg.content); } catch { parsedContent = { text: msg.content }; }
-      } else if (msg.content && typeof msg.content === 'object') {
-        parsedContent = msg.content as Record<string, unknown>;
+    };
       }
     }
     if (msg.type === 'renew_session_ok') { console.log('[세션갱신] 완료'); setVoiceStatus('상담중'); }
