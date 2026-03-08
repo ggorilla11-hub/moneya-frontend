@@ -61,10 +61,28 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
   // ② 일시정지 상태
   const [isPaused,      setIsPaused]      = useState(false);
 
-  // ⑤ 실시간 분석 상태 (실제 대화 연동)
-  const [currentStep,   setCurrentStep]   = useState(0);
-  const [ragActive,     setRagActive]     = useState(false);
-  const ragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ⑤ 실시간 분석 상태 (Phase 3 — server.js analysis_update 실제 연동)
+  const [currentStep,     setCurrentStep]     = useState(0);
+  const [ragActive,       setRagActive]       = useState(false);
+  const [ragSearching,    setRagSearching]    = useState(false);   // Phase 3: RAG 검색 중
+  const [analysisData,    setAnalysisData]    = useState<{        // Phase 3: 분석 데이터
+    stepIndex: number;
+    stepLabel: string;
+    keywords: string[];
+    insight: string;
+    ragCount: number;
+  } | null>(null);
+
+  // Phase 3: 스마트노트 상태
+  const [smartNote, setSmartNote] = useState<{
+    noteType: string;
+    title: string;
+    content: Record<string, unknown>;
+    highlightFloor: string;
+  } | null>(null);
+
+  const ragTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ragSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── refs ────────────────────────────────────────────────────
   const wsRef             = useRef<WebSocket | null>(null);
@@ -223,7 +241,69 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
       const step = detectConsultStep(text);
       if (step !== null) setCurrentStep(step);
     }
-    // ⑤ Function Calling note_update 신호 처리
+
+    // ── Phase 3: RAG 검색 중 신호 ──────────────────────────────
+    if (msg.type === 'rag_searching') {
+      setRagSearching(true);
+      setRagActive(true);
+      if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
+      // 최대 8초 후 자동 해제 (서버 응답 없을 때 대비)
+      ragSearchTimer.current = setTimeout(() => {
+        setRagSearching(false);
+      }, 8000);
+    }
+
+    // ── Phase 3: RAG 검색 완료 신호 ───────────────────────────
+    if (msg.type === 'rag_done') {
+      setRagSearching(false);
+      if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
+      setRagActive(true);
+      if (ragTimerRef.current) clearTimeout(ragTimerRef.current);
+      ragTimerRef.current = setTimeout(() => setRagActive(false), 2000);
+    }
+
+    // ── Phase 3: 분석패널 실시간 업데이트 ─────────────────────
+    if (msg.type === 'analysis_update') {
+      setAnalysisData({
+        stepIndex: typeof msg.stepIndex === 'number' ? msg.stepIndex : currentStep,
+        stepLabel: msg.stepLabel || CONSULT_STEPS[currentStep] || '',
+        keywords:  Array.isArray(msg.keywords) ? msg.keywords : [],
+        insight:   msg.insight   || '',
+        ragCount:  typeof msg.ragCount === 'number' ? msg.ragCount : 0,
+      });
+      if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex);
+      setRagActive(false);
+      setRagSearching(false);
+    }
+
+    // ── Phase 3: 스마트노트 업데이트 (server.js update_smart_note FC) ──
+    if (msg.type === 'smart_note_update') {
+      let parsedContent: Record<string, unknown> = {};
+      if (typeof msg.content === 'string') {
+        try { parsedContent = JSON.parse(msg.content); } catch { parsedContent = { text: msg.content }; }
+      } else if (msg.content && typeof msg.content === 'object') {
+        parsedContent = msg.content as Record<string, unknown>;
+      }
+      setSmartNote({
+        noteType:       msg.noteType       || 'house_svg',
+        title:          msg.title          || '',
+        content:        parsedContent,
+        highlightFloor: msg.highlightFloor || 'none',
+      });
+    }
+
+    // ── Phase 3: 스마트노트 초기화 ────────────────────────────
+    if (msg.type === 'smart_note_clear') {
+      setSmartNote(null);
+    }
+
+    // ── Phase 3: 세션 갱신 완료 확인 ──────────────────────────
+    if (msg.type === 'renew_session_ok') {
+      console.log('[세션갱신] 완료 — 상담 계속 진행');
+      setVoiceStatus('상담중');
+    }
+
+    // ── 기존 호환: note_update (구형 신호) ────────────────────
     if (msg.type === 'note_update') {
       setRagActive(true);
       const step = msg.note_type === 'chart' ? 4
@@ -536,26 +616,135 @@ export default function ConsultationPage({ user: _user }: { user?: any }) {
               <div className="absolute bottom-1 left-0 right-0 text-center text-white text-xs opacity-60">나</div>
             </div>
 
-            {/* ⑤ 실시간 분석 패널 — 8단계 실제 연동 */}
-            <div className="absolute top-4 left-4 bg-black/70 rounded-xl p-3 w-44 backdrop-blur">
-              <p className="text-yellow-400 text-xs font-bold mb-2">📊 실시간 분석</p>
+            {/* ⑤ Phase 3: 실시간 분석 패널 — server.js analysis_update 실제 연동 */}
+            <div className="absolute top-4 left-4 bg-black/70 rounded-xl p-3 w-48 backdrop-blur">
+              <p className="text-yellow-400 text-xs font-bold mb-2">
+                📊 실시간 분석
+                {ragSearching && (
+                  <span className="ml-1 text-yellow-300 animate-pulse">🔍</span>
+                )}
+              </p>
+
+              {/* 8단계 진행 현황 */}
               {CONSULT_STEPS.map((s, i) => (
-                <div key={i} className="flex items-center gap-1.5 mb-1" style={{ opacity: i > currentStep + 1 ? 0.3 : 1 }}>
+                <div key={i} className="flex items-center gap-1.5 mb-1"
+                  style={{ opacity: i > currentStep + 1 ? 0.3 : 1 }}>
                   <div style={{
                     width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
                     background: i < currentStep ? '#34C759' : i === currentStep ? '#D4A017' : '#444',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 8, color: 'white', fontWeight: 700,
-                    transition: 'background 0.3s'
-                  }}>{i < currentStep ? '✓' : i+1}</div>
-                  <span style={{ fontSize: 10, color: i === currentStep ? '#FFD700' : i < currentStep ? '#34C759' : 'rgba(255,255,255,0.5)', fontWeight: i === currentStep ? 700 : 400 }}>{s}</span>
-                  {i === currentStep && <span style={{ fontSize: 8, color: '#FFD700', marginLeft: 'auto' }}>◀</span>}
+                    transition: 'background 0.4s'
+                  }}>{i < currentStep ? '✓' : i + 1}</div>
+                  <span style={{
+                    fontSize: 10,
+                    color: i === currentStep ? '#FFD700' : i < currentStep ? '#34C759' : 'rgba(255,255,255,0.5)',
+                    fontWeight: i === currentStep ? 700 : 400
+                  }}>{s}</span>
+                  {i === currentStep && (
+                    <span style={{ fontSize: 8, color: '#FFD700', marginLeft: 'auto' }}>◀</span>
+                  )}
                 </div>
               ))}
-              {ragActive && (
+
+              {/* Phase 3: RAG 검색 중 표시 */}
+              {ragSearching && (
+                <div className="mt-2 px-2 py-1 rounded-lg bg-yellow-900/60 border border-yellow-600/40">
+                  <p className="text-yellow-300 text-xs animate-pulse">🔍 RAG 검색 중...</p>
+                </div>
+              )}
+
+              {/* Phase 3: 분석 인사이트 표시 */}
+              {!ragSearching && analysisData && analysisData.insight && (
+                <div className="mt-2 px-2 py-1 rounded-lg bg-blue-900/50 border border-blue-600/30">
+                  <p className="text-blue-300 text-xs leading-relaxed">{analysisData.insight}</p>
+                  {analysisData.ragCount > 0 && (
+                    <p className="text-gray-400 text-xs mt-0.5">
+                      RAG {analysisData.ragCount}건 참조
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Phase 3: 키워드 태그 */}
+              {!ragSearching && analysisData && analysisData.keywords.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {analysisData.keywords.slice(0, 3).map((kw, i) => (
+                    <span key={i} className="text-xs px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-300">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* 기존 호환: ragActive (note_update 신호) */}
+              {ragActive && !ragSearching && !analysisData?.insight && (
                 <div className="mt-2 text-yellow-300 text-xs animate-pulse">🔍 RAG 검색 중...</div>
               )}
             </div>
+
+            {/* Phase 3: 스마트노트 패널 (우측 상단, smart_note_update 수신 시) */}
+            {smartNote && (
+              <div className="absolute top-4 right-36 bg-black/80 rounded-xl p-3 w-52 backdrop-blur border border-yellow-600/30 max-h-64 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-yellow-400 text-xs font-bold truncate pr-1">
+                    📋 {smartNote.title || '스마트 노트'}
+                  </p>
+                  <button
+                    onClick={() => setSmartNote(null)}
+                    className="text-gray-500 hover:text-white text-xs flex-shrink-0"
+                  >✕</button>
+                </div>
+
+                {/* house_svg: 금융집짓기 영역 강조 */}
+                {smartNote.noteType === 'house_svg' && (
+                  <div className="space-y-1">
+                    {([
+                      { key: 'chimney',          label: '🏠 부동산 설계',   floor: 7 },
+                      { key: 'roof_tax',          label: '📋 세금 설계',    floor: 6 },
+                      { key: 'roof_investment',   label: '📈 투자 설계',    floor: 5 },
+                      { key: 'eaves',             label: '🛡 생로병사',      floor: 4 },
+                      { key: 'pillar_retirement', label: '🧓 은퇴 설계',    floor: 3 },
+                      { key: 'pillar_savings',    label: '💰 저축 설계',    floor: 2 },
+                      { key: 'pillar_debt',       label: '💳 부채 설계',    floor: 1 },
+                      { key: 'basement',          label: '🔐 보험·비상금', floor: 0 },
+                    ] as const).map(({ key, label }) => (
+                      <div key={key} className={`px-2 py-1 rounded text-xs transition-all ${
+                        smartNote.highlightFloor === key
+                          ? 'bg-yellow-500/40 text-yellow-200 font-bold border border-yellow-500/60'
+                          : 'text-gray-400'
+                      }`}>{label}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* calculation: 계산 결과 */}
+                {smartNote.noteType === 'calculation' && (
+                  <div className="space-y-1">
+                    {Object.entries(smartNote.content).map(([k, v]) => (
+                      <div key={k} className="flex justify-between text-xs">
+                        <span className="text-gray-400">{k}</span>
+                        <span className="text-white font-bold">{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* chart / 기타: 텍스트 표시 */}
+                {(smartNote.noteType === 'chart' || smartNote.noteType === 'web' ||
+                  smartNote.noteType === 'checklist' || smartNote.noteType === 'image') && (
+                  <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">
+                    {typeof smartNote.content.text === 'string'
+                      ? smartNote.content.text
+                      : JSON.stringify(smartNote.content, null, 2)}
+                  </div>
+                )}
+
+                <p className="text-gray-600 text-xs mt-2 text-right">
+                  타입: {smartNote.noteType}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 대화 기록 패널 (채팅 토글 시) */}
