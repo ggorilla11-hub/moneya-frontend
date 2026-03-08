@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // ── 환경 설정 ─────────────────────────────────────────────────
-const WS_URL  = (import.meta.env.VITE_WS_URL as string) || 'wss://moneya-server.onrender.com';
+const WS_URL = (import.meta.env.VITE_WS_URL as string) || 'wss://moneya-server.onrender.com';
 
 // ── WebRTC ICE 서버 설정 ──────────────────────────────────────
 const ICE_SERVERS: RTCConfiguration = {
@@ -63,7 +63,6 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [showChat,      setShowChat]      = useState(false);
   const [isPaused,      setIsPaused]      = useState(false);
   const [currentStep,     setCurrentStep]     = useState(0);
-  const [ragActive,       setRagActive]       = useState(false);
   const [ragSearching,    setRagSearching]    = useState(false);
   const [analysisData,    setAnalysisData]    = useState<{
     stepIndex: number;
@@ -72,14 +71,6 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
     insight: string;
     ragCount: number;
   } | null>(null);
-  const [smartNote, setSmartNote] = useState<{
-    noteType: string;
-    title: string;
-    content: Record<string, unknown>;
-    highlightFloor: string;
-  } | null>(null);
-
-  const ragTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ragSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRef             = useRef<WebSocket | null>(null);
   const pcRef             = useRef<RTCPeerConnection | null>(null);
@@ -193,16 +184,13 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
       if (step !== null) setCurrentStep(step);
     }
     if (msg.type === 'rag_searching') {
-      setRagSearching(true); setRagActive(true);
+      setRagSearching(true);
       if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
       ragSearchTimer.current = setTimeout(() => setRagSearching(false), 8000);
     }
     if (msg.type === 'rag_done') {
       setRagSearching(false);
       if (ragSearchTimer.current) clearTimeout(ragSearchTimer.current);
-      setRagActive(true);
-      if (ragTimerRef.current) clearTimeout(ragTimerRef.current);
-      ragTimerRef.current = setTimeout(() => setRagActive(false), 2000);
     }
     if (msg.type === 'analysis_update') {
       setAnalysisData({
@@ -212,8 +200,7 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
         insight:   msg.insight   || '',
         ragCount:  typeof msg.ragCount === 'number' ? msg.ragCount : 0,
       });
-      if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex);
-      setRagActive(false); setRagSearching(false);
+      if (typeof msg.stepIndex === 'number') setCurrentStep(msg.stepIndex); setRagSearching(false);
     }
     if (msg.type === 'smart_note_update') {
       let parsedContent: Record<string, unknown> = {};
@@ -222,16 +209,11 @@ export default function ConsultationPage({ user }: ConsultationPageProps) {
       } else if (msg.content && typeof msg.content === 'object') {
         parsedContent = msg.content as Record<string, unknown>;
       }
-      setSmartNote({ noteType: msg.noteType || 'house_svg', title: msg.title || '', content: parsedContent, highlightFloor: msg.highlightFloor || 'none' });
     }
-    if (msg.type === 'smart_note_clear') { setSmartNote(null); }
     if (msg.type === 'renew_session_ok') { console.log('[세션갱신] 완료'); setVoiceStatus('상담중'); }
     if (msg.type === 'note_update') {
-      setRagActive(true);
       const step = msg.note_type === 'chart' ? 4 : msg.note_type === 'calc' ? 3 : msg.highlight === 'insurance' ? 1 : 0;
       setCurrentStep(step);
-      if (ragTimerRef.current) clearTimeout(ragTimerRef.current);
-      ragTimerRef.current = setTimeout(() => setRagActive(false), 1500);
     }
     if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
   }, [playAudio]);
