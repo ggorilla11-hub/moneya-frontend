@@ -43,7 +43,7 @@ interface Message {
 
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
-export default function ConsultationPage({ user }: { user?: any }) {
+export default function ConsultationPage({ user: _user }: { user?: any }) {
   // ── 기존 음성상담 상태 ──────────────────────────────────────
   const [isVoiceMode,   setIsVoiceMode]   = useState(false);
   const [voiceStatus,   setVoiceStatus]   = useState('대기중');
