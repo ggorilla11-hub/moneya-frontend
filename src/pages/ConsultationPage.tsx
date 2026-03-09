@@ -1,10 +1,15 @@
-// ConsultationPage.tsx v5.0
+// ConsultationPage.tsx v5.1
 // v5.0 수정사항:
 // 1. 서브탭 "머니야" → "AI 화상상담" (id: 'chat', icon: 📹)
 // 2. chat 탭 렌더링: MoneyaInfo → VideoConsult (WebRTC)
 // 3. schedule 탭: 기존 Schedule + MoneyaInfo(금융집 현황) 합체 → ScheduleWithHouse
 // 4. 지출탭 및 기타 컴포넌트 일절 변경 없음
 // 5. VideoConsult: Phase1(WebRTC) + Phase2(스마트노트) 완전 통합
+// v5.1 추가사항:
+// 6. [자동재연결] 서버에서 reconnecting/reconnected 메시지 수신 시 UI 표시
+//    - reconnecting: 하단에 "🔄 연결 최적화 중..." 작은 배너 표시
+//    - reconnected: 배너 자동 숨김 (2초 후)
+//    - session_max_reached: 상담 종료 안내
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -51,7 +56,32 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   );
 }
 
-
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// [추가 v5.1] 자동재연결 배너 컴포넌트
+// 서버에서 reconnecting 메시지가 오면 표시, reconnected 오면 숨김
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function ReconnectBanner({ visible, count }: { visible: boolean; count: number }) {
+  if (!visible) return null;
+  return (
+    <div style={{
+      position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 9999,
+      background: 'rgba(30,30,30,0.92)',
+      backdropFilter: 'blur(8px)',
+      border: '1px solid rgba(212,160,23,0.4)',
+      borderRadius: 24,
+      padding: '8px 18px',
+      display: 'flex', alignItems: 'center', gap: 8,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      pointerEvents: 'none',
+      animation: 'rcFadeIn 0.3s ease',
+    }}>
+      <style>{`@keyframes rcFadeIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}} @keyframes rcSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 14, height: 14, border: '2px solid rgba(212,160,23,0.3)', borderTop: '2px solid #D4A017', borderRadius: '50%', animation: 'rcSpin 0.8s linear infinite', flexShrink: 0 }} />
+      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>🔄 연결 최적화 중... ({count}/3회)</span>
+    </div>
+  );
+}
 
 // ── 내 재무 (기존 그대로) ─────────────────────────
 function MyFinance({ userData }: { userData: any }) {
@@ -117,6 +147,9 @@ function HubDashboard({ user }: { user: any }) {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('대기중');
   const [serverReady, setServerReady] = useState(false);
+  // ── [추가 v5.1] 홈탭 자동재연결 배너 상태 ──
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectCount, setReconnectCount] = useState(0);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -243,19 +276,37 @@ function HubDashboard({ user }: { user: any }) {
           if (msg.type === 'transcript' && msg.role === 'assistant')
             setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
           if (msg.type === 'interrupt') { pcmChunksRef.current = []; isPlayingRef.current = false; }
+          // ── [추가 v5.1] 자동재연결 메시지 처리 ──
+          if (msg.type === 'reconnecting') {
+            setReconnecting(true);
+            setReconnectCount(msg.count || 1);
+          }
+          if (msg.type === 'reconnected') {
+            // 2초 후 배너 숨김 (고객이 확인할 시간)
+            setTimeout(() => setReconnecting(false), 2000);
+          }
+          if (msg.type === 'session_max_reached') {
+            setReconnecting(false);
+            setVoiceStatus('상담시간 종료');
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', text: '최대 상담 시간(75분)에 도달했습니다. 상담을 마무리하겠습니다. 오늘 상담 감사합니다! 😊' }]);
+            stopVoiceMode();
+          }
         } catch {}
       };
       ws.onerror = () => { setVoiceStatus('연결 실패'); cleanupVoiceMode(); setIsVoiceMode(false); };
-      ws.onclose = () => { isConnectedRef.current = false; setVoiceStatus('대기중'); setIsVoiceMode(false); };
+      ws.onclose = () => { isConnectedRef.current = false; setVoiceStatus('대기중'); setIsVoiceMode(false); setReconnecting(false); };
     } catch { alert('마이크 권한이 필요합니다.'); cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); }
   };
 
-  const stopVoiceMode = () => { cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); };
+  const stopVoiceMode = () => { cleanupVoiceMode(); setIsVoiceMode(false); setVoiceStatus('대기중'); setReconnecting(false); };
   const toggleVoiceMode = () => { isVoiceMode ? stopVoiceMode() : startVoiceMode(); };
   const CHIPS = ['재무상담', '저축률 진단', '보험 분석', '은퇴 계산', '투자 조언'];
 
   return (
     <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
+      {/* ── [추가 v5.1] 자동재연결 배너 ── */}
+      <ReconnectBanner visible={reconnecting} count={reconnectCount} />
+
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
         <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
         <div className="flex items-center gap-3 relative z-10">
@@ -360,14 +411,13 @@ function HubDashboard({ user }: { user: any }) {
 // ── AI 화상상담 탭 (WebRTC + 스마트노트 + Function Calling) ────
 // ══════════════════════════════════════════════════════════════
 
-// ── 프롬프트 명세 기준 인터페이스 ──
 type NoteType = 'house_svg' | 'chart' | 'calculation' | 'video' | 'web' | 'image' | 'checklist';
 type HighlightFloor = 'basement' | 'pillar_debt' | 'pillar_savings' | 'pillar_retirement' | 'eaves' | 'roof_investment' | 'roof_tax' | 'chimney' | 'none';
 
 interface NoteState {
   noteType: NoteType;
   title: string;
-  content: any;          // JSON 파싱된 객체 (타입별 상이)
+  content: any;
   highlightFloor: HighlightFloor;
 }
 interface VCMessage { role: 'ai' | 'user'; text: string; tag?: string; time: string; }
@@ -379,7 +429,6 @@ const DEFAULT_NOTE_STATE: NoteState = {
   highlightFloor: 'none',
 };
 
-// ── 탭 ID → noteType 매핑 (수동 탭 전환용) ──
 type NoteTabId = 'house' | 'chart' | 'calc' | 'video' | 'web';
 const NOTE_TYPE_TO_TAB: Partial<Record<NoteType, NoteTabId>> = {
   house_svg: 'house', chart: 'chart', calculation: 'calc', video: 'video', web: 'web', checklist: 'house',
@@ -390,13 +439,15 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  // ── 노트 상태 — 프롬프트 명세 구조 ──
   const [noteState, setNoteState] = useState<NoteState>(DEFAULT_NOTE_STATE);
   const [activeNoteTab, setActiveNoteTab] = useState<NoteTabId>('house');
   const [messages, setMessages] = useState<VCMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [aiStatus, setAiStatus] = useState('🤖 분석 중...');
   const [playingVideo, setPlayingVideo] = useState('');
+  // ── [추가 v5.1] 화상탭 자동재연결 배너 상태 ──
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectCount, setReconnectCount] = useState(0);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -423,40 +474,27 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     if (!isPlayingRef.current) processAudioQueue();
   }, [processAudioQueue]);
 
-  // ── smart_note_update 수신 처리 — 프롬프트 명세 기준 ──
-  // 서버 → 프론트: { type:'smart_note_update', noteType, title, content, highlightFloor }
   const handleSmartNoteUpdate = useCallback((msg: any) => {
     const noteType: NoteType = msg.noteType || 'house_svg';
     const title: string = msg.title || '';
     const content = msg.content || {};
     const highlightFloor: HighlightFloor = msg.highlightFloor || 'none';
-
     setNoteState({ noteType, title, content, highlightFloor });
-
-    // 해당 탭으로 자동 전환
     const tab = NOTE_TYPE_TO_TAB[noteType];
     if (tab) setActiveNoteTab(tab);
-
-    // AI 상태 태그 업데이트
     const statusMap: Partial<Record<NoteType, string>> = {
-      house_svg: '🏠 금융집짓기 분석 중',
-      chart: '📊 차트 생성 중',
-      calculation: '🧮 계산 완료',
-      video: '🎬 영상 준비됨',
-      web: '🌐 웹 자료 검색 완료',
-      checklist: '✅ 액션플랜 생성됨',
+      house_svg: '🏠 금융집짓기 분석 중', chart: '📊 차트 생성 중', calculation: '🧮 계산 완료',
+      video: '🎬 영상 준비됨', web: '🌐 웹 자료 검색 완료', checklist: '✅ 액션플랜 생성됨',
     };
     if (statusMap[noteType]) setAiStatus(statusMap[noteType]!);
   }, []);
 
-  // ── smart_note_clear 수신 처리 ──
   const handleSmartNoteClear = useCallback(() => {
     setNoteState(DEFAULT_NOTE_STATE);
     setActiveNoteTab('house');
     setAiStatus('🤖 분석 중...');
   }, []);
 
-  // 단계 추적 — transcript 내용으로 자동 업데이트
   const detectStep = useCallback((text: string) => {
     const stepKeywords = [
       ['수입','지출','소득','월급'], ['보험','보장','실손'], ['저축','적금','예금'],
@@ -473,12 +511,12 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
     setElapsed(0);
+    setReconnecting(false);
     setPhase('ended');
   }, []);
 
   const startCall = useCallback(async () => {
     setPhase('connecting');
-    // 마이크는 필수 (AI 대화용), 카메라는 선택
     let audioStream: MediaStream | null = null;
     try {
       audioStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 24000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
@@ -487,7 +525,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
       setPhase('idle');
       return;
     }
-    // 카메라는 별도 시도 (실패해도 진행)
     try {
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
       videoStream.getTracks().forEach(t => audioStream!.addTrack(t));
@@ -495,13 +532,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     localStreamRef.current = audioStream;
     if (localVideoRef.current) localVideoRef.current.srcObject = audioStream;
 
-    // 2초 후 화상상담 활성화
     setTimeout(() => {
       setPhase('active');
       const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setMessages([{ role:'ai', text:`안녕하세요, ${displayName}님! 오상열 CFP의 금융집짓기® 8단계 재무상담을 시작하겠습니다. 현재 월 수입과 지출을 말씀해 주세요.`, tag:'📊 1단계: 수입지출 분석 시작', time:t }]);
       timerRef.current = setInterval(() => setElapsed(e => e+1), 1000);
-      // 서버 연결
       try {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const ws = new WebSocket(WS_URL);
@@ -513,7 +548,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           if (event.data instanceof ArrayBuffer) { playAudioChunk(new Int16Array(event.data)); return; }
           try {
             const msg = JSON.parse(event.data);
-            // ★ 핵심: session_started를 받은 후 마이크 캡처 시작
             if (msg.type === 'session_started') {
               const ac = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
               const src = ac.createMediaStreamSource(audioStream!);
@@ -540,20 +574,32 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 playAudioChunk(i16);
               } catch {}
             }
-            // ── 프롬프트 명세 기준 메시지 타입 ──
             if (msg.type === 'smart_note_update') handleSmartNoteUpdate(msg);
             if (msg.type === 'smart_note_clear') handleSmartNoteClear();
             if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
+            // ── [추가 v5.1] 화상탭 자동재연결 메시지 처리 ──
+            if (msg.type === 'reconnecting') {
+              setReconnecting(true);
+              setReconnectCount(msg.count || 1);
+            }
+            if (msg.type === 'reconnected') {
+              setTimeout(() => setReconnecting(false), 2000);
+            }
+            if (msg.type === 'session_max_reached') {
+              setReconnecting(false);
+              onToast('최대 상담 시간(75분)에 도달했습니다. 상담을 마무리합니다.');
+              endCall();
+            }
           } catch {}
         };
-        ws.onerror = () => {}; // 서버 에러는 조용히 처리
+        ws.onerror = () => {};
+        ws.onclose = () => { setReconnecting(false); };
       } catch {}
     }, 2000);
-  }, [displayName, playAudioChunk, handleSmartNoteUpdate, handleSmartNoteClear, detectStep, onToast]);
+  }, [displayName, playAudioChunk, handleSmartNoteUpdate, handleSmartNoteClear, detectStep, onToast, endCall]);
 
   useEffect(() => { return () => { endCall(); audioCtxRef.current?.close(); }; }, []);
 
-  // ── 대화 기록 화면 (💬 버튼 → chat 화면) ──
   if (phase === 'chat') {
     return (
       <div style={{ background:'#0D0D0D', height:'100%', display:'flex', flexDirection:'column' }}>
@@ -580,7 +626,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
-  // ── 대기/종료 화면 ──
   if (phase === 'idle' || phase === 'ended') {
     return (
       <div style={{ overflowY: 'auto', height: '100%', padding: 16 }}>
@@ -594,7 +639,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         <div style={{ background: 'white', borderRadius: 16, padding: '16px 18px', marginBottom: 12, boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#666', marginBottom: 12 }}>상담 안내</div>
           {[
-            { icon: '⏱', label: '상담 시간', value: '90분 (8단계 금융집짓기)' },
+            { icon: '⏱', label: '상담 시간', value: '최대 75분 (자동재연결 3회 보장)' },
             { icon: '📹', label: '방식', value: 'AI 화상상담 (자체 WebRTC)' },
             { icon: '📋', label: '내용', value: '수입지출 · 보험 · 저축 · 투자 · 은퇴' },
             { icon: '🤖', label: 'AI 지원', value: 'RAG 5,706개 지식베이스 활용' },
@@ -622,7 +667,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
-  // ── 연결 중 화면 ──
   if (phase === 'connecting') {
     return (
       <div style={{ background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 20px' }}>
@@ -640,14 +684,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
-  // ── 화상상담 활성 화면 — 시뮬레이터 3분할 구조 ──
   const STEPS = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
-
   const NOTE_STATUS: Record<string,string> = {
     house:'🏠 금융집짓기 분석 중', chart:'📊 포트폴리오 계산 중',
     calc:'🧮 수치 계산 완료', video:'🎬 영상 라이브러리', web:'🌐 웹 자료 검색 완료'
   };
-
   const handleTabChange = (tab: 'house'|'chart'|'calc'|'video'|'web') => {
     setActiveNoteTab(tab);
     setAiStatus(NOTE_STATUS[tab]);
@@ -655,6 +696,9 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', color:'#F5F5F7', overflow:'hidden', fontFamily:'inherit' }}>
+      {/* ── [추가 v5.1] 화상탭 자동재연결 배너 ── */}
+      <ReconnectBanner visible={reconnecting} count={reconnectCount} />
+
       <style>{`
         @keyframes sLivep{0%,100%{opacity:1}50%{opacity:0.3}}
         @keyframes sWave{0%,100%{height:4px;opacity:0.4}50%{height:18px;opacity:1}}
@@ -674,7 +718,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .ssmsg.user{flex-direction:row-reverse;}
       `}</style>
 
-      {/* ── 최상단 바 ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:48, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0, zIndex:100 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <div style={{ width:28, height:28, borderRadius:'50%', overflow:'hidden', background:'linear-gradient(135deg,#B8820A,#E8C040)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -702,15 +745,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         </div>
       </div>
 
-      {/* ── 메인 3분할 + 하단 STT ── */}
       <div style={{ flex:1, display:'grid', gridTemplateColumns:'220px 1fr 240px', gridTemplateRows:'1fr 150px', overflow:'hidden' }}>
 
-        {/* ── 좌측: AI 머니야 화상 ── */}
         <div style={{ gridRow:'1/2', background:'linear-gradient(145deg,#0D1B3E,#0F2A5C,#163A6A)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 40%,rgba(212,160,23,0.08) 0%,transparent 65%)' }} />
-          {/* AI 상태 태그 */}
           <div style={{ position:'absolute', top:12, left:12, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(8px)', border:'1px solid rgba(212,160,23,0.3)', padding:'4px 10px', borderRadius:20, fontSize:10, color:'#D4A017', fontWeight:600, zIndex:3 }}>{aiStatus}</div>
-          {/* AI 아바타 */}
           <div style={{ position:'relative', zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
             <div style={{ width:88, height:88, borderRadius:'50%', overflow:'hidden', background:'linear-gradient(135deg,#B8820A,#E8C040)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 40px rgba(212,160,23,0.3)', position:'relative' }}>
               <img src={MONEYA_IMG} alt="머니야" style={{ width:76, height:76, objectFit:'contain' }} />
@@ -722,7 +761,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               {[0,0.12,0.24,0.12,0].map((d,i) => <div key={i} style={{ width:3, borderRadius:3, background:'#E8C040', animation:'sWave 0.9s ease-in-out '+d+'s infinite' }} />)}
             </div>
           </div>
-          {/* 고객 PIP */}
           <div style={{ position:'absolute', bottom:12, right:12, width:72, height:96, background:'linear-gradient(145deg,#2a2a2a,#1a1a1a)', borderRadius:10, border:'1.5px solid rgba(255,255,255,0.15)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:5, cursor:'pointer', zIndex:3, boxShadow:'0 4px 16px rgba(0,0,0,0.5)', overflow:'hidden' }}>
             <video ref={localVideoRef} autoPlay playsInline muted style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', transform:'scaleX(-1)' }} />
             <span style={{ fontSize:24, position:'relative', zIndex:1 }}>👤</span>
@@ -730,9 +768,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
-        {/* ── 중앙: 스마트 노트 ── */}
         <div style={{ gridRow:'1/2', background:'#FAFAF8', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {/* 노트 툴바 */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'white', borderBottom:'1px solid #E8E8E8', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display:'flex', gap:2 }}>
               {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as any[]).map(([id,label]: any) => (
@@ -744,11 +780,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             </div>
           </div>
 
-
-          {/* ── 노트 콘텐츠 — noteState 기반 (프롬프트 명세 기준) ── */}
           <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'20px 24px', scrollbarWidth:'thin', scrollbarColor:'rgba(0,0,0,0.1) transparent' }}>
-
-            {/* AI가 설정한 제목 배너 */}
             {noteState.title && noteState.title !== '금융집짓기®' && (
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, padding:'8px 12px', background:'rgba(212,160,23,0.08)', borderRadius:10, border:'1px solid rgba(212,160,23,0.2)' }}>
                 <div style={{ width:3, height:14, background:'#D4A017', borderRadius:2, flexShrink:0 }} />
@@ -757,68 +789,59 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 1: house_svg — 금융집짓기® SVG + highlight_floor */}
             {activeNoteTab === 'house' && noteState.noteType !== 'checklist' && (
-                <div style={{animation:'sFadeIn 0.3s ease'}}>
-                  <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{width:3,height:14,background:'#D4A017',borderRadius:2,display:'inline-block'}}/>
-                    🏠 금융집짓기® — {displayName} 고객님 현황
-                  </div>
-                  <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{display:'block',borderRadius:8,overflow:'hidden'}}>
-                    <defs>
-                      <linearGradient id="snGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor:'#C8920F'}}/><stop offset="100%" style={{stopColor:'#E8C040'}}/></linearGradient>
-                      <linearGradient id="snNavy" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style={{stopColor:'#1A3A6E'}}/><stop offset="100%" style={{stopColor:'#0F2A5C'}}/></linearGradient>
-                      <filter id="snShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/></filter>
-                    </defs>
-                    <rect width="520" height="340" fill="#F8F9FC"/>
-                    {/* 굴뚝 chimney */}
-                    <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity={(noteState.highlightFloor==='chimney')?1:0.7}/>
-                    {(noteState.highlightFloor==='chimney')&&<rect x="360" y="30" width="40" height="60" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
-                    <text x="380" y="53" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
-                    <text x="380" y="66" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
-                    {noteState.content?.scores?.chimney!==undefined&&<text x="380" y="82" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.chimney}점</text>}
-                    {/* 지붕 roof */}
-                    <polygon points="80,130 260,40 440,130" fill="url(#snNavy)" filter="url(#snShadow)" opacity={(noteState.highlightFloor==='roof_investment')||(noteState.highlightFloor==='roof_tax')?1:0.9}/>
-                    {((noteState.highlightFloor==='roof_investment')||(noteState.highlightFloor==='roof_tax'))&&<polygon points="80,130 260,40 440,130" fill="none" stroke="#D4A017" strokeWidth="3"/>}
-                    <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
-                    <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
-                    {/* 처마보 eaves */}
-                    <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity={(noteState.highlightFloor==='eaves')?1:0.85}/>
-                    {(noteState.highlightFloor==='eaves')&&<rect x="80" y="128" width="360" height="22" fill="none" stroke="#D4A017" strokeWidth="2"/>}
-                    <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
-                    {/* 기둥1 부채 pillar_debt */}
-                    <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity={(noteState.highlightFloor==='pillar_debt')?1:0.8} filter="url(#snShadow)"/>
-                    {(noteState.highlightFloor==='pillar_debt')&&<rect x="82" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
-                    <text x="132" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채설계</text>
-                    <text x="132" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
-                    {noteState.content?.scores?.pillar_debt!==undefined&&<text x="132" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.pillar_debt}점</text>}
-                    {/* 기둥2 저축 pillar_savings */}
-                    <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity={(noteState.highlightFloor==='pillar_savings')?1:0.8} filter="url(#snShadow)"/>
-                    {(noteState.highlightFloor==='pillar_savings')&&<rect x="210" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
-                    <text x="260" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축설계</text>
-                    <text x="260" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
-                    {noteState.content?.scores?.pillar_savings!==undefined&&<text x="260" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.pillar_savings}점</text>}
-                    {/* 기둥3 은퇴 pillar_retirement (골드) */}
-                    <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#snGold)" filter="url(#snShadow)" opacity={(noteState.highlightFloor==='pillar_retirement')?1:0.95}/>
-                    {(noteState.highlightFloor==='pillar_retirement')&&<rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="white" strokeWidth="3"/>}
-                    <text x="390" y="193" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴설계 ★</text>
-                    <text x="390" y="208" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
-                    {noteState.content?.scores?.pillar_retirement!==undefined&&<text x="390" y="226" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">{noteState.content?.scores?.pillar_retirement}점</text>}
-                    {/* 지하 보험 basement */}
-                    <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity={(noteState.highlightFloor==='basement')?1:0.9} filter="url(#snShadow)"/>
-                    {(noteState.highlightFloor==='basement')&&<rect x="82" y="262" width="360" height="60" rx="4" fill="none" stroke="#E74C3C" strokeWidth="3"/>}
-                    <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
-                    <text x="200" y="308" textAnchor="middle" fontSize="9" fill={(noteState.highlightFloor==='basement')?'#FF6B6B':'rgba(255,255,255,0.65)'}>
-                      {noteState.content?.scores?.basement!==undefined?noteState.content?.scores?.basement+'점':'지하층 — 재무 토대'}
-                    </text>
-                    <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
-                    <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">생활비 3~6개월</text>
-                  </svg>
-                  {noteState.content?.message&&<div style={{marginTop:10,padding:'10px 14px',background:'rgba(212,160,23,0.08)',border:'1px solid rgba(212,160,23,0.2)',borderRadius:10,fontSize:12,color:'#0F2A5C',lineHeight:1.6}}>💡 {noteState.content?.message}</div>}
+              <div style={{animation:'sFadeIn 0.3s ease'}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:3,height:14,background:'#D4A017',borderRadius:2,display:'inline-block'}}/>
+                  🏠 금융집짓기® — {displayName} 고객님 현황
                 </div>
+                <svg width="100%" viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" style={{display:'block',borderRadius:8,overflow:'hidden'}}>
+                  <defs>
+                    <linearGradient id="snGold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{stopColor:'#C8920F'}}/><stop offset="100%" style={{stopColor:'#E8C040'}}/></linearGradient>
+                    <linearGradient id="snNavy" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style={{stopColor:'#1A3A6E'}}/><stop offset="100%" style={{stopColor:'#0F2A5C'}}/></linearGradient>
+                    <filter id="snShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/></filter>
+                  </defs>
+                  <rect width="520" height="340" fill="#F8F9FC"/>
+                  <rect x="360" y="30" width="40" height="60" rx="4" fill="#9B59B6" opacity={(noteState.highlightFloor==='chimney')?1:0.7}/>
+                  {(noteState.highlightFloor==='chimney')&&<rect x="360" y="30" width="40" height="60" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                  <text x="380" y="53" textAnchor="middle" fontSize="9" fill="white" fontWeight="700">부동산</text>
+                  <text x="380" y="66" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.8)">설계</text>
+                  {noteState.content?.scores?.chimney!==undefined&&<text x="380" y="82" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.chimney}점</text>}
+                  <polygon points="80,130 260,40 440,130" fill="url(#snNavy)" filter="url(#snShadow)" opacity={(noteState.highlightFloor==='roof_investment')||(noteState.highlightFloor==='roof_tax')?1:0.9}/>
+                  {((noteState.highlightFloor==='roof_investment')||(noteState.highlightFloor==='roof_tax'))&&<polygon points="80,130 260,40 440,130" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                  <text x="260" y="88" textAnchor="middle" fontSize="11" fill="white" fontWeight="700">투자설계</text>
+                  <text x="260" y="103" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.7)">다락방 / 세금설계</text>
+                  <rect x="80" y="128" width="360" height="22" fill="#E67E22" opacity={(noteState.highlightFloor==='eaves')?1:0.85}/>
+                  {(noteState.highlightFloor==='eaves')&&<rect x="80" y="128" width="360" height="22" fill="none" stroke="#D4A017" strokeWidth="2"/>}
+                  <text x="260" y="143" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">생로병사 (처마보)</text>
+                  <rect x="82" y="150" width="100" height="110" rx="4" fill="#3498DB" opacity={(noteState.highlightFloor==='pillar_debt')?1:0.8} filter="url(#snShadow)"/>
+                  {(noteState.highlightFloor==='pillar_debt')&&<rect x="82" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                  <text x="132" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">부채설계</text>
+                  <text x="132" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(거실)</text>
+                  {noteState.content?.scores?.pillar_debt!==undefined&&<text x="132" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.pillar_debt}점</text>}
+                  <rect x="210" y="150" width="100" height="110" rx="4" fill="#27AE60" opacity={(noteState.highlightFloor==='pillar_savings')?1:0.8} filter="url(#snShadow)"/>
+                  {(noteState.highlightFloor==='pillar_savings')&&<rect x="210" y="150" width="100" height="110" rx="4" fill="none" stroke="#D4A017" strokeWidth="3"/>}
+                  <text x="260" y="197" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">저축설계</text>
+                  <text x="260" y="212" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.65)">(건넌방)</text>
+                  {noteState.content?.scores?.pillar_savings!==undefined&&<text x="260" y="228" textAnchor="middle" fontSize="10" fill="#E8C040" fontWeight="700">{noteState.content?.scores?.pillar_savings}점</text>}
+                  <rect x="338" y="146" width="104" height="118" rx="4" fill="url(#snGold)" filter="url(#snShadow)" opacity={(noteState.highlightFloor==='pillar_retirement')?1:0.95}/>
+                  {(noteState.highlightFloor==='pillar_retirement')&&<rect x="338" y="146" width="104" height="118" rx="4" fill="none" stroke="white" strokeWidth="3"/>}
+                  <text x="390" y="193" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">은퇴설계 ★</text>
+                  <text x="390" y="208" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.75)">(안방)</text>
+                  {noteState.content?.scores?.pillar_retirement!==undefined&&<text x="390" y="226" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">{noteState.content?.scores?.pillar_retirement}점</text>}
+                  <rect x="82" y="262" width="360" height="60" rx="4" fill="#2C3E50" opacity={(noteState.highlightFloor==='basement')?1:0.9} filter="url(#snShadow)"/>
+                  {(noteState.highlightFloor==='basement')&&<rect x="82" y="262" width="360" height="60" rx="4" fill="none" stroke="#E74C3C" strokeWidth="3"/>}
+                  <text x="200" y="290" textAnchor="middle" fontSize="10" fill="white" fontWeight="700">🛡️ 보장자산 (보험)</text>
+                  <text x="200" y="308" textAnchor="middle" fontSize="9" fill={(noteState.highlightFloor==='basement')?'#FF6B6B':'rgba(255,255,255,0.65)'}>
+                    {noteState.content?.scores?.basement!==undefined?noteState.content?.scores?.basement+'점':'지하층 — 재무 토대'}
+                  </text>
+                  <text x="380" y="290" textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.8)" fontWeight="600">🔥 비상예비금</text>
+                  <text x="380" y="308" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">생활비 3~6개월</text>
+                </svg>
+                {noteState.content?.message&&<div style={{marginTop:10,padding:'10px 14px',background:'rgba(212,160,23,0.08)',border:'1px solid rgba(212,160,23,0.2)',borderRadius:10,fontSize:12,color:'#0F2A5C',lineHeight:1.6}}>💡 {noteState.content?.message}</div>}
+              </div>
             )}
 
-            {/* TYPE 2: chart — 차트/그래프 */}
             {activeNoteTab === 'chart' && noteState.noteType !== 'chart' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
@@ -863,7 +886,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 3: calculation — 계산결과 */}
             {activeNoteTab === 'calc' && noteState.noteType !== 'calculation' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)',borderRadius:12,padding:16,color:'white'}}>
@@ -896,7 +918,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 4: video — 동영상 클립 */}
             {activeNoteTab === 'video' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -923,7 +944,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 5: web — 웹자료 */}
             {activeNoteTab === 'web' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -962,7 +982,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 6: checklist */}
             {noteState.noteType === 'checklist' && activeNoteTab === 'house' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -983,7 +1002,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* TYPE 7: image — PPT/이미지 */}
             {noteState.noteType === 'image' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -992,16 +1010,12 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 {noteState.content?.url&&<img src={noteState.content.url} alt={noteState.title} style={{width:'100%',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',border:'1px solid #E8E8E8'}}/>}
               </div>
             )}
-
           </div>
         </div>
-        </div>
 
-        {/* ── 우측: 실시간 분석 패널 ── */}
         <div style={{ gridRow:'1/2', background:'#2C2C2E', borderLeft:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', fontSize:12, fontWeight:700, color:'#D4A017', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>📊 실시간 분석</div>
           <div style={{ flex:1, overflowY:'auto', padding:12, scrollbarWidth:'none' }}>
-            {/* 8단계 진행 */}
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>8단계 진행 현황</div>
             {STEPS.map((s,i) => (
               <div key={i} className={'sstep'+(i < currentStep-1 ? ' done' : i === currentStep-1 ? ' active' : '')}>
@@ -1010,7 +1024,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             ))}
             <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'10px 0' }} />
-            {/* 핵심 발견사항 */}
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>핵심 발견사항</div>
             {[
               {cls:'red', label:'🛡️ 보험 보장', val:'사망보장 1억 부족', sub:'현재 종신 → 정기 전환 권장'},
@@ -1025,7 +1038,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             ))}
             <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'10px 0' }} />
-            {/* AI 엔진 상태 */}
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>AI 엔진 상태</div>
             <div style={{ background:'#3A3A3C', borderRadius:8, padding:'8px 10px', fontSize:10 }}>
               {[['RAG 검색','활성 ●','#34C759'],['참조 청크','5,706개','white'],['Function Call','12회 호출','#D4A017'],['응답 속도','1.2초','white']].map(([k,v,c],i) => (
@@ -1038,7 +1050,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
-        {/* ── 하단: STT 실시간 대화 (3열 span) ── */}
         <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)' }}>
@@ -1069,12 +1080,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         </div>
 
       </div>
+    </div>
   );
 }
 
-// ─── 대화 기록 화면 (화상 중 💬 버튼으로 진입)
-
-// ── 일정 + 금융집 현황 합체 (기존 Schedule + MoneyaInfo 흡수) ──
+// ── 일정 + 금융집 현황 합체 ──
 function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
@@ -1094,7 +1104,6 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
   }
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      {/* 다음 상담 */}
       <div className="bg-white rounded-2xl border shadow-sm p-5" style={{ borderColor: GOLD }}>
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">다음 상담</p>
         {nextConsult ? (
@@ -1117,7 +1126,6 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
           </>
         ) : <p className="text-sm text-gray-400">예정된 상담이 없습니다.<br />AI 화상상담 탭에서 시작해보세요!</p>}
       </div>
-      {/* 금융집 현황 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">내 금융집 현황</p>
         <div className="flex items-center gap-3 mb-4">
@@ -1136,7 +1144,6 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
           </div>
         ))}
       </div>
-      {/* 머니야 메시지 */}
       <div className="bg-gray-50 rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">머니야 메시지</p>
         <div className="flex gap-3">
@@ -1150,7 +1157,7 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
   );
 }
 
-// ── 이력 (기존 그대로) ───────────────────────────
+// ── 이력 ──
 function History() {
   const count = 0;
   const grade = getCertGrade(count);
@@ -1171,7 +1178,7 @@ function History() {
   );
 }
 
-// ── 서류함 (기존 그대로) ─────────────────────────
+// ── 서류함 ──
 function Documents({ onToast }: { onToast: (msg: string) => void }) {
   const [docs, setDocs] = useState<Record<string, ConsultationDoc | null>>({ application: null, insurance: null, pension: null, tax: null });
   const [uploading, setUploading] = useState<string | null>(null);
@@ -1223,7 +1230,7 @@ function Documents({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 구독자 허브 (핵심 변경: 탭 3개 수정) ─────────
+// ── 구독자 허브 ──
 function ConsultationHub({ user }: { user: any }) {
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
   const [userData] = useState<any>({});
@@ -1234,7 +1241,7 @@ function ConsultationHub({ user }: { user: any }) {
   const subTabs = [
     { id: 'dashboard', label: '홈',        icon: '🏠' },
     { id: 'finance',   label: '내 재무',    icon: '📊' },
-    { id: 'chat',      label: 'AI 화상상담', icon: '📹' }, // ← 변경: 머니야 → AI 화상상담
+    { id: 'chat',      label: 'AI 화상상담', icon: '📹' },
     { id: 'schedule',  label: '일정',       icon: '📅' },
     { id: 'history',   label: '이력',       icon: '📋' },
     { id: 'files',     label: '서류함',     icon: '📎' },
@@ -1267,7 +1274,7 @@ function ConsultationHub({ user }: { user: any }) {
   );
 }
 
-// ── 비구독자 서비스 소개 (기존 그대로) ───────────
+// ── 비구독자 서비스 소개 ──
 function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   return (
     <div className="overflow-y-auto h-full pb-6">
@@ -1289,7 +1296,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 메인 페이지 (기존 그대로) ─────────────────────
+// ── 메인 페이지 ──
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
