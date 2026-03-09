@@ -10,6 +10,9 @@
 //    - reconnecting: 하단에 "🔄 연결 최적화 중..." 작은 배너 표시
 //    - reconnected: 배너 자동 숨김 (2초 후)
 //    - session_max_reached: 상담 종료 안내
+// v5.2 추가사항 [Phase 2]:
+// 7. 스마트노트 탭 바에 📓 상담노트 탭 추가 (노트북 스타일 UI)
+// 8. 탭 바 우측에 📄 리포트 버튼 추가 (종합재무설계 리포트 모달)
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -56,10 +59,6 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
   );
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// [추가 v5.1] 자동재연결 배너 컴포넌트
-// 서버에서 reconnecting 메시지가 오면 표시, reconnected 오면 숨김
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function ReconnectBanner({ visible, count }: { visible: boolean; count: number }) {
   if (!visible) return null;
   return (
@@ -83,7 +82,6 @@ function ReconnectBanner({ visible, count }: { visible: boolean; count: number }
   );
 }
 
-// ── 내 재무 (기존 그대로) ─────────────────────────
 function MyFinance({ userData }: { userData: any }) {
   const income = userData.monthlyIncome || 0;
   const expense = userData.monthlyExpense || 0;
@@ -136,7 +134,6 @@ function MyFinance({ userData }: { userData: any }) {
   );
 }
 
-// ── 홈 탭 AI 음성상담 (기존 그대로 — 절대 수정 금지) ─────────
 function HubDashboard({ user }: { user: any }) {
   const displayName = user.displayName || '고객';
   const [messages, setMessages] = useState<{ id: string; role: 'user'|'assistant'; text: string }[]>([
@@ -147,7 +144,6 @@ function HubDashboard({ user }: { user: any }) {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('대기중');
   const [serverReady, setServerReady] = useState(false);
-  // ── [추가 v5.1] 홈탭 자동재연결 배너 상태 ──
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
   const chatAreaRef = useRef<HTMLDivElement>(null);
@@ -276,15 +272,8 @@ function HubDashboard({ user }: { user: any }) {
           if (msg.type === 'transcript' && msg.role === 'assistant')
             setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', text: msg.text }]);
           if (msg.type === 'interrupt') { pcmChunksRef.current = []; isPlayingRef.current = false; }
-          // ── [추가 v5.1] 자동재연결 메시지 처리 ──
-          if (msg.type === 'reconnecting') {
-            setReconnecting(true);
-            setReconnectCount(msg.count || 1);
-          }
-          if (msg.type === 'reconnected') {
-            // 2초 후 배너 숨김 (고객이 확인할 시간)
-            setTimeout(() => setReconnecting(false), 2000);
-          }
+          if (msg.type === 'reconnecting') { setReconnecting(true); setReconnectCount(msg.count || 1); }
+          if (msg.type === 'reconnected') { setTimeout(() => setReconnecting(false), 2000); }
           if (msg.type === 'session_max_reached') {
             setReconnecting(false);
             setVoiceStatus('상담시간 종료');
@@ -304,9 +293,7 @@ function HubDashboard({ user }: { user: any }) {
 
   return (
     <div className="flex flex-col h-full" style={{ paddingBottom: '64px' }}>
-      {/* ── [추가 v5.1] 자동재연결 배너 ── */}
       <ReconnectBanner visible={reconnecting} count={reconnectCount} />
-
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c05a)` }}>
         <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
         <div className="flex items-center gap-3 relative z-10">
@@ -407,10 +394,6 @@ function HubDashboard({ user }: { user: any }) {
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── AI 화상상담 탭 (WebRTC + 스마트노트 + Function Calling) ────
-// ══════════════════════════════════════════════════════════════
-
 type NoteType = 'house_svg' | 'chart' | 'calculation' | 'video' | 'web' | 'image' | 'checklist';
 type HighlightFloor = 'basement' | 'pillar_debt' | 'pillar_savings' | 'pillar_retirement' | 'eaves' | 'roof_investment' | 'roof_tax' | 'chimney' | 'none';
 
@@ -445,9 +428,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const [currentStep, setCurrentStep] = useState(1);
   const [aiStatus, setAiStatus] = useState('🤖 분석 중...');
   const [playingVideo, setPlayingVideo] = useState('');
-  // ── [추가 v5.1] 화상탭 자동재연결 배너 상태 ──
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
+  // ── [Phase 2] 리포트 모달 상태 ──
+  const [showReport, setShowReport] = useState(false);
+
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -577,14 +562,8 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             if (msg.type === 'smart_note_update') handleSmartNoteUpdate(msg);
             if (msg.type === 'smart_note_clear') handleSmartNoteClear();
             if (msg.type === 'interrupt') { audioQueueRef.current = []; isPlayingRef.current = false; }
-            // ── [추가 v5.1] 화상탭 자동재연결 메시지 처리 ──
-            if (msg.type === 'reconnecting') {
-              setReconnecting(true);
-              setReconnectCount(msg.count || 1);
-            }
-            if (msg.type === 'reconnected') {
-              setTimeout(() => setReconnecting(false), 2000);
-            }
+            if (msg.type === 'reconnecting') { setReconnecting(true); setReconnectCount(msg.count || 1); }
+            if (msg.type === 'reconnected') { setTimeout(() => setReconnecting(false), 2000); }
             if (msg.type === 'session_max_reached') {
               setReconnecting(false);
               onToast('최대 상담 시간(75분)에 도달했습니다. 상담을 마무리합니다.');
@@ -684,6 +663,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
+  // ── phase === 'active' ──
   const STEPS = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
   const NOTE_STATUS: Record<string,string> = {
     house:'🏠 금융집짓기 분석 중', chart:'📊 포트폴리오 계산 중',
@@ -693,11 +673,9 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     setActiveNoteTab(tab);
     if (NOTE_STATUS[tab]) setAiStatus(NOTE_STATUS[tab]);
   };
-  const [showReport, setShowReport] = useState(false);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', color:'#F5F5F7', overflow:'hidden', fontFamily:'inherit' }}>
-      {/* ── [추가 v5.1] 화상탭 자동재연결 배너 ── */}
       <ReconnectBanner visible={reconnecting} count={reconnectCount} />
 
       <style>{`
@@ -713,7 +691,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .sntab-note.son{background:#fef9ec;color:#3a2500;border-color:#9a7a20;}
         .sntab-rpt{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-family:inherit;}
         .sntab-rpt:hover{background:#f59e0b;color:#fff;}
-        /* ── 노트북 스타일 ── */
         @import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
         .nb-paper{background:#fef9ec;border:1px solid #c0a860;border-radius:0 8px 8px 8px;position:relative;min-height:100%;overflow:hidden;}
         .nb-paper::after{content:'';position:absolute;left:52px;top:0;bottom:0;width:1.5px;background:rgba(232,160,160,0.45);pointer-events:none;z-index:1;}
@@ -725,35 +702,28 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .nb-h{font-family:'Nanum Pen Script',cursive;color:#0d0d0d;font-size:20px;line-height:36px;}
         .nb-hb{color:#0a2558;}.nb-hr{color:#b30000;}.nb-hg{color:#0e4d22;}
         .nb-hl{background:rgba(255,205,20,0.45);padding:0 3px;border-radius:2px;}
-        .nb-bx{display:inline-block;padding:1px 5px;border:2px solid currentColor;border-radius:4px;}
-        .nb-ci{display:inline-block;padding:0 4px;border:2px solid currentColor;border-radius:50%;}
         .nb-t{width:100%;border-collapse:collapse;font-family:'Nanum Pen Script',cursive;font-size:18px;margin:4px 0;}
         .nb-t th,.nb-t td{border:1.5px solid #b89840;padding:5px 8px;text-align:center;line-height:28px;}
         .nb-t th{background:rgba(10,37,88,0.1);color:#0a2558;font-size:17px;}
-        .nb-t .r{color:#b30000;}.nb-t .g{color:#0e4d22;}.nb-t .o{color:#7a4f00;font-weight:700;}
+        .nb-t .r{color:#b30000;}.nb-t .g{color:#0e4d22;}
         .nb-t-hl{background:rgba(255,205,20,0.2);}
         .nb-t-bad{background:rgba(179,0,0,0.07);}
         .nb-t-std{background:rgba(14,77,34,0.1);color:#0e4d22;}
         .nb-stamp{position:absolute;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;border:2.5px solid #16a34a;color:#16a34a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:900;opacity:0.85;transform:rotate(-15deg);}
-        /* 리포트 모달 */
         .rpt-modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;overflow-y:auto;padding:16px;}
         .rpt-wrap{max-width:820px;margin:0 auto;background:#fef9ec;border-radius:10px;border:2px solid #c0a860;overflow:hidden;font-family:'Noto Sans KR',sans-serif;}
         .rpt-cover{padding:40px 32px;text-align:center;background:linear-gradient(135deg,#0a2558,#1a3a7e);}
         .rpt-section{padding:20px 28px;border-bottom:1px solid #e0d0a0;}
         .rpt-label{font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
-        .rpt-value{font-size:18px;font-weight:700;color:#0a2558;}
         .rpt-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0;}
         .rpt-kpi{background:white;border-radius:8px;padding:12px;border:1px solid #e0d0a0;text-align:center;}
         .rpt-kpi.danger{border-color:#fca5a5;background:#fff5f5;}
         .rpt-kpi.warn{border-color:#fde68a;background:#fffbeb;}
-        .rpt-kpi.ok{border-color:#a7f3d0;background:#f0fdf4;}
         .rpt-priority-list{margin:10px 0;}
         .rpt-p-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;padding:8px 10px;border-radius:6px;font-size:12px;}
         .rpt-p1{background:#fef2f2;border-left:3px solid #ef4444;}
         .rpt-p2{background:#fffbeb;border-left:3px solid #f59e0b;}
         .rpt-p3{background:#f0fdf4;border-left:3px solid #22c55e;}
-        .rpt-p4{background:#eff6ff;border-left:3px solid #3b82f6;}
-        .rpt-p5{background:#f5f3ff;border-left:3px solid #8b5cf6;}
         .saitem{background:#3A3A3C;border-radius:10px;padding:10px 12px;margin-bottom:8px;border-left:3px solid transparent;animation:sFadeIn 0.4s ease;}
         .saitem.red{border-left-color:#FF3B30;}.saitem.yellow{border-left-color:#FF9500;}.saitem.green{border-left-color:#34C759;}.saitem.blue{border-left-color:#0A84FF;}
         .sstep{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:3px;font-size:11px;color:rgba(255,255,255,0.55);transition:all 0.3s;}
@@ -764,6 +734,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .ssmsg.user{flex-direction:row-reverse;}
       `}</style>
 
+      {/* ── 상단 헤더 바 ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:48, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0, zIndex:100 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <div style={{ width:28, height:28, borderRadius:'50%', overflow:'hidden', background:'linear-gradient(135deg,#B8820A,#E8C040)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -791,8 +762,10 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         </div>
       </div>
 
+      {/* ── 메인 그리드 ── */}
       <div style={{ flex:1, display:'grid', gridTemplateColumns:'220px 1fr 240px', gridTemplateRows:'1fr 150px', overflow:'hidden' }}>
 
+        {/* ── 좌측: AI 머니야 패널 ── */}
         <div style={{ gridRow:'1/2', background:'linear-gradient(145deg,#0D1B3E,#0F2A5C,#163A6A)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 40%,rgba(212,160,23,0.08) 0%,transparent 65%)' }} />
           <div style={{ position:'absolute', top:12, left:12, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(8px)', border:'1px solid rgba(212,160,23,0.3)', padding:'4px 10px', borderRadius:20, fontSize:10, color:'#D4A017', fontWeight:600, zIndex:3 }}>{aiStatus}</div>
@@ -814,20 +787,25 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
+        {/* ── 중앙: 스마트노트 패널 ── */}
         <div style={{ gridRow:'1/2', background:'#FAFAF8', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {/* 탭 바 */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'white', borderBottom:'1px solid #E8E8E8', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display:'flex', gap:2, flexWrap:'wrap', flex:1 }}>
-              {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as any[]).map(([id,label]: any) => (
+              {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as [NoteTabId,string][]).map(([id,label]) => (
                 <button key={id} className={'sntab'+(activeNoteTab===id?' son':'')} onClick={() => handleTabChange(id)}>{label}</button>
               ))}
               <button className={'sntab-note'+(activeNoteTab==='note'?' son':'')} onClick={() => handleTabChange('note')}>📓 상담노트</button>
             </div>
             <div style={{ display:'flex', gap:4, flexShrink:0 }}>
               <button className="sntab-rpt" onClick={() => setShowReport(true)}>📄 리포트</button>
-              {['💾','⛶'].map((ic,i) => <div key={i} style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', color:'#666' }}>{ic}</div>)}
+              {['💾','⛶'].map((ic,i) => (
+                <div key={i} style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', color:'#666' }}>{ic}</div>
+              ))}
             </div>
           </div>
 
+          {/* 탭 콘텐츠 */}
           <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'20px 24px', scrollbarWidth:'thin', scrollbarColor:'rgba(0,0,0,0.1) transparent' }}>
             {noteState.title && noteState.title !== '금융집짓기®' && (
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, padding:'8px 12px', background:'rgba(212,160,23,0.08)', borderRadius:10, border:'1px solid rgba(212,160,23,0.2)' }}>
@@ -837,6 +815,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 🏠 금융집짓기 탭 */}
             {activeNoteTab === 'house' && noteState.noteType !== 'checklist' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -890,6 +869,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 📊 포트폴리오 탭 */}
             {activeNoteTab === 'chart' && noteState.noteType !== 'chart' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
@@ -934,6 +914,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 🧮 계산기 탭 */}
             {activeNoteTab === 'calc' && noteState.noteType !== 'calculation' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)',borderRadius:12,padding:16,color:'white'}}>
@@ -966,6 +947,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 🎬 영상 탭 */}
             {activeNoteTab === 'video' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -992,6 +974,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 🌐 웹자료 탭 */}
             {activeNoteTab === 'web' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1030,6 +1013,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* ✅ 체크리스트 (house 탭) */}
             {noteState.noteType === 'checklist' && activeNoteTab === 'house' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1050,6 +1034,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
+            {/* 🖼 이미지 참조 */}
             {noteState.noteType === 'image' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1060,19 +1045,15 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             )}
 
             {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                [Phase 2] 상담노트 탭 — 노트북 스타일
-                HTML consult_sample_final2_premium__3_ 기반
+                [Phase 2] 📓 상담노트 탭 — 노트북 스타일
                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {activeNoteTab === 'note' && (
-              <div style={{animation:'sFadeIn 0.3s ease', height:'100%'}}>
-                <div style={{display:'flex', height:'100%'}}>
-                  {/* 링 바인더 */}
+              <div style={{animation:'sFadeIn 0.3s ease'}}>
+                <div style={{display:'flex', minHeight:400}}>
                   <div className="nb-rings">
                     {[...Array(7)].map((_,i) => <div key={i} className="nb-ring"/>)}
                   </div>
-                  {/* 노트 본체 */}
-                  <div className="nb-paper" style={{flex:1, overflowY:'auto'}}>
-                    {/* 헤더 */}
+                  <div className="nb-paper" style={{flex:1}}>
                     <div className="nb-ph">
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
                         <div style={{width:26,height:26,borderRadius:'50%',background:'#0a2558',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900}}>M</div>
@@ -1080,14 +1061,17 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                       </div>
                       <span style={{fontSize:11,color:'#aaa'}}>{new Date().toLocaleDateString('ko-KR')}</span>
                     </div>
-
-                    {/* 탭 1: 인적사항 */}
                     <div className="nb-pb">
                       <p className="nb-h nb-hb" style={{marginBottom:8}}>■ 가족 구성원</p>
                       <table className="nb-t" style={{marginBottom:14}}>
                         <tbody>
                           <tr><th>성명</th><th>나이</th><th>직업</th><th>예상은퇴</th></tr>
-                          <tr><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}><span style={{borderBottom:'3px solid #0a2558'}}>{displayName}</span></td><td>—</td><td>—</td><td>—</td></tr>
+                          <tr>
+                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>
+                              <span style={{borderBottom:'3px solid #0a2558'}}>{displayName}</span>
+                            </td>
+                            <td>—</td><td>—</td><td>—</td>
+                          </tr>
                         </tbody>
                       </table>
 
@@ -1115,7 +1099,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                             ['보장성보험','—','10%','—'],
                             ['대출원리금','—','10%','—'],
                           ].map(([label,cur,std,diag],i) => (
-                            <tr key={i} className={i===3||i===4?'nb-t-bad':''}>
+                            <tr key={i} className={i>=3?'nb-t-bad':''}>
                               <td>{label}</td>
                               <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>{cur}</td>
                               <td className="nb-t-std" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>{std}</td>
@@ -1131,12 +1115,24 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                       <table className="nb-t" style={{marginBottom:10}}>
                         <tbody>
                           <tr><th colSpan={2}>자 산</th><th colSpan={2}>부 채</th></tr>
-                          {[['예·적금/CMA','—','주택담보대출','—'],['ISA·연금저축','—','신용대출','—'],['퇴직연금','—','기타','—'],['부동산','—','','']].map(([a,av,d,dv],i) => (
-                            <tr key={i}><td>{a}</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{av}</td><td>{d}</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{dv}</td></tr>
+                          {[
+                            ['예·적금/CMA','—','주택담보대출','—'],
+                            ['ISA·연금저축','—','신용대출','—'],
+                            ['퇴직연금','—','기타','—'],
+                            ['부동산','—','',''],
+                          ].map(([a,av,d,dv],i) => (
+                            <tr key={i}>
+                              <td>{a}</td>
+                              <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{av}</td>
+                              <td>{d}</td>
+                              <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{dv}</td>
+                            </tr>
                           ))}
                           <tr style={{borderTop:'2px solid #b89840'}}>
-                            <td style={{fontWeight:900}}>자산합계</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
-                            <td style={{fontWeight:900}}>부채합계</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                            <td style={{fontWeight:900}}>자산합계</td>
+                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                            <td style={{fontWeight:900}}>부채합계</td>
+                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1147,12 +1143,36 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                       <table className="nb-t" style={{marginBottom:10}}>
                         <tbody>
                           <tr><th>단계</th><th>계산식</th><th>금액</th></tr>
-                          <tr className="nb-t-hl"><td>① 투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>현재 저축금액</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
-                          <tr className="nb-t-bad"><td>② 보험 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
-                          <tr className="nb-t-bad"><td>② 연금 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
-                          <tr style={{borderTop:'2px solid #b89840',background:'rgba(10,37,88,0.07)'}}><td style={{fontWeight:900,fontSize:14}}>③ 순투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>①−②−②</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:22}}>—</td></tr>
-                          <tr className="nb-t-hl"><td>④ 저축 (나이%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × 나이%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
-                          <tr className="nb-t-hl"><td>④ 투자 (나머지%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × (100−나이)%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                          <tr className="nb-t-hl">
+                            <td>① 투자재원</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>현재 저축금액</td>
+                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                          </tr>
+                          <tr className="nb-t-bad">
+                            <td>② 보험 부족 차감</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td>
+                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td>
+                          </tr>
+                          <tr className="nb-t-bad">
+                            <td>② 연금 부족 차감</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td>
+                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td>
+                          </tr>
+                          <tr style={{borderTop:'2px solid #b89840',background:'rgba(10,37,88,0.07)'}}>
+                            <td style={{fontWeight:900,fontSize:14}}>③ 순투자재원</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>①−②−②</td>
+                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:22}}>—</td>
+                          </tr>
+                          <tr className="nb-t-hl">
+                            <td>④ 저축 (나이%)</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × 나이%</td>
+                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                          </tr>
+                          <tr className="nb-t-hl">
+                            <td>④ 투자 (나머지%)</td>
+                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × (100−나이)%</td>
+                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                          </tr>
                         </tbody>
                       </table>
 
@@ -1162,10 +1182,16 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                       <table className="nb-t" style={{marginBottom:10,fontSize:15}}>
                         <tbody>
                           <tr><th></th><th>사망</th><th>암진단</th><th>뇌혈관</th><th>심혈관</th><th>실손</th><th>보험료</th></tr>
-                          {[['필요','—','—','—','—','—','—'],['준비','—','—','—','—','—','—'],['부족','—','—','—','—','—','—']].map(([row,...vals],i) => (
+                          {[
+                            ['필요','—','—','—','—','—','—'],
+                            ['준비','—','—','—','—','—','—'],
+                            ['부족','—','—','—','—','—','—'],
+                          ].map(([row,...vals],i) => (
                             <tr key={i} className={i===2?'nb-t-bad':i===0?'nb-t-hl':''}>
                               <td style={{fontWeight:700,fontSize:13}}>{row}</td>
-                              {vals.map((v,j) => <td key={j} className={i===2?'r':'nb-hb'} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{v}</td>)}
+                              {vals.map((v,j) => (
+                                <td key={j} className={i===2?'r':'nb-hb'} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{v}</td>
+                              ))}
                             </tr>
                           ))}
                         </tbody>
@@ -1185,23 +1211,22 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                         )}
                       </div>
 
-                      {/* 도장 */}
                       <div className="nb-stamp">✔<br/>확인</div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
           </div>
         </div>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            [Phase 2] 리포트 모달
+            [Phase 2] 📄 리포트 모달
             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {showReport && (
-          <div className="rpt-modal" onClick={e=>{if(e.target===e.currentTarget)setShowReport(false)}}>
+          <div className="rpt-modal" onClick={e=>{if((e.target as HTMLElement)===e.currentTarget)setShowReport(false)}}>
             <div className="rpt-wrap">
-              {/* 커버 */}
               <div className="rpt-cover">
                 <div style={{width:60,height:60,borderRadius:'50%',background:'rgba(255,255,255,0.15)',margin:'0 auto 16px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>🏠</div>
                 <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',letterSpacing:2,marginBottom:6}}>OHWANT FINANCIAL RESEARCH INSTITUTE</div>
@@ -1209,19 +1234,17 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginBottom:16}}>AI MONEYA Comprehensive Financial Planning Report</div>
                 <div style={{display:'inline-block',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,padding:'4px 16px',fontSize:11,color:'rgba(255,255,255,0.8)'}}>{displayName} 고객님 · {new Date().toLocaleDateString('ko-KR')}</div>
               </div>
-
-              {/* 핵심 지표 */}
               <div className="rpt-section">
                 <div className="rpt-label">Executive Summary</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:12}}>핵심 재무 지표 요약</div>
                 <div className="rpt-kpi-grid">
                   {[
-                    {label:'월 소득', value:'—', note:'상담 중 확인', cls:''},
-                    {label:'순자산', value:'—', note:'자산−부채', cls:''},
-                    {label:'부채비율', value:'—', note:'기준 50% 이하', cls:'warn'},
-                    {label:'저축률', value:'—', note:'기준 30% 이상', cls:''},
-                    {label:'보험료 비율', value:'—', note:'기준 10%', cls:''},
-                    {label:'비상예비자금', value:'—', note:'목표 3~6개월분', cls:'danger'},
+                    {label:'월 소득',value:'—',note:'상담 중 확인',cls:''},
+                    {label:'순자산',value:'—',note:'자산−부채',cls:''},
+                    {label:'부채비율',value:'—',note:'기준 50% 이하',cls:'warn'},
+                    {label:'저축률',value:'—',note:'기준 30% 이상',cls:''},
+                    {label:'보험료 비율',value:'—',note:'기준 10%',cls:''},
+                    {label:'비상예비자금',value:'—',note:'목표 3~6개월분',cls:'danger'},
                   ].map((k,i) => (
                     <div key={i} className={`rpt-kpi ${k.cls}`}>
                       <div style={{fontSize:10,color:'#888',marginBottom:4}}>{k.label}</div>
@@ -1231,8 +1254,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                   ))}
                 </div>
               </div>
-
-              {/* 수입지출 요약 */}
               <div className="rpt-section">
                 <div className="rpt-label">Cash Flow Analysis</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>수입지출 분석</div>
@@ -1257,8 +1278,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                   </tbody>
                 </table>
               </div>
-
-              {/* 금융집짓기 점수 */}
               <div className="rpt-section">
                 <div className="rpt-label">Financial House Score</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>금융집짓기 6단계 점수</div>
@@ -1271,8 +1290,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                   ))}
                 </div>
               </div>
-
-              {/* 우선 실행 과제 */}
               <div className="rpt-section">
                 <div className="rpt-label">Priority Action Items</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>핵심 실행 과제</div>
@@ -1289,8 +1306,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                   ))}
                 </div>
               </div>
-
-              {/* 면책사항 */}
               <div style={{padding:'14px 24px',background:'#f5f5f5',borderTop:'1px solid #e0d0a0'}}>
                 <div style={{fontSize:10,color:'#888',lineHeight:1.6}}>
                   본 리포트는 AI 시스템에 의해 생성된 참고 자료이며, 특정 금융상품을 추천·권유하지 않습니다.<br/>
@@ -1298,8 +1313,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                   © 2026 오원트금융연구소 | AI 머니야 | 무단 복제·배포 금지
                 </div>
               </div>
-
-              {/* 버튼 */}
               <div style={{padding:'14px 24px',display:'flex',gap:10,justifyContent:'center',background:'#fef9ec',borderTop:'1px solid #e0d0a0'}}>
                 <button onClick={()=>setShowReport(false)} style={{padding:'10px 28px',borderRadius:20,border:'2px solid #0a2558',background:'#0a2558',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>✕ 닫기</button>
               </div>
@@ -1307,6 +1320,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         )}
 
+        {/* ── 우측: 실시간 분석 패널 ── */}
         <div style={{ gridRow:'1/2', background:'#2C2C2E', borderLeft:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', fontSize:12, fontWeight:700, color:'#D4A017', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>📊 실시간 분석</div>
           <div style={{ flex:1, overflowY:'auto', padding:12, scrollbarWidth:'none' }}>
@@ -1344,6 +1358,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
+        {/* ── 하단: STT 대화 패널 ── */}
         <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)' }}>
@@ -1378,7 +1393,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   );
 }
 
-// ── 일정 + 금융집 현황 합체 ──
 function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; displayName: string; onToast: (msg: string) => void }) {
   const [checks, setChecks] = useState({ q: true, camera: false, env: false });
   const nextConsult = userData.nextConsultDate;
@@ -1451,7 +1465,6 @@ function ScheduleWithHouse({ userData, displayName, onToast }: { userData: any; 
   );
 }
 
-// ── 이력 ──
 function History() {
   const count = 0;
   const grade = getCertGrade(count);
@@ -1472,7 +1485,6 @@ function History() {
   );
 }
 
-// ── 서류함 ──
 function Documents({ onToast }: { onToast: (msg: string) => void }) {
   const [docs, setDocs] = useState<Record<string, ConsultationDoc | null>>({ application: null, insurance: null, pension: null, tax: null });
   const [uploading, setUploading] = useState<string | null>(null);
@@ -1524,7 +1536,6 @@ function Documents({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 구독자 허브 ──
 function ConsultationHub({ user }: { user: any }) {
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
   const [userData] = useState<any>({});
@@ -1568,7 +1579,6 @@ function ConsultationHub({ user }: { user: any }) {
   );
 }
 
-// ── 비구독자 서비스 소개 ──
 function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   return (
     <div className="overflow-y-auto h-full pb-6">
@@ -1590,7 +1600,6 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
-// ── 메인 페이지 ──
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
