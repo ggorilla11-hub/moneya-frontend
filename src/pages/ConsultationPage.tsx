@@ -429,7 +429,7 @@ const DEFAULT_NOTE_STATE: NoteState = {
   highlightFloor: 'none',
 };
 
-type NoteTabId = 'house' | 'chart' | 'calc' | 'video' | 'web';
+type NoteTabId = 'house' | 'chart' | 'calc' | 'video' | 'web' | 'note';
 const NOTE_TYPE_TO_TAB: Partial<Record<NoteType, NoteTabId>> = {
   house_svg: 'house', chart: 'chart', calculation: 'calc', video: 'video', web: 'web', checklist: 'house',
 };
@@ -689,10 +689,11 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     house:'🏠 금융집짓기 분석 중', chart:'📊 포트폴리오 계산 중',
     calc:'🧮 수치 계산 완료', video:'🎬 영상 라이브러리', web:'🌐 웹 자료 검색 완료'
   };
-  const handleTabChange = (tab: 'house'|'chart'|'calc'|'video'|'web') => {
+  const handleTabChange = (tab: NoteTabId) => {
     setActiveNoteTab(tab);
-    setAiStatus(NOTE_STATUS[tab]);
+    if (NOTE_STATUS[tab]) setAiStatus(NOTE_STATUS[tab]);
   };
+  const [showReport, setShowReport] = useState(false);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', color:'#F5F5F7', overflow:'hidden', fontFamily:'inherit' }}>
@@ -708,6 +709,51 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .sntab{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;color:#888;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:4px;border:none;background:transparent;font-family:inherit;}
         .sntab:hover{background:#F5F5F5;color:#444;}
         .sntab.son{background:#FFF3CC;color:#D4A017;}
+        .sntab-note{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;border:1.5px solid #c0a860;background:#fff;color:#5a3e00;font-family:inherit;}
+        .sntab-note.son{background:#fef9ec;color:#3a2500;border-color:#9a7a20;}
+        .sntab-rpt{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;border:1.5px solid #f59e0b;background:#fffbeb;color:#92400e;font-family:inherit;}
+        .sntab-rpt:hover{background:#f59e0b;color:#fff;}
+        /* ── 노트북 스타일 ── */
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+        .nb-paper{background:#fef9ec;border:1px solid #c0a860;border-radius:0 8px 8px 8px;position:relative;min-height:100%;overflow:hidden;}
+        .nb-paper::after{content:'';position:absolute;left:52px;top:0;bottom:0;width:1.5px;background:rgba(232,160,160,0.45);pointer-events:none;z-index:1;}
+        .nb-rings{width:24px;flex-shrink:0;background:#1a1a2e;border:1px solid #252540;border-right:none;border-radius:6px 0 0 6px;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;padding:12px 0;}
+        .nb-ring{width:14px;height:14px;border-radius:50%;border:2.5px solid #4a70a8;background:#0c0c1e;box-shadow:inset 0 1px 3px rgba(0,0,0,0.7);}
+        .nb-ph{position:relative;z-index:2;padding:10px 16px 8px 60px;border-bottom:2px solid rgba(192,168,96,0.4);display:flex;align-items:center;justify-content:space-between;}
+        .nb-ph-title{font-family:'Nanum Pen Script',cursive;font-size:26px;color:#0a2558;}
+        .nb-pb{position:relative;z-index:2;padding:12px 16px 10px 60px;}
+        .nb-h{font-family:'Nanum Pen Script',cursive;color:#0d0d0d;font-size:20px;line-height:36px;}
+        .nb-hb{color:#0a2558;}.nb-hr{color:#b30000;}.nb-hg{color:#0e4d22;}
+        .nb-hl{background:rgba(255,205,20,0.45);padding:0 3px;border-radius:2px;}
+        .nb-bx{display:inline-block;padding:1px 5px;border:2px solid currentColor;border-radius:4px;}
+        .nb-ci{display:inline-block;padding:0 4px;border:2px solid currentColor;border-radius:50%;}
+        .nb-t{width:100%;border-collapse:collapse;font-family:'Nanum Pen Script',cursive;font-size:18px;margin:4px 0;}
+        .nb-t th,.nb-t td{border:1.5px solid #b89840;padding:5px 8px;text-align:center;line-height:28px;}
+        .nb-t th{background:rgba(10,37,88,0.1);color:#0a2558;font-size:17px;}
+        .nb-t .r{color:#b30000;}.nb-t .g{color:#0e4d22;}.nb-t .o{color:#7a4f00;font-weight:700;}
+        .nb-t-hl{background:rgba(255,205,20,0.2);}
+        .nb-t-bad{background:rgba(179,0,0,0.07);}
+        .nb-t-std{background:rgba(14,77,34,0.1);color:#0e4d22;}
+        .nb-stamp{position:absolute;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;border:2.5px solid #16a34a;color:#16a34a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:900;opacity:0.85;transform:rotate(-15deg);}
+        /* 리포트 모달 */
+        .rpt-modal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;overflow-y:auto;padding:16px;}
+        .rpt-wrap{max-width:820px;margin:0 auto;background:#fef9ec;border-radius:10px;border:2px solid #c0a860;overflow:hidden;font-family:'Noto Sans KR',sans-serif;}
+        .rpt-cover{padding:40px 32px;text-align:center;background:linear-gradient(135deg,#0a2558,#1a3a7e);}
+        .rpt-section{padding:20px 28px;border-bottom:1px solid #e0d0a0;}
+        .rpt-label{font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+        .rpt-value{font-size:18px;font-weight:700;color:#0a2558;}
+        .rpt-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0;}
+        .rpt-kpi{background:white;border-radius:8px;padding:12px;border:1px solid #e0d0a0;text-align:center;}
+        .rpt-kpi.danger{border-color:#fca5a5;background:#fff5f5;}
+        .rpt-kpi.warn{border-color:#fde68a;background:#fffbeb;}
+        .rpt-kpi.ok{border-color:#a7f3d0;background:#f0fdf4;}
+        .rpt-priority-list{margin:10px 0;}
+        .rpt-p-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;padding:8px 10px;border-radius:6px;font-size:12px;}
+        .rpt-p1{background:#fef2f2;border-left:3px solid #ef4444;}
+        .rpt-p2{background:#fffbeb;border-left:3px solid #f59e0b;}
+        .rpt-p3{background:#f0fdf4;border-left:3px solid #22c55e;}
+        .rpt-p4{background:#eff6ff;border-left:3px solid #3b82f6;}
+        .rpt-p5{background:#f5f3ff;border-left:3px solid #8b5cf6;}
         .saitem{background:#3A3A3C;border-radius:10px;padding:10px 12px;margin-bottom:8px;border-left:3px solid transparent;animation:sFadeIn 0.4s ease;}
         .saitem.red{border-left-color:#FF3B30;}.saitem.yellow{border-left-color:#FF9500;}.saitem.green{border-left-color:#34C759;}.saitem.blue{border-left-color:#0A84FF;}
         .sstep{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:3px;font-size:11px;color:rgba(255,255,255,0.55);transition:all 0.3s;}
@@ -770,13 +816,15 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
 
         <div style={{ gridRow:'1/2', background:'#FAFAF8', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'white', borderBottom:'1px solid #E8E8E8', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ display:'flex', gap:2 }}>
+            <div style={{ display:'flex', gap:2, flexWrap:'wrap', flex:1 }}>
               {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as any[]).map(([id,label]: any) => (
                 <button key={id} className={'sntab'+(activeNoteTab===id?' son':'')} onClick={() => handleTabChange(id)}>{label}</button>
               ))}
+              <button className={'sntab-note'+(activeNoteTab==='note'?' son':'')} onClick={() => handleTabChange('note')}>📓 상담노트</button>
             </div>
-            <div style={{ display:'flex', gap:4 }}>
-              {['💾','⛶','↗'].map((ic,i) => <div key={i} style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', color:'#666' }}>{ic}</div>)}
+            <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+              <button className="sntab-rpt" onClick={() => setShowReport(true)}>📄 리포트</button>
+              {['💾','⛶'].map((ic,i) => <div key={i} style={{ width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, cursor:'pointer', color:'#666' }}>{ic}</div>)}
             </div>
           </div>
 
@@ -1010,8 +1058,254 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 {noteState.content?.url&&<img src={noteState.content.url} alt={noteState.title} style={{width:'100%',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.1)',border:'1px solid #E8E8E8'}}/>}
               </div>
             )}
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                [Phase 2] 상담노트 탭 — 노트북 스타일
+                HTML consult_sample_final2_premium__3_ 기반
+                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {activeNoteTab === 'note' && (
+              <div style={{animation:'sFadeIn 0.3s ease', height:'100%'}}>
+                <div style={{display:'flex', height:'100%'}}>
+                  {/* 링 바인더 */}
+                  <div className="nb-rings">
+                    {[...Array(7)].map((_,i) => <div key={i} className="nb-ring"/>)}
+                  </div>
+                  {/* 노트 본체 */}
+                  <div className="nb-paper" style={{flex:1, overflowY:'auto'}}>
+                    {/* 헤더 */}
+                    <div className="nb-ph">
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:26,height:26,borderRadius:'50%',background:'#0a2558',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900}}>M</div>
+                        <span className="nb-ph-title">AI 머니야 상담노트</span>
+                      </div>
+                      <span style={{fontSize:11,color:'#aaa'}}>{new Date().toLocaleDateString('ko-KR')}</span>
+                    </div>
+
+                    {/* 탭 1: 인적사항 */}
+                    <div className="nb-pb">
+                      <p className="nb-h nb-hb" style={{marginBottom:8}}>■ 가족 구성원</p>
+                      <table className="nb-t" style={{marginBottom:14}}>
+                        <tbody>
+                          <tr><th>성명</th><th>나이</th><th>직업</th><th>예상은퇴</th></tr>
+                          <tr><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}><span style={{borderBottom:'3px solid #0a2558'}}>{displayName}</span></td><td>—</td><td>—</td><td>—</td></tr>
+                        </tbody>
+                      </table>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 재무 기본 정보</p>
+                      <table className="nb-t" style={{marginBottom:14}}>
+                        <tbody>
+                          <tr><th>월소득</th><th>생활비</th><th>저축</th><th>보험료</th><th>대출</th></tr>
+                          <tr>
+                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td>
+                            <td>—</td><td>—</td><td>—</td><td>—</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 수입지출 분석표</p>
+                      <table className="nb-t" style={{marginBottom:10}}>
+                        <tbody>
+                          <tr><th>지출항목</th><th>현재</th><th className="nb-t-std">기준</th><th>진단</th></tr>
+                          {[
+                            ['생활비','—','40%','—'],
+                            ['저축·투자','—','30%','—'],
+                            ['노후연금','—','10%','—'],
+                            ['보장성보험','—','10%','—'],
+                            ['대출원리금','—','10%','—'],
+                          ].map(([label,cur,std,diag],i) => (
+                            <tr key={i} className={i===3||i===4?'nb-t-bad':''}>
+                              <td>{label}</td>
+                              <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>{cur}</td>
+                              <td className="nb-t-std" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>{std}</td>
+                              <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>{diag}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 자산 · 부채 현황</p>
+                      <table className="nb-t" style={{marginBottom:10}}>
+                        <tbody>
+                          <tr><th colSpan={2}>자 산</th><th colSpan={2}>부 채</th></tr>
+                          {[['예·적금/CMA','—','주택담보대출','—'],['ISA·연금저축','—','신용대출','—'],['퇴직연금','—','기타','—'],['부동산','—','','']].map(([a,av,d,dv],i) => (
+                            <tr key={i}><td>{a}</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{av}</td><td>{d}</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{dv}</td></tr>
+                          ))}
+                          <tr style={{borderTop:'2px solid #b89840'}}>
+                            <td style={{fontWeight:900}}>자산합계</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                            <td style={{fontWeight:900}}>부채합계</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 포트폴리오 설계</p>
+                      <table className="nb-t" style={{marginBottom:10}}>
+                        <tbody>
+                          <tr><th>단계</th><th>계산식</th><th>금액</th></tr>
+                          <tr className="nb-t-hl"><td>① 투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>현재 저축금액</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                          <tr className="nb-t-bad"><td>② 보험 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
+                          <tr className="nb-t-bad"><td>② 연금 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
+                          <tr style={{borderTop:'2px solid #b89840',background:'rgba(10,37,88,0.07)'}}><td style={{fontWeight:900,fontSize:14}}>③ 순투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>①−②−②</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:22}}>—</td></tr>
+                          <tr className="nb-t-hl"><td>④ 저축 (나이%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × 나이%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                          <tr className="nb-t-hl"><td>④ 투자 (나머지%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × (100−나이)%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                        </tbody>
+                      </table>
+
+                      <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 보험 분석 (필요 / 준비 / 부족)</p>
+                      <table className="nb-t" style={{marginBottom:10,fontSize:15}}>
+                        <tbody>
+                          <tr><th></th><th>사망</th><th>암진단</th><th>뇌혈관</th><th>심혈관</th><th>실손</th><th>보험료</th></tr>
+                          {[['필요','—','—','—','—','—','—'],['준비','—','—','—','—','—','—'],['부족','—','—','—','—','—','—']].map(([row,...vals],i) => (
+                            <tr key={i} className={i===2?'nb-t-bad':i===0?'nb-t-hl':''}>
+                              <td style={{fontWeight:700,fontSize:13}}>{row}</td>
+                              {vals.map((v,j) => <td key={j} className={i===2?'r':'nb-hb'} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{v}</td>)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
+
+                      <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 액션플랜</p>
+                      <div style={{minHeight:80,border:'1.5px dashed rgba(192,168,96,0.5)',borderRadius:6,padding:10,background:'rgba(255,255,255,0.5)'}}>
+                        {messages.filter(m=>m.role==='ai').slice(-3).map((m,i) => (
+                          <div key={i} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17,color:'#0a2558',lineHeight:'32px',borderBottom:i<2?'1px solid rgba(192,168,96,0.25)':'none',paddingBottom:4,marginBottom:4}}>
+                            {i+1}. {m.text.slice(0,60)}{m.text.length>60?'…':''}
+                          </div>
+                        ))}
+                        {messages.filter(m=>m.role==='ai').length===0 && (
+                          <p style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17,color:'#ccc'}}>← 상담 중 AI 머니야 발언이 자동 기록됩니다</p>
+                        )}
+                      </div>
+
+                      {/* 도장 */}
+                      <div className="nb-stamp">✔<br/>확인</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            [Phase 2] 리포트 모달
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {showReport && (
+          <div className="rpt-modal" onClick={e=>{if(e.target===e.currentTarget)setShowReport(false)}}>
+            <div className="rpt-wrap">
+              {/* 커버 */}
+              <div className="rpt-cover">
+                <div style={{width:60,height:60,borderRadius:'50%',background:'rgba(255,255,255,0.15)',margin:'0 auto 16px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>🏠</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',letterSpacing:2,marginBottom:6}}>OHWANT FINANCIAL RESEARCH INSTITUTE</div>
+                <div style={{fontSize:22,fontWeight:900,color:'white',marginBottom:4}}>금융집짓기 종합재무설계 리포트</div>
+                <div style={{fontSize:13,color:'rgba(255,255,255,0.7)',marginBottom:16}}>AI MONEYA Comprehensive Financial Planning Report</div>
+                <div style={{display:'inline-block',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,padding:'4px 16px',fontSize:11,color:'rgba(255,255,255,0.8)'}}>{displayName} 고객님 · {new Date().toLocaleDateString('ko-KR')}</div>
+              </div>
+
+              {/* 핵심 지표 */}
+              <div className="rpt-section">
+                <div className="rpt-label">Executive Summary</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:12}}>핵심 재무 지표 요약</div>
+                <div className="rpt-kpi-grid">
+                  {[
+                    {label:'월 소득', value:'—', note:'상담 중 확인', cls:''},
+                    {label:'순자산', value:'—', note:'자산−부채', cls:''},
+                    {label:'부채비율', value:'—', note:'기준 50% 이하', cls:'warn'},
+                    {label:'저축률', value:'—', note:'기준 30% 이상', cls:''},
+                    {label:'보험료 비율', value:'—', note:'기준 10%', cls:''},
+                    {label:'비상예비자금', value:'—', note:'목표 3~6개월분', cls:'danger'},
+                  ].map((k,i) => (
+                    <div key={i} className={`rpt-kpi ${k.cls}`}>
+                      <div style={{fontSize:10,color:'#888',marginBottom:4}}>{k.label}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:'#0a2558'}}>{k.value}</div>
+                      <div style={{fontSize:10,color:'#aaa',marginTop:2}}>{k.note}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 수입지출 요약 */}
+              <div className="rpt-section">
+                <div className="rpt-label">Cash Flow Analysis</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>수입지출 분석</div>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead>
+                    <tr style={{background:'#0a2558',color:'white'}}>
+                      <th style={{padding:'7px 10px',textAlign:'left'}}>항목</th>
+                      <th style={{padding:'7px 10px',textAlign:'right'}}>현재</th>
+                      <th style={{padding:'7px 10px',textAlign:'right',background:'rgba(14,77,34,0.8)'}}>기준</th>
+                      <th style={{padding:'7px 10px',textAlign:'center'}}>진단</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[['생활비','—','40%','—'],['저축·투자','—','30%','—'],['노후연금','—','10%','—'],['보장성보험','—','10%','—'],['대출원리금','—','10%','—']].map(([label,cur,std,diag],i) => (
+                      <tr key={i} style={{background:i%2===0?'#fafafa':'white',borderBottom:'1px solid #eee'}}>
+                        <td style={{padding:'6px 10px',fontWeight:600}}>{label}</td>
+                        <td style={{padding:'6px 10px',textAlign:'right',color:'#0a2558',fontWeight:700}}>{cur}</td>
+                        <td style={{padding:'6px 10px',textAlign:'right',color:'#0e4d22',background:'rgba(14,77,34,0.04)'}}>{std}</td>
+                        <td style={{padding:'6px 10px',textAlign:'center'}}>{diag}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 금융집짓기 점수 */}
+              <div className="rpt-section">
+                <div className="rpt-label">Financial House Score</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>금융집짓기 6단계 점수</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                  {[['🛡️ 보장자산(보험)','—'],['💰 저축·부채 설계','—'],['🏠 부동산 설계','—'],['👴 은퇴설계','—'],['📈 투자설계','—'],['💸 세금설계','—']].map(([label,score],i) => (
+                    <div key={i} style={{background:'white',border:'1px solid #e0d0a0',borderRadius:6,padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:12,color:'#444'}}>{label}</span>
+                      <span style={{fontSize:14,fontWeight:700,color:'#0a2558'}}>{score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 우선 실행 과제 */}
+              <div className="rpt-section">
+                <div className="rpt-label">Priority Action Items</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>핵심 실행 과제</div>
+                <div className="rpt-priority-list">
+                  {[
+                    {cls:'rpt-p1',rank:'PRIORITY 1',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
+                    {cls:'rpt-p2',rank:'PRIORITY 2',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
+                    {cls:'rpt-p3',rank:'PRIORITY 3',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
+                  ].map((p,i) => (
+                    <div key={i} className={`rpt-p-item ${p.cls}`}>
+                      <span style={{fontWeight:700,fontSize:10,whiteSpace:'nowrap',color:'#666'}}>{p.rank}</span>
+                      <span style={{color:'#333'}}>{p.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 면책사항 */}
+              <div style={{padding:'14px 24px',background:'#f5f5f5',borderTop:'1px solid #e0d0a0'}}>
+                <div style={{fontSize:10,color:'#888',lineHeight:1.6}}>
+                  본 리포트는 AI 시스템에 의해 생성된 참고 자료이며, 특정 금융상품을 추천·권유하지 않습니다.<br/>
+                  중요한 금융 의사결정 전 반드시 공인된 금융전문가의 검토를 받으시기 바랍니다.<br/>
+                  © 2026 오원트금융연구소 | AI 머니야 | 무단 복제·배포 금지
+                </div>
+              </div>
+
+              {/* 버튼 */}
+              <div style={{padding:'14px 24px',display:'flex',gap:10,justifyContent:'center',background:'#fef9ec',borderTop:'1px solid #e0d0a0'}}>
+                <button onClick={()=>setShowReport(false)} style={{padding:'10px 28px',borderRadius:20,border:'2px solid #0a2558',background:'#0a2558',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>✕ 닫기</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ gridRow:'1/2', background:'#2C2C2E', borderLeft:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', fontSize:12, fontWeight:700, color:'#D4A017', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>📊 실시간 분석</div>
