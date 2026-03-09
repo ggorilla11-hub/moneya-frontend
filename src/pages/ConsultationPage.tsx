@@ -1,11 +1,15 @@
-// ConsultationPage.tsx v5.1
+// ConsultationPage.tsx v5.3
 // v5.0 수정사항:
 // 1. 서브탭 "머니야" → "AI 화상상담" (id: 'chat', icon: 📹)
 // 2. chat 탭 렌더링: MoneyaInfo → VideoConsult (WebRTC)
 // 3. schedule 탭: 기존 Schedule + MoneyaInfo(금융집 현황) 합체 → ScheduleWithHouse
 // 4. 지출탭 및 기타 컴포넌트 일절 변경 없음
 // 5. VideoConsult: Phase1(WebRTC) + Phase2(스마트노트) 완전 통합
-// v5.1 추가사항:
+// v5.3 추가사항 [서류함 OCR]:
+// 9. Documents 컴포넌트 — Firebase Storage 실제 업로드 (users/{uid}/documents/)
+// 10. Claude API OCR 분석 — 업로드 후 자동 문서 분석 (이미지/PDF 모두 지원)
+// 11. 분석 결과 아코디언 UI — 서류별 AI 분석 내용 펼쳐보기
+// 12. 재업로드 버튼 추가, 업로드 일시 표시
 // 6. [자동재연결] 서버에서 reconnecting/reconnected 메시지 수신 시 UI 표시
 //    - reconnecting: 하단에 "🔄 연결 최적화 중..." 작은 배너 표시
 //    - reconnected: 배너 자동 숨김 (2초 후)
@@ -1485,53 +1489,233 @@ function History() {
   );
 }
 
-function Documents({ onToast }: { onToast: (msg: string) => void }) {
-  const [docs, setDocs] = useState<Record<string, ConsultationDoc | null>>({ application: null, insurance: null, pension: null, tax: null });
+// ── Documents v2.0 — Firebase Storage + Claude OCR ──
+interface DocEntry extends ConsultationDoc { ocrResult?: string; ocrStatus?: 'analyzing' | 'done' | 'error'; uploadedAt?: string; }
+
+async function uploadToFirebase(file: File, uid: string, docType: string): Promise<string> {
+  const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js' as any);
+  const { getStorage, ref, uploadBytesResumable, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js' as any);
+  const firebaseConfig = {
+    apiKey: 'AIzaSyBiMmPrfOzU9raSBWL1W3_aFX5IRvkzJPA',
+    authDomain: 'moneya-72fe6.firebaseapp.com',
+    projectId: 'moneya-72fe6',
+    storageBucket: 'moneya-72fe6.firebasestorage.app',
+    messagingSenderId: '688215695102',
+    appId: '1:688215695102:web:bfbbf70f2ddbf47aa44faf',
+  };
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  const storage = getStorage(app);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const path = `users/${uid}/documents/${dateStr}_${docType}_${file.name}`;
+  const storageRef = ref(storage, path);
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file);
+    task.on('state_changed', null, reject, async () => {
+      const url = await getDownloadURL(task.snapshot.ref);
+      resolve(url);
+    });
+  });
+}
+
+async function analyzeWithClaude(file: File, docLabel: string): Promise<string> {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const isPdf = file.type === 'application/pdf';
+  const mediaType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
+  const contentBlock = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+    : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          contentBlock,
+          { type: 'text', text: `이 문서는 고객의 [${docLabel}]입니다. 재무설계 상담에 필요한 핵심 정보를 아래 형식으로 추출해주세요.\n\n반드시 한국어로 답변하고, 각 항목은 "• 항목명: 값" 형식으로 간결하게 작성해주세요.\n중요 수치(금액, 날짜, 기간, 수익률 등)는 빠짐없이 포함해주세요.\n인식 불가 항목은 생략하세요. 최대 10개 항목만 추출하세요.` }
+        ]
+      }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content?.[0]?.text ?? '분석 결과를 가져올 수 없습니다.';
+}
+
+function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: any }) {
+  const [docs, setDocs] = useState<Record<string, DocEntry | null>>({ application: null, insurance: null, pension: null, tax: null });
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState('');
+  const [expandedOcr, setExpandedOcr] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const docDefs = [{ key: 'application', label: '상담신청서', required: true, sub: '' }, { key: 'insurance', label: '보험증권', required: true, sub: '' }, { key: 'pension', label: '연금명세서', required: true, sub: '국민연금 + 퇴직연금' }, { key: 'tax', label: '세금신고서', required: false, sub: '' }];
+  const docDefs = [
+    { key: 'application', label: '상담신청서', required: true, sub: '', icon: '📋' },
+    { key: 'insurance',   label: '보험증권',   required: true, sub: '', icon: '🏦' },
+    { key: 'pension',     label: '연금명세서', required: true, sub: '국민연금 + 퇴직연금', icon: '💰' },
+    { key: 'tax',         label: '세금신고서', required: false, sub: '', icon: '📊' },
+  ];
+
   const handleUpload = async (file: File, docType: string) => {
+    const def = docDefs.find(d => d.key === docType);
+    const label = def?.label ?? docType;
     setUploading(docType);
     try {
-      const docData: ConsultationDoc = { docType, fileName: file.name, fileUrl: URL.createObjectURL(file) };
-      setDocs(prev => ({ ...prev, [docType]: docData }));
-      onToast(`${docDefs.find(d => d.key === docType)?.label ?? docType} 업로드 완료! ✅`);
-    } catch { onToast('업로드에 실패했습니다.'); }
-    finally { setUploading(null); }
+      // 1단계: Firebase Storage 업로드
+      const uid = user?.uid ?? 'anonymous';
+      const fileUrl = await uploadToFirebase(file, uid, docType);
+      const entry: DocEntry = {
+        docType, fileName: file.name, fileUrl,
+        uploadedAt: new Date().toLocaleString('ko-KR'),
+        ocrStatus: 'analyzing',
+      };
+      setDocs(prev => ({ ...prev, [docType]: entry }));
+      onToast(`${label} 업로드 완료! Claude OCR 분석 중... 🔍`);
+
+      // 2단계: Claude OCR 분석
+      try {
+        const ocrResult = await analyzeWithClaude(file, label);
+        setDocs(prev => ({
+          ...prev,
+          [docType]: { ...prev[docType]!, ocrResult, ocrStatus: 'done' }
+        }));
+        onToast(`${label} 분석 완료! ✅`);
+      } catch {
+        setDocs(prev => ({
+          ...prev,
+          [docType]: { ...prev[docType]!, ocrStatus: 'error' }
+        }));
+        onToast(`${label} 분석 중 오류가 발생했습니다.`);
+      }
+    } catch {
+      onToast('업로드에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setUploading(null);
+    }
   };
+
   const requiredDocs = docDefs.filter(d => d.required);
   const completedRequired = requiredDocs.filter(d => !!docs[d.key]).length;
   const progress = Math.round((completedRequired / requiredDocs.length) * 100);
+
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      <input ref={fileInputRef} type="file" className="hidden" accept="image/*,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && uploadTarget) handleUpload(file, uploadTarget); e.target.value = ''; }} />
+      {/* 숨김 파일 input — 카메라/갤러리/파일 모두 허용 */}
+      <input ref={fileInputRef} type="file" className="hidden"
+        accept="image/*,application/pdf,.docx"
+        capture={undefined}
+        onChange={e => { const file = e.target.files?.[0]; if (file && uploadTarget) handleUpload(file, uploadTarget); e.target.value = ''; }}
+      />
+
+      {/* 진행 현황 카드 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex justify-between items-center mb-2"><p className="text-sm font-bold text-gray-700">필수 서류 제출 현황</p><span className="text-sm font-bold" style={{ color: GOLD }}>{completedRequired}/{requiredDocs.length} 완료</span></div>
-        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: GOLD }} /></div>
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-sm font-bold text-gray-700">필수 서류 제출 현황</p>
+          <span className="text-sm font-bold" style={{ color: GOLD }}>{completedRequired}/{requiredDocs.length} 완료</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${progress}%`, background: GOLD }} />
+        </div>
+        {completedRequired === requiredDocs.length && (
+          <p className="text-xs text-green-600 font-bold mt-2">✅ 모든 필수 서류가 제출되었습니다!</p>
+        )}
       </div>
-      {(['필수','선택'] as string[]).map((section: string) => (
+
+      {/* 업로드 안내 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <p className="text-xs font-bold text-amber-800 mb-1">📸 촬영 또는 파일 첨부 가능</p>
+        <p className="text-xs text-amber-700 leading-relaxed">사진 촬영, 갤러리 선택, PDF·이미지 파일 모두 업로드 가능합니다. Claude AI가 자동으로 내용을 분석합니다.</p>
+      </div>
+
+      {/* 서류 목록 */}
+      {(['필수', '선택'] as string[]).map((section: string) => (
         <div key={section} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{section} 서류</p>
-          {docDefs.filter(d => section === '필수' ? d.required : !d.required).map(def => (
-            <div key={def.key} className="py-3 border-b border-gray-50 last:border-0">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className={docs[def.key] ? 'text-green-500' : 'text-gray-300'}>{docs[def.key] ? '✅' : '⬜'}</span>
-                  <div><p className="text-sm font-medium text-gray-700">{def.label}</p>{def.sub && !docs[def.key] && <p className="text-xs text-gray-400">{def.sub}</p>}{docs[def.key] && <p className="text-xs text-green-600">제출 완료</p>}</div>
+          {docDefs.filter(d => section === '필수' ? d.required : !d.required).map(def => {
+            const doc = docs[def.key];
+            return (
+              <div key={def.key} className="py-3 border-b border-gray-50 last:border-0">
+                {/* 상단 행: 서류명 + 버튼 */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className={doc ? 'text-green-500' : 'text-gray-300'}>{doc ? '✅' : '⬜'}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">{def.icon} {def.label}</p>
+                      {def.sub && !doc && <p className="text-xs text-gray-400">{def.sub}</p>}
+                      {doc && <p className="text-xs text-gray-400">{doc.uploadedAt}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {doc ? (
+                      <>
+                        <button onClick={() => window.open(doc.fileUrl, '_blank')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">
+                          보기
+                        </button>
+                        <button onClick={() => { setUploadTarget(def.key); fileInputRef.current?.click(); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">
+                          재업로드
+                        </button>
+                      </>
+                    ) : (
+                      <button disabled={uploading === def.key}
+                        onClick={() => { setUploadTarget(def.key); fileInputRef.current?.click(); }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                        style={{ background: GOLD }}>
+                        {uploading === def.key ? '⏳ 처리 중...' : '📎 업로드'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {docs[def.key] ? (
-                  <button onClick={() => window.open(docs[def.key]!.fileUrl,'_blank')} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">보기</button>
-                ) : (
-                  <button disabled={uploading === def.key} onClick={() => { setUploadTarget(def.key); fileInputRef.current?.click(); }} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50" style={{ background: GOLD }}>
-                    {uploading === def.key ? '업로드 중...' : '📎 업로드'}
-                  </button>
+
+                {/* OCR 분석 결과 */}
+                {doc && (
+                  <div className="mt-2 ml-7">
+                    {doc.ocrStatus === 'analyzing' && (
+                      <div className="flex items-center gap-2 text-xs text-amber-600">
+                        <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                        Claude AI 분석 중...
+                      </div>
+                    )}
+                    {doc.ocrStatus === 'error' && (
+                      <p className="text-xs text-red-400">⚠ 분석 실패 — 파일을 다시 업로드해주세요</p>
+                    )}
+                    {doc.ocrStatus === 'done' && doc.ocrResult && (
+                      <div>
+                        <button
+                          onClick={() => setExpandedOcr(expandedOcr === def.key ? null : def.key)}
+                          className="text-xs font-bold flex items-center gap-1"
+                          style={{ color: GOLD }}>
+                          🔍 AI 분석 결과 {expandedOcr === def.key ? '▲ 접기' : '▼ 보기'}
+                        </button>
+                        {expandedOcr === def.key && (
+                          <div className="mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            {doc.ocrResult}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ))}
+
+      {/* 보안 안내 */}
+      <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
+        <p className="text-xs text-gray-400 leading-relaxed text-center">
+          🔒 모든 서류는 256bit 암호화로 안전하게 보관되며<br />
+          재무설계 상담 목적 외 사용되지 않습니다
+        </p>
+      </div>
     </div>
   );
 }
@@ -1571,7 +1755,7 @@ function ConsultationHub({ user }: { user: any }) {
         {activeSubTab === 'chat'      && <VideoConsult displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'schedule'  && <ScheduleWithHouse userData={userData} displayName={displayName} onToast={msg => setToast(msg)} />}
         {activeSubTab === 'history'   && <History />}
-        {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} />}
+        {activeSubTab === 'files'     && <Documents onToast={msg => setToast(msg)} user={user} />}
       </div>
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
       {modal && <Modal title={modal.title} content={modal.content} onClose={() => setModal(null)} />}
