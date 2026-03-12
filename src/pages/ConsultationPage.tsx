@@ -17,6 +17,7 @@
 // v5.2 추가사항 [Phase 2]:
 // 7. 스마트노트 탭 바에 📓 상담노트 탭 추가 (노트북 스타일 UI)
 // 8. 탭 바 우측에 📄 리포트 버튼 추가 (종합재무설계 리포트 모달)
+// v5.4: DESIREConsult 컴포넌트 추가 (별도 라우트 연결 예정)
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -434,7 +435,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   const [playingVideo, setPlayingVideo] = useState('');
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
-  // ── [Phase 2] 리포트 모달 상태 ──
   const [showReport, setShowReport] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -667,7 +667,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
     );
   }
 
-  // ── phase === 'active' ──
   const STEPS = ['수입지출 분석','보험 적정성','저축 설계','부채 관리','은퇴 설계','투자 설계','세금 설계','부동산 설계'];
   const NOTE_STATUS: Record<string,string> = {
     house:'🏠 금융집짓기 분석 중', chart:'📊 포트폴리오 계산 중',
@@ -681,7 +680,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', color:'#F5F5F7', overflow:'hidden', fontFamily:'inherit' }}>
       <ReconnectBanner visible={reconnecting} count={reconnectCount} />
-
       <style>{`
         @keyframes sLivep{0%,100%{opacity:1}50%{opacity:0.3}}
         @keyframes sWave{0%,100%{height:4px;opacity:0.4}50%{height:18px;opacity:1}}
@@ -738,7 +736,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         .ssmsg.user{flex-direction:row-reverse;}
       `}</style>
 
-      {/* ── 상단 헤더 바 ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:48, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.08)', flexShrink:0, zIndex:100 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <div style={{ width:28, height:28, borderRadius:'50%', overflow:'hidden', background:'linear-gradient(135deg,#B8820A,#E8C040)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -766,10 +763,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
         </div>
       </div>
 
-      {/* ── 메인 그리드 ── */}
       <div style={{ flex:1, display:'grid', gridTemplateColumns:'220px 1fr 240px', gridTemplateRows:'1fr 150px', overflow:'hidden' }}>
-
-        {/* ── 좌측: AI 머니야 패널 ── */}
         <div style={{ gridRow:'1/2', background:'linear-gradient(145deg,#0D1B3E,#0F2A5C,#163A6A)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 50% 40%,rgba(212,160,23,0.08) 0%,transparent 65%)' }} />
           <div style={{ position:'absolute', top:12, left:12, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(8px)', border:'1px solid rgba(212,160,23,0.3)', padding:'4px 10px', borderRadius:20, fontSize:10, color:'#D4A017', fontWeight:600, zIndex:3 }}>{aiStatus}</div>
@@ -791,9 +785,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
-        {/* ── 중앙: 스마트노트 패널 ── */}
         <div style={{ gridRow:'1/2', background:'#FAFAF8', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {/* 탭 바 */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'white', borderBottom:'1px solid #E8E8E8', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display:'flex', gap:2, flexWrap:'wrap', flex:1 }}>
               {([['house','🏠 금융집짓기'],['chart','📊 포트폴리오'],['calc','🧮 계산기'],['video','🎬 영상'],['web','🌐 웹자료']] as [NoteTabId,string][]).map(([id,label]) => (
@@ -809,7 +801,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
             </div>
           </div>
 
-          {/* 탭 콘텐츠 */}
           <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', padding:'20px 24px', scrollbarWidth:'thin', scrollbarColor:'rgba(0,0,0,0.1) transparent' }}>
             {noteState.title && noteState.title !== '금융집짓기®' && (
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, padding:'8px 12px', background:'rgba(212,160,23,0.08)', borderRadius:10, border:'1px solid rgba(212,160,23,0.2)' }}>
@@ -819,7 +810,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 🏠 금융집짓기 탭 */}
             {activeNoteTab === 'house' && noteState.noteType !== 'checklist' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -873,7 +863,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 📊 포트폴리오 탭 */}
             {activeNoteTab === 'chart' && noteState.noteType !== 'chart' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
@@ -918,7 +907,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 🧮 계산기 탭 */}
             {activeNoteTab === 'calc' && noteState.noteType !== 'calculation' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{background:'linear-gradient(135deg,#0F2A5C,#1A3A6E)',borderRadius:12,padding:16,color:'white'}}>
@@ -951,7 +939,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 🎬 영상 탭 */}
             {activeNoteTab === 'video' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -978,7 +965,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 🌐 웹자료 탭 */}
             {activeNoteTab === 'web' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1017,7 +1003,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* ✅ 체크리스트 (house 탭) */}
             {noteState.noteType === 'checklist' && activeNoteTab === 'house' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1038,7 +1023,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* 🖼 이미지 참조 */}
             {noteState.noteType === 'image' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{fontSize:12,fontWeight:700,color:'#0F2A5C',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
@@ -1048,9 +1032,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
               </div>
             )}
 
-            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                [Phase 2] 📓 상담노트 탭 — 노트북 스타일
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {activeNoteTab === 'note' && (
               <div style={{animation:'sFadeIn 0.3s ease'}}>
                 <div style={{display:'flex', minHeight:400}}>
@@ -1078,7 +1059,6 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                           </tr>
                         </tbody>
                       </table>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 재무 기본 정보</p>
                       <table className="nb-t" style={{marginBottom:14}}>
                         <tbody>
@@ -1089,20 +1069,12 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                           </tr>
                         </tbody>
                       </table>
-
                       <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 수입지출 분석표</p>
                       <table className="nb-t" style={{marginBottom:10}}>
                         <tbody>
                           <tr><th>지출항목</th><th>현재</th><th className="nb-t-std">기준</th><th>진단</th></tr>
-                          {[
-                            ['생활비','—','40%','—'],
-                            ['저축·투자','—','30%','—'],
-                            ['노후연금','—','10%','—'],
-                            ['보장성보험','—','10%','—'],
-                            ['대출원리금','—','10%','—'],
-                          ].map(([label,cur,std,diag],i) => (
+                          {[['생활비','—','40%','—'],['저축·투자','—','30%','—'],['노후연금','—','10%','—'],['보장성보험','—','10%','—'],['대출원리금','—','10%','—']].map(([label,cur,std,diag],i) => (
                             <tr key={i} className={i>=3?'nb-t-bad':''}>
                               <td>{label}</td>
                               <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>{cur}</td>
@@ -1112,19 +1084,12 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                           ))}
                         </tbody>
                       </table>
-
                       <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 자산 · 부채 현황</p>
                       <table className="nb-t" style={{marginBottom:10}}>
                         <tbody>
                           <tr><th colSpan={2}>자 산</th><th colSpan={2}>부 채</th></tr>
-                          {[
-                            ['예·적금/CMA','—','주택담보대출','—'],
-                            ['ISA·연금저축','—','신용대출','—'],
-                            ['퇴직연금','—','기타','—'],
-                            ['부동산','—','',''],
-                          ].map(([a,av,d,dv],i) => (
+                          {[['예·적금/CMA','—','주택담보대출','—'],['ISA·연금저축','—','신용대출','—'],['퇴직연금','—','기타','—'],['부동산','—','','']].map(([a,av,d,dv],i) => (
                             <tr key={i}>
                               <td>{a}</td>
                               <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{av}</td>
@@ -1140,69 +1105,33 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                           </tr>
                         </tbody>
                       </table>
-
                       <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 포트폴리오 설계</p>
                       <table className="nb-t" style={{marginBottom:10}}>
                         <tbody>
                           <tr><th>단계</th><th>계산식</th><th>금액</th></tr>
-                          <tr className="nb-t-hl">
-                            <td>① 투자재원</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>현재 저축금액</td>
-                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
-                          </tr>
-                          <tr className="nb-t-bad">
-                            <td>② 보험 부족 차감</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td>
-                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td>
-                          </tr>
-                          <tr className="nb-t-bad">
-                            <td>② 연금 부족 차감</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td>
-                            <td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td>
-                          </tr>
-                          <tr style={{borderTop:'2px solid #b89840',background:'rgba(10,37,88,0.07)'}}>
-                            <td style={{fontWeight:900,fontSize:14}}>③ 순투자재원</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>①−②−②</td>
-                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:22}}>—</td>
-                          </tr>
-                          <tr className="nb-t-hl">
-                            <td>④ 저축 (나이%)</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × 나이%</td>
-                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
-                          </tr>
-                          <tr className="nb-t-hl">
-                            <td>④ 투자 (나머지%)</td>
-                            <td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × (100−나이)%</td>
-                            <td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td>
-                          </tr>
+                          <tr className="nb-t-hl"><td>① 투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>현재 저축금액</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                          <tr className="nb-t-bad"><td>② 보험 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
+                          <tr className="nb-t-bad"><td>② 연금 부족 차감</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>기준72 − 현재</td><td className="r" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:18}}>—</td></tr>
+                          <tr style={{borderTop:'2px solid #b89840',background:'rgba(10,37,88,0.07)'}}><td style={{fontWeight:900,fontSize:14}}>③ 순투자재원</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>①−②−②</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:22}}>—</td></tr>
+                          <tr className="nb-t-hl"><td>④ 저축 (나이%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × 나이%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
+                          <tr className="nb-t-hl"><td>④ 투자 (나머지%)</td><td style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:16}}>③ × (100−나이)%</td><td className="nb-hb" style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:20}}>—</td></tr>
                         </tbody>
                       </table>
-
                       <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 보험 분석 (필요 / 준비 / 부족)</p>
                       <table className="nb-t" style={{marginBottom:10,fontSize:15}}>
                         <tbody>
                           <tr><th></th><th>사망</th><th>암진단</th><th>뇌혈관</th><th>심혈관</th><th>실손</th><th>보험료</th></tr>
-                          {[
-                            ['필요','—','—','—','—','—','—'],
-                            ['준비','—','—','—','—','—','—'],
-                            ['부족','—','—','—','—','—','—'],
-                          ].map(([row,...vals],i) => (
+                          {[['필요','—','—','—','—','—','—'],['준비','—','—','—','—','—','—'],['부족','—','—','—','—','—','—']].map(([row,...vals],i) => (
                             <tr key={i} className={i===2?'nb-t-bad':i===0?'nb-t-hl':''}>
                               <td style={{fontWeight:700,fontSize:13}}>{row}</td>
-                              {vals.map((v,j) => (
-                                <td key={j} className={i===2?'r':'nb-hb'} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{v}</td>
-                              ))}
+                              {vals.map((v,j) => (<td key={j} className={i===2?'r':'nb-hb'} style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17}}>{v}</td>))}
                             </tr>
                           ))}
                         </tbody>
                       </table>
-
                       <div style={{height:1,borderBottom:'1.5px dashed rgba(192,168,96,0.4)',margin:'14px 0'}}/>
-
                       <p className="nb-h nb-hb" style={{marginBottom:6}}>■ 액션플랜</p>
                       <div style={{minHeight:80,border:'1.5px dashed rgba(192,168,96,0.5)',borderRadius:6,padding:10,background:'rgba(255,255,255,0.5)'}}>
                         {messages.filter(m=>m.role==='ai').slice(-3).map((m,i) => (
@@ -1214,20 +1143,15 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                           <p style={{fontFamily:"'Nanum Pen Script',cursive",fontSize:17,color:'#ccc'}}>← 상담 중 AI 머니야 발언이 자동 기록됩니다</p>
                         )}
                       </div>
-
                       <div className="nb-stamp">✔<br/>확인</div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
-
           </div>
         </div>
 
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            [Phase 2] 📄 리포트 모달
-            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {showReport && (
           <div className="rpt-modal" onClick={e=>{if((e.target as HTMLElement)===e.currentTarget)setShowReport(false)}}>
             <div className="rpt-wrap">
@@ -1242,14 +1166,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 <div className="rpt-label">Executive Summary</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:12}}>핵심 재무 지표 요약</div>
                 <div className="rpt-kpi-grid">
-                  {[
-                    {label:'월 소득',value:'—',note:'상담 중 확인',cls:''},
-                    {label:'순자산',value:'—',note:'자산−부채',cls:''},
-                    {label:'부채비율',value:'—',note:'기준 50% 이하',cls:'warn'},
-                    {label:'저축률',value:'—',note:'기준 30% 이상',cls:''},
-                    {label:'보험료 비율',value:'—',note:'기준 10%',cls:''},
-                    {label:'비상예비자금',value:'—',note:'목표 3~6개월분',cls:'danger'},
-                  ].map((k,i) => (
+                  {[{label:'월 소득',value:'—',note:'상담 중 확인',cls:''},{label:'순자산',value:'—',note:'자산−부채',cls:''},{label:'부채비율',value:'—',note:'기준 50% 이하',cls:'warn'},{label:'저축률',value:'—',note:'기준 30% 이상',cls:''},{label:'보험료 비율',value:'—',note:'기준 10%',cls:''},{label:'비상예비자금',value:'—',note:'목표 3~6개월분',cls:'danger'}].map((k,i) => (
                     <div key={i} className={`rpt-kpi ${k.cls}`}>
                       <div style={{fontSize:10,color:'#888',marginBottom:4}}>{k.label}</div>
                       <div style={{fontSize:18,fontWeight:700,color:'#0a2558'}}>{k.value}</div>
@@ -1262,60 +1179,26 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
                 <div className="rpt-label">Cash Flow Analysis</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>수입지출 분석</div>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                  <thead>
-                    <tr style={{background:'#0a2558',color:'white'}}>
-                      <th style={{padding:'7px 10px',textAlign:'left'}}>항목</th>
-                      <th style={{padding:'7px 10px',textAlign:'right'}}>현재</th>
-                      <th style={{padding:'7px 10px',textAlign:'right',background:'rgba(14,77,34,0.8)'}}>기준</th>
-                      <th style={{padding:'7px 10px',textAlign:'center'}}>진단</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[['생활비','—','40%','—'],['저축·투자','—','30%','—'],['노후연금','—','10%','—'],['보장성보험','—','10%','—'],['대출원리금','—','10%','—']].map(([label,cur,std,diag],i) => (
-                      <tr key={i} style={{background:i%2===0?'#fafafa':'white',borderBottom:'1px solid #eee'}}>
-                        <td style={{padding:'6px 10px',fontWeight:600}}>{label}</td>
-                        <td style={{padding:'6px 10px',textAlign:'right',color:'#0a2558',fontWeight:700}}>{cur}</td>
-                        <td style={{padding:'6px 10px',textAlign:'right',color:'#0e4d22',background:'rgba(14,77,34,0.04)'}}>{std}</td>
-                        <td style={{padding:'6px 10px',textAlign:'center'}}>{diag}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  <thead><tr style={{background:'#0a2558',color:'white'}}><th style={{padding:'7px 10px',textAlign:'left'}}>항목</th><th style={{padding:'7px 10px',textAlign:'right'}}>현재</th><th style={{padding:'7px 10px',textAlign:'right',background:'rgba(14,77,34,0.8)'}}>기준</th><th style={{padding:'7px 10px',textAlign:'center'}}>진단</th></tr></thead>
+                  <tbody>{[['생활비','—','40%','—'],['저축·투자','—','30%','—'],['노후연금','—','10%','—'],['보장성보험','—','10%','—'],['대출원리금','—','10%','—']].map(([label,cur,std,diag],i) => (<tr key={i} style={{background:i%2===0?'#fafafa':'white',borderBottom:'1px solid #eee'}}><td style={{padding:'6px 10px',fontWeight:600}}>{label}</td><td style={{padding:'6px 10px',textAlign:'right',color:'#0a2558',fontWeight:700}}>{cur}</td><td style={{padding:'6px 10px',textAlign:'right',color:'#0e4d22',background:'rgba(14,77,34,0.04)'}}>{std}</td><td style={{padding:'6px 10px',textAlign:'center'}}>{diag}</td></tr>))}</tbody>
                 </table>
               </div>
               <div className="rpt-section">
                 <div className="rpt-label">Financial House Score</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>금융집짓기 6단계 점수</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                  {[['🛡️ 보장자산(보험)','—'],['💰 저축·부채 설계','—'],['🏠 부동산 설계','—'],['👴 은퇴설계','—'],['📈 투자설계','—'],['💸 세금설계','—']].map(([label,score],i) => (
-                    <div key={i} style={{background:'white',border:'1px solid #e0d0a0',borderRadius:6,padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <span style={{fontSize:12,color:'#444'}}>{label}</span>
-                      <span style={{fontSize:14,fontWeight:700,color:'#0a2558'}}>{score}</span>
-                    </div>
-                  ))}
+                  {[['🛡️ 보장자산(보험)','—'],['💰 저축·부채 설계','—'],['🏠 부동산 설계','—'],['👴 은퇴설계','—'],['📈 투자설계','—'],['💸 세금설계','—']].map(([label,score],i) => (<div key={i} style={{background:'white',border:'1px solid #e0d0a0',borderRadius:6,padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:12,color:'#444'}}>{label}</span><span style={{fontSize:14,fontWeight:700,color:'#0a2558'}}>{score}</span></div>))}
                 </div>
               </div>
               <div className="rpt-section">
                 <div className="rpt-label">Priority Action Items</div>
                 <div style={{fontSize:16,fontWeight:700,color:'#0a2558',marginBottom:10}}>핵심 실행 과제</div>
                 <div className="rpt-priority-list">
-                  {[
-                    {cls:'rpt-p1',rank:'PRIORITY 1',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
-                    {cls:'rpt-p2',rank:'PRIORITY 2',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
-                    {cls:'rpt-p3',rank:'PRIORITY 3',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},
-                  ].map((p,i) => (
-                    <div key={i} className={`rpt-p-item ${p.cls}`}>
-                      <span style={{fontWeight:700,fontSize:10,whiteSpace:'nowrap',color:'#666'}}>{p.rank}</span>
-                      <span style={{color:'#333'}}>{p.text}</span>
-                    </div>
-                  ))}
+                  {[{cls:'rpt-p1',rank:'PRIORITY 1',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},{cls:'rpt-p2',rank:'PRIORITY 2',text:'상담 완료 후 AI 머니야가 자동 생성합니다'},{cls:'rpt-p3',rank:'PRIORITY 3',text:'상담 완료 후 AI 머니야가 자동 생성합니다'}].map((p,i) => (<div key={i} className={`rpt-p-item ${p.cls}`}><span style={{fontWeight:700,fontSize:10,whiteSpace:'nowrap',color:'#666'}}>{p.rank}</span><span style={{color:'#333'}}>{p.text}</span></div>))}
                 </div>
               </div>
               <div style={{padding:'14px 24px',background:'#f5f5f5',borderTop:'1px solid #e0d0a0'}}>
-                <div style={{fontSize:10,color:'#888',lineHeight:1.6}}>
-                  본 리포트는 AI 시스템에 의해 생성된 참고 자료이며, 특정 금융상품을 추천·권유하지 않습니다.<br/>
-                  중요한 금융 의사결정 전 반드시 공인된 금융전문가의 검토를 받으시기 바랍니다.<br/>
-                  © 2026 오원트금융연구소 | AI 머니야 | 무단 복제·배포 금지
-                </div>
+                <div style={{fontSize:10,color:'#888',lineHeight:1.6}}>본 리포트는 AI 시스템에 의해 생성된 참고 자료이며, 특정 금융상품을 추천·권유하지 않습니다.<br/>중요한 금융 의사결정 전 반드시 공인된 금융전문가의 검토를 받으시기 바랍니다.<br/>© 2026 오원트금융연구소 | AI 머니야 | 무단 복제·배포 금지</div>
               </div>
               <div style={{padding:'14px 24px',display:'flex',gap:10,justifyContent:'center',background:'#fef9ec',borderTop:'1px solid #e0d0a0'}}>
                 <button onClick={()=>setShowReport(false)} style={{padding:'10px 28px',borderRadius:20,border:'2px solid #0a2558',background:'#0a2558',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>✕ 닫기</button>
@@ -1324,25 +1207,18 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         )}
 
-        {/* ── 우측: 실시간 분석 패널 ── */}
         <div style={{ gridRow:'1/2', background:'#2C2C2E', borderLeft:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', fontSize:12, fontWeight:700, color:'#D4A017', display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>📊 실시간 분석</div>
           <div style={{ flex:1, overflowY:'auto', padding:12, scrollbarWidth:'none' }}>
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>8단계 진행 현황</div>
             {STEPS.map((s,i) => (
               <div key={i} className={'sstep'+(i < currentStep-1 ? ' done' : i === currentStep-1 ? ' active' : '')}>
-                <div className="sstepnum">{i < currentStep-1 ? '✓' : i+1}</div>
-                {s}
+                <div className="sstepnum">{i < currentStep-1 ? '✓' : i+1}</div>{s}
               </div>
             ))}
             <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'10px 0' }} />
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.5px' }}>핵심 발견사항</div>
-            {[
-              {cls:'red', label:'🛡️ 보험 보장', val:'사망보장 1억 부족', sub:'현재 종신 → 정기 전환 권장'},
-              {cls:'yellow', label:'💸 지출 블랙홀', val:'월 120만원 미파악', sub:'카드 내역 분석 필요'},
-              {cls:'blue', label:'🎯 은퇴 자금', val:'2.4억 → 목표 4억', sub:'월 120만 추가 시 달성 가능'},
-              {cls:'green', label:'✅ 보험료 비율', val:'7.5% 적정 수준', sub:'수입 400만 대비 적정'},
-            ].map((a,i) => (
+            {[{cls:'red',label:'🛡️ 보험 보장',val:'사망보장 1억 부족',sub:'현재 종신 → 정기 전환 권장'},{cls:'yellow',label:'💸 지출 블랙홀',val:'월 120만원 미파악',sub:'카드 내역 분석 필요'},{cls:'blue',label:'🎯 은퇴 자금',val:'2.4억 → 목표 4억',sub:'월 120만 추가 시 달성 가능'},{cls:'green',label:'✅ 보험료 비율',val:'7.5% 적정 수준',sub:'수입 400만 대비 적정'}].map((a,i) => (
               <div key={i} className={'saitem '+a.cls}>
                 <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:3 }}>{a.label}</div>
                 <div style={{ fontSize:13, fontWeight:700, color:'white' }}>{a.val}</div>
@@ -1362,8 +1238,8 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
-        {/* ── 하단: STT 대화 패널 ── */}
-        <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
+        <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid
+rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)' }}>
               💬 실시간 STT 대화
@@ -1489,7 +1365,6 @@ function History() {
   );
 }
 
-// ── Documents v2.0 — Firebase Storage + Claude OCR ──
 interface DocEntry extends ConsultationDoc { ocrResult?: string; ocrStatus?: 'analyzing' | 'done' | 'error'; uploadedAt?: string; }
 
 async function uploadToFirebase(file: File, uid: string, docType: string): Promise<string> {
@@ -1567,7 +1442,6 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
     const label = def?.label ?? docType;
     setUploading(docType);
     try {
-      // 1단계: Firebase Storage 업로드
       const uid = user?.uid ?? 'anonymous';
       const fileUrl = await uploadToFirebase(file, uid, docType);
       const entry: DocEntry = {
@@ -1577,20 +1451,12 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
       };
       setDocs(prev => ({ ...prev, [docType]: entry }));
       onToast(`${label} 업로드 완료! Claude OCR 분석 중... 🔍`);
-
-      // 2단계: Claude OCR 분석
       try {
         const ocrResult = await analyzeWithClaude(file, label);
-        setDocs(prev => ({
-          ...prev,
-          [docType]: { ...prev[docType]!, ocrResult, ocrStatus: 'done' }
-        }));
+        setDocs(prev => ({ ...prev, [docType]: { ...prev[docType]!, ocrResult, ocrStatus: 'done' } }));
         onToast(`${label} 분석 완료! ✅`);
       } catch {
-        setDocs(prev => ({
-          ...prev,
-          [docType]: { ...prev[docType]!, ocrStatus: 'error' }
-        }));
+        setDocs(prev => ({ ...prev, [docType]: { ...prev[docType]!, ocrStatus: 'error' } }));
         onToast(`${label} 분석 중 오류가 발생했습니다.`);
       }
     } catch {
@@ -1606,14 +1472,11 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
 
   return (
     <div className="overflow-y-auto h-full px-4 py-4 pb-6 space-y-4">
-      {/* 숨김 파일 input — 카메라/갤러리/파일 모두 허용 */}
       <input ref={fileInputRef} type="file" className="hidden"
         accept="image/*,application/pdf,.docx"
         capture={undefined}
         onChange={e => { const file = e.target.files?.[0]; if (file && uploadTarget) handleUpload(file, uploadTarget); e.target.value = ''; }}
       />
-
-      {/* 진행 현황 카드 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex justify-between items-center mb-2">
           <p className="text-sm font-bold text-gray-700">필수 서류 제출 현황</p>
@@ -1626,14 +1489,10 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
           <p className="text-xs text-green-600 font-bold mt-2">✅ 모든 필수 서류가 제출되었습니다!</p>
         )}
       </div>
-
-      {/* 업로드 안내 */}
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
         <p className="text-xs font-bold text-amber-800 mb-1">📸 촬영 또는 파일 첨부 가능</p>
         <p className="text-xs text-amber-700 leading-relaxed">사진 촬영, 갤러리 선택, PDF·이미지 파일 모두 업로드 가능합니다. Claude AI가 자동으로 내용을 분석합니다.</p>
       </div>
-
-      {/* 서류 목록 */}
       {(['필수', '선택'] as string[]).map((section: string) => (
         <div key={section} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{section} 서류</p>
@@ -1641,7 +1500,6 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
             const doc = docs[def.key];
             return (
               <div key={def.key} className="py-3 border-b border-gray-50 last:border-0">
-                {/* 상단 행: 서류명 + 버튼 */}
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className={doc ? 'text-green-500' : 'text-gray-300'}>{doc ? '✅' : '⬜'}</span>
@@ -1654,14 +1512,8 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
                   <div className="flex gap-2">
                     {doc ? (
                       <>
-                        <button onClick={() => window.open(doc.fileUrl, '_blank')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">
-                          보기
-                        </button>
-                        <button onClick={() => { setUploadTarget(def.key); fileInputRef.current?.click(); }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">
-                          재업로드
-                        </button>
+                        <button onClick={() => window.open(doc.fileUrl, '_blank')} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">보기</button>
+                        <button onClick={() => { setUploadTarget(def.key); fileInputRef.current?.click(); }} className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-500">재업로드</button>
                       </>
                     ) : (
                       <button disabled={uploading === def.key}
@@ -1673,8 +1525,6 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
                     )}
                   </div>
                 </div>
-
-                {/* OCR 분석 결과 */}
                 {doc && (
                   <div className="mt-2 ml-7">
                     {doc.ocrStatus === 'analyzing' && (
@@ -1688,10 +1538,8 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
                     )}
                     {doc.ocrStatus === 'done' && doc.ocrResult && (
                       <div>
-                        <button
-                          onClick={() => setExpandedOcr(expandedOcr === def.key ? null : def.key)}
-                          className="text-xs font-bold flex items-center gap-1"
-                          style={{ color: GOLD }}>
+                        <button onClick={() => setExpandedOcr(expandedOcr === def.key ? null : def.key)}
+                          className="text-xs font-bold flex items-center gap-1" style={{ color: GOLD }}>
                           🔍 AI 분석 결과 {expandedOcr === def.key ? '▲ 접기' : '▼ 보기'}
                         </button>
                         {expandedOcr === def.key && (
@@ -1708,8 +1556,6 @@ function Documents({ onToast, user }: { onToast: (msg: string) => void; user?: a
           })}
         </div>
       ))}
-
-      {/* 보안 안내 */}
       <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
         <p className="text-xs text-gray-400 leading-relaxed text-center">
           🔒 모든 서류는 256bit 암호화로 안전하게 보관되며<br />
@@ -1726,7 +1572,6 @@ function ConsultationHub({ user }: { user: any }) {
   const [toast, setToast] = useState<string | null>(null);
   const [modal, setModal] = useState<{ title: string; content: string } | null>(null);
   const displayName = user.displayName || '고객';
-
   const subTabs = [
     { id: 'dashboard', label: '홈',        icon: '🏠' },
     { id: 'finance',   label: '내 재무',    icon: '📊' },
@@ -1735,7 +1580,6 @@ function ConsultationHub({ user }: { user: any }) {
     { id: 'history',   label: '이력',       icon: '📋' },
     { id: 'files',     label: '서류함',     icon: '📎' },
   ];
-
   return (
     <div className="flex flex-col h-full">
       <div className="bg-white border-b border-gray-100 px-4">
@@ -1784,6 +1628,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
+// ── DESIREConsult — 별도 라우트(/desire) 연결 예정 ──
 function DESIREConsult({ user }: { user: any }) {
   const displayName = user?.displayName || '고객';
   const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'ended'>('idle');
@@ -1897,8 +1742,6 @@ function DESIREConsult({ user }: { user: any }) {
   return (
     <div className="flex flex-col bg-gray-50" style={{height:'100dvh', paddingBottom:'64px'}}>
       <ReconnectBanner visible={reconnecting} count={reconnectCount} />
-
-      {/* 헤더 */}
       <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
         <h1 className="text-lg font-extrabold text-gray-900">🎯 DESIRE 재무진단</h1>
         {phase==='active' && (
@@ -1907,8 +1750,6 @@ function DESIREConsult({ user }: { user: any }) {
           </span>
         )}
       </div>
-
-      {/* 머니야 카드 */}
       <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{background:`linear-gradient(135deg, ${GOLD}, #e8c05a)`}}>
         <div className="flex items-center gap-3">
           <img src={MONEYA_IMG} alt="머니야" className={`w-14 h-14 object-contain rounded-full bg-white/20 p-1 ${phase==='active'?'animate-pulse':''}`}/>
@@ -1917,14 +1758,12 @@ function DESIREConsult({ user }: { user: any }) {
             <p className="text-white/80 text-xs">6단계 구조화 재무진단</p>
             <div className="mt-1">
               <span className="px-2 py-0.5 bg-white/20 text-white/90 text-xs rounded-full">
-                {phase==='idle'?'시작 전':phase==='connecting'?'연결중...':phase==='active'?voiceStatus:phase==='ended'?'상담완료':''}
+                {phase==='idle'?'시작 전':phase==='connecting'?'연결중...':phase==='active'?voiceStatus:'상담완료'}
               </span>
             </div>
           </div>
         </div>
       </div>
-
-      {/* DESIRE 단계 표시 */}
       <div className="mx-4 mt-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <p className="text-xs font-bold text-gray-400 mb-3">DESIRE 6단계 진행</p>
         <div className="flex gap-1 flex-wrap">
@@ -1937,8 +1776,6 @@ function DESIREConsult({ user }: { user: any }) {
           ))}
         </div>
       </div>
-
-      {/* 대화 내역 */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.length === 0 && phase === 'idle' && (
           <div className="flex flex-col items-center justify-center h-full gap-4 pb-10">
@@ -1963,13 +1800,9 @@ function DESIREConsult({ user }: { user: any }) {
           </div>
         )}
       </div>
-
-      {/* 하단 버튼 */}
       <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4">
         {phase==='idle' && (
-          <button onClick={startConsult}
-            className="w-full py-4 rounded-2xl font-extrabold text-white text-base shadow-lg"
-            style={{background:`linear-gradient(135deg, ${GOLD}, #e8c05a)`}}>
+          <button onClick={startConsult} className="w-full py-4 rounded-2xl font-extrabold text-white text-base shadow-lg" style={{background:`linear-gradient(135deg, ${GOLD}, #e8c05a)`}}>
             🎯 DESIRE 재무진단 시작
           </button>
         )}
@@ -1979,16 +1812,12 @@ function DESIREConsult({ user }: { user: any }) {
           </button>
         )}
         {phase==='active' && (
-          <button onClick={endConsult}
-            className="w-full py-4 rounded-2xl font-extrabold text-white text-base"
-            style={{background:'#ef4444'}}>
+          <button onClick={endConsult} className="w-full py-4 rounded-2xl font-extrabold text-white text-base" style={{background:'#ef4444'}}>
             ■ 상담 종료
           </button>
         )}
         {phase==='ended' && (
-          <button onClick={()=>setPhase('idle')}
-            className="w-full py-4 rounded-2xl font-extrabold text-base border-2"
-            style={{borderColor:GOLD, color:GOLD}}>
+          <button onClick={()=>setPhase('idle')} className="w-full py-4 rounded-2xl font-extrabold text-base border-2" style={{borderColor:GOLD, color:GOLD}}>
             🔄 다시 시작
           </button>
         )}
@@ -1996,12 +1825,10 @@ function DESIREConsult({ user }: { user: any }) {
     </div>
   );
 }
+
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
-    return <DESIREConsult user={user} />;
-  }
-
   return (
     <div className="flex flex-col bg-gray-50" style={{ height: '100dvh', paddingBottom: '64px' }}>
       <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
