@@ -1784,6 +1784,218 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
   );
 }
 
+function DESIREConsult({ user }: { user: any }) {
+  const displayName = user?.displayName || '고객';
+  const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'ended'>('idle');
+  const [voiceStatus, setVoiceStatus] = useState('대기중');
+  const [messages, setMessages] = useState<{role:'ai'|'user'; text:string; time:string}[]>([]);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectCount, setReconnectCount] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<any>(null);
+  const pcmChunksRef = useRef<string[]>([]);
+  const isConnectedRef = useRef(false);
+
+  const DESIRE_STEPS = ['D — 꿈 확인','E — 현실 직면','S — 해결책 제시','I — 실행 의지','R — 리스크 점검','E2 — 실행 약속'];
+
+  const cleanup = () => {
+    if (wsRef.current) { try { wsRef.current.send(JSON.stringify({type:'stop'})); wsRef.current.close(); } catch {} wsRef.current = null; }
+    if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
+    if (processorRef.current) { try { const {processor,source,audioContext} = processorRef.current; processor.disconnect(); source.disconnect(); audioContext.close(); } catch {} processorRef.current = null; }
+    pcmChunksRef.current = []; isConnectedRef.current = false;
+  };
+
+  const playAccumulated = async () => {
+    if (!pcmChunksRef.current.length) return;
+    try {
+      const chunks = pcmChunksRef.current; pcmChunksRef.current = [];
+      const arrays = chunks.map(b64 => { const raw = atob(b64); const arr = new Uint8Array(raw.length); for (let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return arr; });
+      const total = arrays.reduce((a,b) => a+b.length, 0);
+      const merged = new Uint8Array(total); let offset = 0;
+      for (const a of arrays) { merged.set(a, offset); offset += a.length; }
+      const i16 = new Int16Array(merged.buffer);
+      const f32 = new Float32Array(i16.length);
+      for (let i=0;i<i16.length;i++) f32[i] = i16[i]/32768;
+      if (!audioCtxRef.current || audioCtxRef.current.state==='closed')
+        audioCtxRef.current = new (window.AudioContext||(window as any).webkitAudioContext)({sampleRate:24000});
+      if (audioCtxRef.current.state==='suspended') await audioCtxRef.current.resume();
+      const buf = audioCtxRef.current.createBuffer(1, f32.length, 24000);
+      buf.getChannelData(0).set(f32);
+      const src = audioCtxRef.current.createBufferSource();
+      src.buffer = buf; src.connect(audioCtxRef.current.destination); src.start();
+    } catch(e) { console.error('DESIRE 오디오 에러:', e); }
+  };
+
+  const startCapture = (stream: MediaStream, ws: WebSocket) => {
+    const ac = new (window.AudioContext||(window as any).webkitAudioContext)({sampleRate:24000});
+    const src = ac.createMediaStreamSource(stream);
+    const prc = ac.createScriptProcessor(4096,1,1);
+    prc.onaudioprocess = (e) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const inp = e.inputBuffer.getChannelData(0);
+      const pcm = new Int16Array(inp.length);
+      for (let i=0;i<inp.length;i++) pcm[i] = Math.max(-32768, Math.min(32767, inp[i]*32768));
+      ws.send(JSON.stringify({type:'audio', data: btoa(String.fromCharCode(...new Uint8Array(pcm.buffer)))}));
+    };
+    src.connect(prc); prc.connect(ac.destination);
+    processorRef.current = {processor:prc, source:src, audioContext:ac};
+  };
+
+  const startConsult = async () => {
+    setPhase('connecting');
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({audio:{sampleRate:24000,channelCount:1,echoCancellation:true,noiseSuppression:true} as MediaTrackConstraints});
+      mediaStreamRef.current = stream;
+    } catch {
+      alert('마이크 권한이 필요합니다.');
+      setPhase('idle'); return;
+    }
+    const ws = new WebSocket(`${WS_URL}?mode=desire`);
+    wsRef.current = ws;
+    ws.onopen = () => {
+      ws.send(JSON.stringify({type:'start_desire', userName: displayName}));
+    };
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'session_started') {
+          isConnectedRef.current = true;
+          setPhase('active');
+          setVoiceStatus('듣는중...');
+          startCapture(stream, ws);
+        }
+        if (msg.type === 'audio' && msg.data) pcmChunksRef.current.push(msg.data);
+        if (msg.type === 'audio_end') playAccumulated();
+        if (msg.type === 'transcript' && msg.role === 'user') {
+          const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+          setMessages(prev => [...prev, {role:'user', text:msg.text, time:t}]);
+        }
+        if (msg.type === 'transcript' && msg.role === 'assistant') {
+          const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+          setMessages(prev => [...prev, {role:'ai', text:msg.text, time:t}]);
+          const stepKw = [['꿈','목표','원하'],['현재','현실','지금'],['방법','해결','설계'],['의지','결심','실행'],['위험','리스크','걱정'],['약속','시작','계획']];
+          for (let i=stepKw.length-1;i>=0;i--) { if (stepKw[i].some(k=>msg.text.includes(k))) { setCurrentStep(i); break; } }
+        }
+        if (msg.type === 'interrupt') pcmChunksRef.current = [];
+        if (msg.type === 'reconnecting') { setReconnecting(true); setReconnectCount(msg.count||1); }
+        if (msg.type === 'reconnected') { setTimeout(()=>setReconnecting(false), 2000); }
+        if (msg.type === 'session_max_reached') { cleanup(); setPhase('ended'); }
+      } catch {}
+    };
+    ws.onerror = () => { cleanup(); setPhase('idle'); setVoiceStatus('대기중'); };
+    ws.onclose = () => { isConnectedRef.current = false; setReconnecting(false); };
+  };
+
+  const endConsult = () => { cleanup(); setPhase('ended'); setVoiceStatus('대기중'); };
+
+  useEffect(() => { return () => cleanup(); }, []);
+
+  return (
+    <div className="flex flex-col bg-gray-50" style={{height:'100dvh', paddingBottom:'64px'}}>
+      <ReconnectBanner visible={reconnecting} count={reconnectCount} />
+
+      {/* 헤더 */}
+      <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+        <h1 className="text-lg font-extrabold text-gray-900">🎯 DESIRE 재무진단</h1>
+        {phase==='active' && (
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white" style={{background:'#22c55e'}}>
+            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"/>상담중
+          </span>
+        )}
+      </div>
+
+      {/* 머니야 카드 */}
+      <div className="mx-4 mt-3 rounded-2xl p-4 relative overflow-hidden" style={{background:`linear-gradient(135deg, ${GOLD}, #e8c05a)`}}>
+        <div className="flex items-center gap-3">
+          <img src={MONEYA_IMG} alt="머니야" className={`w-14 h-14 object-contain rounded-full bg-white/20 p-1 ${phase==='active'?'animate-pulse':''}`}/>
+          <div className="flex-1">
+            <p className="text-white font-extrabold text-base">AI 머니야 — DESIRE 모드</p>
+            <p className="text-white/80 text-xs">6단계 구조화 재무진단</p>
+            <div className="mt-1">
+              <span className="px-2 py-0.5 bg-white/20 text-white/90 text-xs rounded-full">
+                {phase==='idle'?'시작 전':phase==='connecting'?'연결중...':phase==='active'?voiceStatus:phase==='ended'?'상담완료':''}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DESIRE 단계 표시 */}
+      <div className="mx-4 mt-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <p className="text-xs font-bold text-gray-400 mb-3">DESIRE 6단계 진행</p>
+        <div className="flex gap-1 flex-wrap">
+          {DESIRE_STEPS.map((step, i) => (
+            <span key={i} className="px-2 py-1 rounded-full text-xs font-bold transition-all"
+              style={{
+                background: i < currentStep ? '#22c55e' : i === currentStep && phase==='active' ? GOLD : '#f3f4f6',
+                color: i <= currentStep && phase==='active' ? 'white' : i < currentStep ? 'white' : '#9ca3af'
+              }}>{step}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* 대화 내역 */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.length === 0 && phase === 'idle' && (
+          <div className="flex flex-col items-center justify-center h-full gap-4 pb-10">
+            <img src={MONEYA_IMG} alt="머니야" className="w-20 h-20 object-contain opacity-40"/>
+            <p className="text-gray-400 text-sm text-center">아래 버튼을 눌러<br/>DESIRE 재무진단을 시작하세요</p>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex gap-2 ${m.role==='user'?'flex-row-reverse':''}`}>
+            {m.role==='ai' && <img src={MONEYA_IMG} alt="머니야" className="w-8 h-8 object-contain flex-shrink-0 mt-1 rounded-full"/>}
+            <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap
+              ${m.role==='ai'?'bg-white border border-gray-100 text-gray-800 shadow-sm':'text-white'}`}
+              style={m.role==='user'?{background:GOLD}:{}}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {phase==='ended' && (
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
+            <p className="text-green-700 font-bold text-sm">✅ DESIRE 재무진단 완료</p>
+            <p className="text-green-600 text-xs mt-1">상담 결과는 서류함에서 확인하세요</p>
+          </div>
+        )}
+      </div>
+
+      {/* 하단 버튼 */}
+      <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4">
+        {phase==='idle' && (
+          <button onClick={startConsult}
+            className="w-full py-4 rounded-2xl font-extrabold text-white text-base shadow-lg"
+            style={{background:`linear-gradient(135deg, ${GOLD}, #e8c05a)`}}>
+            🎯 DESIRE 재무진단 시작
+          </button>
+        )}
+        {phase==='connecting' && (
+          <button disabled className="w-full py-4 rounded-2xl font-extrabold text-white text-base opacity-60" style={{background:GOLD}}>
+            ⏳ 연결 중...
+          </button>
+        )}
+        {phase==='active' && (
+          <button onClick={endConsult}
+            className="w-full py-4 rounded-2xl font-extrabold text-white text-base"
+            style={{background:'#ef4444'}}>
+            ■ 상담 종료
+          </button>
+        )}
+        {phase==='ended' && (
+          <button onClick={()=>setPhase('idle')}
+            className="w-full py-4 rounded-2xl font-extrabold text-base border-2"
+            style={{borderColor:GOLD, color:GOLD}}>
+            🔄 다시 시작
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
