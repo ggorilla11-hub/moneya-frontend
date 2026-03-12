@@ -1999,10 +1999,6 @@ function DESIREConsult({ user }: { user: any }) {
 export default function ConsultationPage({ user }: ConsultationPageProps) {
   const [isSubscriber] = useState(user?.email === 'ggorilla11@gmail.com');
   const [toast, setToast] = useState<string | null>(null);
-  const urlParams = new URLSearchParams(window.location.search);
-  const mode = urlParams.get('mode');
-
-  if (mode === 'desire') {
     return <DESIREConsult user={user} />;
   }
 
