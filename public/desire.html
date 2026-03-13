@@ -810,16 +810,14 @@ function showBtns(btns){
       el.appendChild(btn);
     });
   });
-  // 버튼 있으면 텍스트 입력창 숨김
-  const imob=document.getElementById('imob');
-  if(imob) imob.style.display='none';
+  // 텍스트 입력창은 항상 표시 유지
 }
 function clearBtns(){
   ['pc-qa','qmob'].forEach(id=>{
     const e=document.getElementById(id);
-    if(e){e.innerHTML='';e.style.display='';} // display 리셋 → CSS :empty 규칙 복원
+    if(e){e.innerHTML='';e.style.display='';}
   });
-  // 버튼 사라지면 텍스트 입력창 다시 표시
+  // 텍스트 입력창 항상 표시
   const imob=document.getElementById('imob');
   if(imob) imob.style.display='flex';
 }
