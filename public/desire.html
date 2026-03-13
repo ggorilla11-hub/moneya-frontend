@@ -509,7 +509,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
 
 /* ============================================
    AI 머니야 DESIRE 무료진단
-   VERSION : v1.3
+   VERSION : v1.4
    DATE    : 2026-03-13
    AUTHOR  : 장량 (AI CTO)
    CHANGES :
@@ -517,6 +517,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
      v1.1 - 모바일 UI 버그 수정 (imob position:static)
      v1.2 - showBtns :empty 무력화 (버튼 강제 표시)
      v1.3 - 버튼+텍스트창 항상 둘 다 표시
+     v1.4 - 버튼 즉시 표시 (TTS 완료 대기 제거)
    CANONICAL: GitHub ggorilla11-hub/moneya-server
               public/desire.html
    ============================================ */
@@ -773,7 +774,8 @@ function aiSay(text,btns=[],mobCard=null){
     document.getElementById('ai-tag').textContent='💬 상담 중';
     document.getElementById('stt-bd').textContent='● 음성인식 중';
     addSTT('ai',text);addMob('ai',text,mobCard);renderAll();speak(text);
-    if(btns.length)showBtns(btns);
+    if(btns.length)showBtns(btns); // 버튼 즉시 표시 — TTS 완료 안 기다림
+    else clearBtns(); // 버튼 없으면 텍스트창만 표시
   },300);
 }
 function userSay(text){clearBtns();addSTT('u',text);addMob('u',text);}
