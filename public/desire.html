@@ -509,7 +509,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
 
 /* ============================================
    AI 머니야 DESIRE 무료진단
-   VERSION : v1.4
+   VERSION : v1.5
    DATE    : 2026-03-13
    AUTHOR  : 장량 (AI CTO)
    CHANGES :
@@ -518,6 +518,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
      v1.2 - showBtns :empty 무력화 (버튼 강제 표시)
      v1.3 - 버튼+텍스트창 항상 둘 다 표시
      v1.4 - 버튼 즉시 표시 (TTS 완료 대기 제거)
+     v1.5 - WS 연결 실패해도 3초 후 인사+버튼 강제 표시
    CANONICAL: GitHub ggorilla11-hub/moneya-server
               public/desire.html
    ============================================ */
@@ -1031,12 +1032,17 @@ function go(){
   const lo=document.getElementById('landing');lo.classList.add('gone');setTimeout(()=>lo.style.display='none',480);
   startTimer();renderAll();_startGreeting();
 }
+let _greetingShown=false;
 function _startGreeting(){
-  if(wsReady){
+  if(_greetingShown)return;
+  // WS 준비됐거나 3초 지나면 무조건 인사 표시
+  if(wsReady||_greetingTimer>=15){
+    _greetingShown=true;
     aiSay(`안녕하세요! 😊<br><br>저는 <strong>AI 머니야</strong>입니다. 오상열 CFP 20년의 재무설계 노하우를 담아 만들어진 AI 재무코치예요.<br><br>오늘 딱 5분, <strong>DESIRE 로드맵</strong>으로 고객님의 재무 현재 위치를 정확히 진단해 드릴게요.<br><br>⚠️ 상담 내용은 저장되지 않으며, 금융상품 판매에 사용되지 않습니다.<br><br>개인 재무정보 입력에 동의하시겠어요?`,
       [{label:'✅ 동의하고 시작합니다',next:'AGREE'}]);
-  }else{setTimeout(_startGreeting,200);}
+  }else{_greetingTimer++;setTimeout(_startGreeting,200);}
 }
+let _greetingTimer=0;
 
 renderAll();
 connectWS();
