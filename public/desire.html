@@ -55,8 +55,8 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg)
 @media(min-width:768px) and (max-width:1023px){#app{grid-template-columns:200px 1fr;grid-template-rows:46px 1fr 144px;grid-template-areas:"top top" "lft ctr" "stt stt";}#rgt{display:none!important;}#mob-shell{display:none!important;}}
 @media(max-width:767px){
   #app{grid-template-columns:1fr;grid-template-rows:50px 1fr auto auto;grid-template-areas:"top" "mob" "qmob" "imob";padding-bottom:0;}
-  #imob{position:static;grid-area:imob;}
-  #qmob{grid-area:qmob;}
+  #imob{position:static;grid-area:imob;z-index:1;}
+  #qmob{grid-area:qmob;z-index:2;position:relative;}
   #lft,#ctr,#rgt,#stt{display:none!important;}
   #mob-shell{display:flex!important;flex-direction:column;overflow:hidden;}
 }
@@ -509,7 +509,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
 
 /* ============================================
    AI 머니야 DESIRE 무료진단
-   VERSION : v1.5
+   VERSION : v1.6
    DATE    : 2026-03-13
    AUTHOR  : 장량 (AI CTO)
    CHANGES :
@@ -519,6 +519,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
      v1.3 - 버튼+텍스트창 항상 둘 다 표시
      v1.4 - 버튼 즉시 표시 (TTS 완료 대기 제거)
      v1.5 - WS 연결 실패해도 3초 후 인사+버튼 강제 표시
+     v1.6 - qmob z-index 올려서 imob 위에 확실히 표시
    CANONICAL: GitHub ggorilla11-hub/moneya-server
               public/desire.html
    ============================================ */
