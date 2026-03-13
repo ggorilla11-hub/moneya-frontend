@@ -221,7 +221,7 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg)
 .mc-st.pass .mc-slt{color:var(--green);}
 .mc-sn{font-size:11px;font-weight:600;color:#1A1A2E;}
 #qmob{grid-area:qmob;display:flex;gap:7px;flex-wrap:wrap;padding:7px 11px;background:#fff;border-top:1px solid #E5E7EB;align-items:center;}
-#qmob:empty{display:none;}
+/* #qmob:empty 제거 — 버튼 항상 공간 유지 */
 .mqb{background:#fff;border:1.5px solid var(--navy);color:var(--navy);padding:7px 12px;border-radius:17px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
 .mqb:active{background:var(--navy);color:#fff;}
 .mqb.gold{background:linear-gradient(135deg,var(--gold),var(--gold2));border-color:transparent;color:#fff;box-shadow:0 2px 9px rgba(200,148,26,.3);}
@@ -509,7 +509,7 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
 
 /* ============================================
    AI 머니야 DESIRE 무료진단
-   VERSION : v1.6
+   VERSION : v1.8
    DATE    : 2026-03-13
    AUTHOR  : 장량 (AI CTO)
    CHANGES :
@@ -520,6 +520,8 @@ function copyLink(){const url=location.href;if(navigator.clipboard){navigator.cl
      v1.4 - 버튼 즉시 표시 (TTS 완료 대기 제거)
      v1.5 - WS 연결 실패해도 3초 후 인사+버튼 강제 표시
      v1.6 - qmob z-index 올려서 imob 위에 확실히 표시
+     v1.7 - go()에서 WS 대기 없이 즉시 인사+버튼 표시
+     v1.8 - #qmob:empty 제거, 버튼 항상 표시
    CANONICAL: GitHub ggorilla11-hub/moneya-server
               public/desire.html
    ============================================ */
@@ -1031,19 +1033,12 @@ function showResult(){
 function go(){
   _gameStarted=true;initAudioCtx();
   const lo=document.getElementById('landing');lo.classList.add('gone');setTimeout(()=>lo.style.display='none',480);
-  startTimer();renderAll();_startGreeting();
+  startTimer();renderAll();
+  // WS 연결 여부 상관없이 즉시 인사+버튼 표시
+  aiSay(`안녕하세요! 😊<br><br>저는 <strong>AI 머니야</strong>입니다. 오상열 CFP 20년의 재무설계 노하우를 담아 만들어진 AI 재무코치예요.<br><br>오늘 딱 5분, <strong>DESIRE 로드맵</strong>으로 고객님의 재무 현재 위치를 정확히 진단해 드릴게요.<br><br>⚠️ 상담 내용은 저장되지 않으며, 금융상품 판매에 사용되지 않습니다.<br><br>개인 재무정보 입력에 동의하시겠어요?`,
+    [{label:'✅ 동의하고 시작합니다',next:'AGREE'}]);
+  // TTS는 WS 준비되면 자동으로 처리됨
 }
-let _greetingShown=false;
-function _startGreeting(){
-  if(_greetingShown)return;
-  // WS 준비됐거나 3초 지나면 무조건 인사 표시
-  if(wsReady||_greetingTimer>=15){
-    _greetingShown=true;
-    aiSay(`안녕하세요! 😊<br><br>저는 <strong>AI 머니야</strong>입니다. 오상열 CFP 20년의 재무설계 노하우를 담아 만들어진 AI 재무코치예요.<br><br>오늘 딱 5분, <strong>DESIRE 로드맵</strong>으로 고객님의 재무 현재 위치를 정확히 진단해 드릴게요.<br><br>⚠️ 상담 내용은 저장되지 않으며, 금융상품 판매에 사용되지 않습니다.<br><br>개인 재무정보 입력에 동의하시겠어요?`,
-      [{label:'✅ 동의하고 시작합니다',next:'AGREE'}]);
-  }else{_greetingTimer++;setTimeout(_startGreeting,200);}
-}
-let _greetingTimer=0;
 
 renderAll();
 connectWS();
