@@ -56,6 +56,7 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg)
 @media(max-width:767px){
   #app{grid-template-columns:1fr;grid-template-rows:50px 1fr auto auto;grid-template-areas:"top" "mob" "qmob" "imob";padding-bottom:0;}
   #imob{position:static;grid-area:imob;}
+  #qmob{grid-area:qmob;}
   #lft,#ctr,#rgt,#stt{display:none!important;}
   #mob-shell{display:flex!important;flex-direction:column;overflow:hidden;}
 }
@@ -798,7 +799,9 @@ function showBtns(btns){
   _currentBtns=btns;
   ['pc-qa','qmob'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
-    el.innerHTML='';const isMob=id==='qmob';
+    el.innerHTML='';
+    const isMob=id==='qmob';
+    if(isMob) el.style.display='flex'; // :empty 무력화 — 강제 표시
     btns.forEach(b=>{
       const btn=document.createElement('button');
       btn.className=(isMob?'mqb':'qb')+(b.gold?' gold':'');
@@ -812,7 +815,10 @@ function showBtns(btns){
   if(imob) imob.style.display='none';
 }
 function clearBtns(){
-  ['pc-qa','qmob'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['pc-qa','qmob'].forEach(id=>{
+    const e=document.getElementById(id);
+    if(e){e.innerHTML='';e.style.display='';} // display 리셋 → CSS :empty 규칙 복원
+  });
   // 버튼 사라지면 텍스트 입력창 다시 표시
   const imob=document.getElementById('imob');
   if(imob) imob.style.display='flex';
