@@ -507,6 +507,20 @@ html,body{height:100%;font-family:'Noto Sans KR',sans-serif;background:var(--bg)
 function openInChrome(){const url=location.href;location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';}
 function copyLink(){const url=location.href;if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>{alert('링크가 복사됐습니다.\n크롬 주소창에 붙여넣기 해주세요.');});}else{const t=document.createElement('textarea');t.value=url;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);alert('링크가 복사됐습니다.\n크롬 주소창에 붙여넣기 해주세요.');}}
 
+/* ============================================
+   AI 머니야 DESIRE 무료진단
+   VERSION : v1.3
+   DATE    : 2026-03-13
+   AUTHOR  : 장량 (AI CTO)
+   CHANGES :
+     v1.0 - 최초 배포
+     v1.1 - 모바일 UI 버그 수정 (imob position:static)
+     v1.2 - showBtns :empty 무력화 (버튼 강제 표시)
+     v1.3 - 버튼+텍스트창 항상 둘 다 표시
+   CANONICAL: GitHub ggorilla11-hub/moneya-server
+              public/desire.html
+   ============================================ */
+
 const WS_URL='wss://moneya-server.onrender.com';
 let ws=null,wsReady=false;
 let audioCtx=null,audioQueue=[],audioPlaying=false,nextPlayTime=0;
