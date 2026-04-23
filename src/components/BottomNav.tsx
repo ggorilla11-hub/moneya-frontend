@@ -45,13 +45,13 @@ function BottomNav({ currentTab, onTabChange, showExpertTab = false }: BottomNav
     },
     {
       id: 'consultation' as const,
-      label: '상담',
+      label: 'AI진단',
       icon: (active: boolean) => (
-        <svg className={`w-6 h-6 ${active ? 'text-pink-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+        <svg className={`w-6 h-6 ${active ? 'text-red-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14h-4v-3h-3v-4h3V7h4v3h3v4h-3v3z"/>
         </svg>
       ),
-      activeColor: 'text-pink-600',
+      activeColor: 'text-red-600',
       visible: true,
     },
     {

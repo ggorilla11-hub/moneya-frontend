@@ -20,6 +20,7 @@ import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
 import ConsultationPage from './pages/ConsultationPage';
+import AIDiagIframePage from './pages/AIDiagIframePage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
 import FinancialHouseBasic from './pages/FinancialHouseBasic';
@@ -457,9 +458,10 @@ function App() {
               )}
             </FinancialHouseProvider>
           )}
-          {/* ★★★ 상담탭 → ConsultationPage (홈/내재무/줌상담/일정/이력/서류) ★★★ */}
+          {/* ★★★ Phase D: AI진단 탭 → financial-house-building iframe 이식 ★★★ */}
+          {/* 기존 ConsultationPage는 코드 보존 (ConsultationPage.tsx 파일 유지) */}
           {currentTab === 'consultation' && (
-            <ConsultationPage user={user} />
+            <AIDiagIframePage user={user} />
           )}
           {currentTab === 'expert' && (
             <ExpertDashboardPage
