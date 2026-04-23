@@ -8,7 +8,7 @@ import StatsGrid from '../../components/expert/StatsGrid';
 import TrojanLinkBox from '../../components/expert/TrojanLinkBox';
 import ActivityFeed from '../../components/expert/ActivityFeed';
 import type { Activity } from '../../components/expert/ActivityFeed';
-import type { FCProfile, FCCustomer } from '../../types/expert';
+import type { FCProfile } from '../../types/expert';
 
 interface ExpertDashboardPageProps {
   onNavigateToCustomers?: () => void;

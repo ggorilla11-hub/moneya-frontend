@@ -36,7 +36,6 @@ function TrojanLinkBox({ agtCode, fcName, onShare }: TrojanLinkBoxProps) {
     
     // 실제 카카오 SDK 연동은 services/kakaoShare.ts에서 처리 (Phase B)
     // 현재는 URL 스킴 fallback
-    const kakaoUrl = `https://sharer.kakao.com/talk/friends/picker/link?app_key=YOUR_KEY&validation_action=default&validation_params={"link_ver":"4.0","template_id":0,"template_args":{"TITLE":"AI 재무진단","DESC":"${encodeURIComponent(message)}","URL":"${encodeURIComponent(trojanUrl)}"}}`;
     
     // 모바일에서는 카카오톡 앱 직접 열기 시도
     if (/Android|iPhone/i.test(navigator.userAgent)) {
