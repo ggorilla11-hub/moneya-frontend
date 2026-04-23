@@ -1628,6 +1628,7 @@ function ServiceIntro({ onToast }: { onToast: (msg: string) => void }) {
 }
 
 // ── DESIREConsult — 별도 라우트(/desire) 연결 예정 ──
+// @ts-ignore - 추후 사용 예정, 현재 미활성
 function _DESIREConsult({ user }: { user: any }) {
   const displayName = user?.displayName || '고객';
   const [phase, setPhase] = useState<'idle'|'connecting'|'active'|'ended'>('idle');
