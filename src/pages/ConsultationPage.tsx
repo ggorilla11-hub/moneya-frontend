@@ -1238,8 +1238,7 @@ function VideoConsult({ displayName, onToast }: { displayName: string; onToast: 
           </div>
         </div>
 
-        <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid
-rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
+        <div style={{ gridColumn:'1/4', gridRow:'2/3', background:'rgba(0,0,0,0.7)', backdropFilter:'blur(20px)', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', flexDirection:'column', padding:'10px 20px 12px', gap:8, overflow:'hidden' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.55)' }}>
               💬 실시간 STT 대화
