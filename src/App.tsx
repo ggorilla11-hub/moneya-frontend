@@ -19,7 +19,8 @@ import FAQMorePage from './pages/FAQMorePage';
 import MyPage from './pages/MyPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import ConsultingApplyPage from './pages/ConsultingApplyPage';
-import ConsultationPage from './pages/ConsultationPage';
+// [Phase D] ConsultationPage import 제거 - AIDiagIframePage로 교체
+// ConsultationPage.tsx 파일은 코드 보존 중 (추후 필요 시 활용)
 import AIDiagIframePage from './pages/AIDiagIframePage';
 import MonthlyReportPage from './pages/MonthlyReportPage';
 import FinancialHouseDisclaimer from './pages/FinancialHouseDisclaimer';
