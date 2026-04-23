@@ -31,6 +31,7 @@ import PodcastPage from './pages/PodcastPage';
 import DeleteAccountPage from './pages/DeleteAccountPage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
+import ExpertDashboardPage from './pages/expert/ExpertDashboardPage';
 import FinancialTicker from './components/FinancialTicker';
 import PinLockScreen from './components/PinLockScreen';
 import { SpendProvider } from './context/SpendContext';
@@ -87,7 +88,7 @@ type AppStep =
   | 'video-player'
   | 'podcast';
 
-type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage';
+type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'expert' | 'mypage';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -460,6 +461,17 @@ function App() {
           {currentTab === 'consultation' && (
             <ConsultationPage user={user} />
           )}
+          {currentTab === 'expert' && (
+            <ExpertDashboardPage
+              onNavigateToCustomers={() => console.log('고객 리스트 진입 (Step 8)')}
+              onNavigateToSettings={() => console.log('설정 진입 (추후)')}
+              onLogout={() => {
+                console.log('로그아웃');
+                setCurrentTab('home');
+              }}
+            />
+          )}
+
           {currentTab === 'mypage' && (
             <MyPage
               userName={financialResult?.name || user.displayName || '사용자'}
@@ -472,7 +484,7 @@ function App() {
               userId={user.uid}
             />
           )}
-          <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
+          <BottomNav currentTab={currentTab} onTabChange={handleTabChange} showExpertTab={true} />
         </div>
       </SpendProvider>
     );
