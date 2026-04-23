@@ -1,13 +1,14 @@
 // src/components/BottomNav.tsx
-// v3.0: 상담 탭 추가 (5번째 탭 💬)
-// ★★★ v3.0 변경사항: consultation 탭 1개 추가. 기존 4개 탭 코드 변경 없음 ★★★
+// v4.0: 전문가(FC) 탭 추가 (6번째, 조건부 표시)
+// ★★★ v4.0 변경: expert 탭 추가. FC 구독자만 표시 ★★★
 
 interface BottomNavProps {
-  currentTab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage';
-  onTabChange: (tab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'mypage') => void;
+  currentTab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'expert' | 'mypage';
+  onTabChange: (tab: 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'expert' | 'mypage') => void;
+  showExpertTab?: boolean; // FC 구독자만 true
 }
 
-function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
+function BottomNav({ currentTab, onTabChange, showExpertTab = false }: BottomNavProps) {
   const tabs = [
     {
       id: 'home' as const,
@@ -18,6 +19,7 @@ function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
         </svg>
       ),
       activeColor: 'text-blue-600',
+      visible: true,
     },
     {
       id: 'ai-spend' as const,
@@ -28,6 +30,7 @@ function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
         </svg>
       ),
       activeColor: 'text-green-600',
+      visible: true,
     },
     {
       id: 'financial-house' as const,
@@ -38,34 +41,49 @@ function BottomNav({ currentTab, onTabChange }: BottomNavProps) {
         </svg>
       ),
       activeColor: 'text-purple-600',
+      visible: true,
     },
     {
-      // ★★★ v3.0 추가: 상담 탭 ★★★
       id: 'consultation' as const,
       label: '상담',
       icon: (active: boolean) => (
-        <svg className={`w-6 h-6 ${active ? 'text-amber-500' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12zM7 9h10v2H7zm0-3h10v2H7zm0 6h7v2H7z"/>
+        <svg className={`w-6 h-6 ${active ? 'text-pink-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
         </svg>
       ),
-      activeColor: 'text-amber-500',
+      activeColor: 'text-pink-600',
+      visible: true,
+    },
+    {
+      id: 'expert' as const,
+      label: '전문가',
+      icon: (active: boolean) => (
+        <svg className={`w-6 h-6 ${active ? 'text-indigo-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 6h2v2h-2V8zm0 4h2v6h-2v-6z"/>
+        </svg>
+      ),
+      activeColor: 'text-indigo-600',
+      visible: showExpertTab, // ⭐ FC 구독자만
     },
     {
       id: 'mypage' as const,
-      label: '더보기',
+      label: '마이페이지',
       icon: (active: boolean) => (
         <svg className={`w-6 h-6 ${active ? 'text-sky-600' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 24 24">
-          <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
         </svg>
       ),
       activeColor: 'text-sky-600',
+      visible: true,
     },
   ];
+
+  const visibleTabs = tabs.filter(t => t.visible);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = currentTab === tab.id;
           return (
             <button
