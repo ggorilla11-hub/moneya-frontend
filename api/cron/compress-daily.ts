@@ -6,7 +6,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifyCronSecret, unauthorizedResponse, getAdminUid } from '../_lib/auth';
+import { verifyCronSecret, unauthorizedResponse, getAdminUid } from '../_lib/auth.js';
 import {
   db,
   COLLECTIONS,
@@ -17,9 +17,9 @@ import {
   cleanupExpiredMemories,
   calculateExpiry,
   Timestamp,
-} from '../_lib/firebase-admin';
-import { compress, evaluateImportance, calculateCost, MODELS } from '../_lib/anthropic';
-import { createEmbedding } from '../_lib/openai-embedding';
+} from '../_lib/firebase-admin.js';
+import { compress, evaluateImportance, calculateCost, MODELS } from '../_lib/anthropic.js';
+import { createEmbedding } from '../_lib/openai-embedding.js';
 
 // ════════════════════════════════════════════════════════════════
 // 메인 핸들러
