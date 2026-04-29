@@ -8,6 +8,9 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 
+// Named exports for ESM compatibility
+export { FieldValue, Timestamp };
+
 // ─── 환경 변수 검증 ────────────────────────────────────────────
 const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 if (!serviceAccountKey) {
