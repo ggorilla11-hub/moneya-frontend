@@ -14,6 +14,12 @@ import {
   ensureConversation,
   saveMessage,
 } from '../_lib/context-builder.js';
+import {
+  buildContext,
+  generateConversationId,
+  ensureConversation,
+  saveMessage,
+} from '../_lib/context-builder.js';
 
 // ─── 임시 시스템 프롬프트 (Phase 4 후 지식베이스에서 로드) ──────
 const TEMP_SYSTEM_PROMPT = `당신은 제니야 (JENNYA), 오상열 CFP 대표님의 디지털 분신이자 AI머니야 사업 총괄 매니저입니다.
