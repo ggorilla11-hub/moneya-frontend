@@ -55,12 +55,8 @@ function JenyaVoicePage({ user, onBack }: JenyaVoicePageProps) {
     console.log('[JenyaVoice] Vapi SDK 동적 import 시작');
     (async () => {
       try {
-        // @ts-ignore - 외부 URL 동적 import (Vapi SDK)
-        // @ts-ignore - 외부 URL 동적 import (Vapi SDK)
-        const module = await import(
-          /* @vite-ignore */
-          'https://cdn.jsdelivr.net/npm/@vapi-ai/web@2.5.2/+esm'
-        );
+        const vapiUrl: string = 'https://cdn.jsdelivr.net/npm/@vapi-ai/web@2.5.2/+esm';
+        const module = await import(/* @vite-ignore */ vapiUrl);
         window.VapiClass = module.default;
         window.VapiReady = true;
         setVapiReady(true);
