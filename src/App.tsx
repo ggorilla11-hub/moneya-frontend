@@ -266,12 +266,13 @@ function App() {
   const handleReAnalysis = () => setCurrentStep('re-analysis');
   const handleBackToHome = () => { setCurrentStep('main'); setCurrentTab('home'); };
 
-  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast') => {
+  const handleMyPageNavigate = (page: 'subscription' | 'consulting' | 'monthly-report' | 'online-course' | 'podcast' | 'jenya-chat') => {
     if (page === 'subscription') setCurrentStep('subscription');
     else if (page === 'consulting') { setCurrentStep('main'); setCurrentTab('consultation'); }
     else if (page === 'monthly-report') setCurrentStep('monthly-report');
     else if (page === 'online-course') setCurrentStep('online-course');
     else if (page === 'podcast') setCurrentStep('podcast');
+    else if (page === 'jenya-chat') setCurrentStep('jenya-chat');
   };
 
   const handleHomeNavigate = (page: string) => {
