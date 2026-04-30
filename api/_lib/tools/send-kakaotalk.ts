@@ -1,27 +1,12 @@
 // ════════════════════════════════════════════════════════════════
-// 제니야 카카오톡 발송 도구 v3.0
-// 솔라피 REST API 직접 호출 (Make.com 우회)
-// 작성: 2026-04-30
-// 위치: api/_lib/tools/send-kakaotalk.ts
-//
-// 변경 이유: Make.com 자동 비활성화 위험 + 디버깅 어려움
-// 표준: 실리콘밸리 best practice (Twilio 패턴)
+// 제니야 카카오톡 발송 도구 v3.1
+// 솔라피 친구톡 (CTA, 자유 메시지) 직접 호출
 // ════════════════════════════════════════════════════════════════
 
 import { createHmac, randomBytes } from 'node:crypto';
 
-// ─── 발신 정보 ─────────────────────────────────────────────────
 const SENDER_PHONE = '01054245332';
 
-// ─── 등록된 BrandMessage 템플릿 ────────────────────────────────
-const TEMPLATE_IDS: Record<string, string> = {
-  general: 'KA01BP2604301122124484oi0IXQlDFx',  // JENNYA_GENERAL
-  // 추후 알림톡 검수 통과 시:
-  // welcome: 'KA01TP_xxx',
-  // payment: 'KA01TP_xxx',
-};
-
-// ─── 메시지 템플릿 (변수 치환용) ───────────────────────────────
 const MESSAGE_TEMPLATES = {
   hot_lead: '🔥 핫리드 알림\n\n고객: {name}\n관심사: {interest}\n연락처: {phone}\n\n3시간 안에 응대 부탁드립니다.',
   payment_received: '💰 결제 완료\n\n{plan} 가입\n금액: {amount}원\n사용자: {name}',
@@ -29,7 +14,6 @@ const MESSAGE_TEMPLATES = {
   custom: '{message}',
 };
 
-// ─── 전화번호 검증 ─────────────────────────────────────────────
 function validatePhone(phone: string): { valid: boolean; cleaned?: string; error?: string } {
   const cleaned = phone.replace(/[-\s]/g, '');
   if (!/^01[016789][0-9]{7,8}$/.test(cleaned)) {
@@ -38,7 +22,6 @@ function validatePhone(phone: string): { valid: boolean; cleaned?: string; error
   return { valid: true, cleaned };
 }
 
-// ─── 솔라피 HMAC 서명 생성 ──────────────────────────────────────
 function generateSolapiAuth(apiKey: string, apiSecret: string): string {
   const date = new Date().toISOString();
   const salt = randomBytes(32).toString('hex');
@@ -48,7 +31,6 @@ function generateSolapiAuth(apiKey: string, apiSecret: string): string {
   return `HMAC-SHA256 apiKey=${apiKey}, date=${date}, salt=${salt}, signature=${signature}`;
 }
 
-// ─── 솔라피 직접 호출 ──────────────────────────────────────────
 async function callSolapiAPI(
   cleanPhone: string,
   message: string
@@ -57,7 +39,6 @@ async function callSolapiAPI(
   const apiSecret = process.env.SOLAPI_API_SECRET;
   const pfId = process.env.SOLAPI_PFID_OWONT;
 
-  // 환경 변수 검증
   if (!apiKey || !apiSecret || !pfId) {
     return {
       success: false,
@@ -66,13 +47,15 @@ async function callSolapiAPI(
     };
   }
 
-  const templateId = TEMPLATE_IDS.general;
+  // 광고 표기 + 수신거부 자동 추가 (정보통신망법 준수)
+  const adMessage = message.startsWith('(광고)') 
+    ? message 
+    : `(광고)[AI머니야]\n\n${message}\n\n무료수신거부 080-500-4233`;
 
-  console.log('[sendKakaoTalk v3.0] 솔라피 호출:', {
+  console.log('[sendKakaoTalk v3.1] CTA 친구톡 호출:', {
     phone: cleanPhone,
     pfId_prefix: pfId.substring(0, 12) + '...',
-    templateId: templateId.substring(0, 15) + '...',
-    message_length: message.length,
+    message_length: adMessage.length,
   });
 
   try {
@@ -89,14 +72,10 @@ async function callSolapiAPI(
           type: 'CTA',
           kakaoOptions: {
             pfId: pfId,
-            templateId: templateId,
-            variables: {
-              '#{message}': message,
-            },
-            disableSms: false,  // 카톡 실패 시 LMS 자동 폴백
-            adFlag: true,        // 광고성 표기 (BrandMessage 필수)
+            disableSms: false,
+            adFlag: true,
           },
-          text: message,  // LMS 폴백 시 사용
+          text: adMessage,
         },
       }),
     });
@@ -109,7 +88,7 @@ async function callSolapiAPI(
       data = { raw: responseText };
     }
 
-    console.log('[sendKakaoTalk v3.0] 솔라피 응답:', {
+    console.log('[sendKakaoTalk v3.1] 솔라피 응답:', {
       http: response.status,
       ok: response.ok,
       preview: responseText.substring(0, 300),
@@ -131,7 +110,7 @@ async function callSolapiAPI(
       data: data,
     };
   } catch (error: any) {
-    console.error('[sendKakaoTalk v3.0] 예외:', error);
+    console.error('[sendKakaoTalk v3.1] 예외:', error);
     return {
       success: false,
       error: error.message || String(error),
@@ -140,7 +119,6 @@ async function callSolapiAPI(
   }
 }
 
-// ─── 메인 함수 (기존 인터페이스 100% 호환) ────────────────────
 export async function sendKakaoTalk(params: {
   phone: string;
   template?: keyof typeof MESSAGE_TEMPLATES;
@@ -153,13 +131,11 @@ export async function sendKakaoTalk(params: {
   error?: string;
 }> {
   try {
-    // 1. 전화번호 검증
     const phoneCheck = validatePhone(params.phone);
     if (!phoneCheck.valid) {
       return { success: false, error: phoneCheck.error };
     }
 
-    // 2. 메시지 구성
     let finalMessage: string;
 
     if (params.message) {
@@ -176,8 +152,7 @@ export async function sendKakaoTalk(params: {
       return { success: false, error: 'message 또는 template 중 하나는 필수' };
     }
 
-    // 3. 메시지 길이 제한
-    const maxLength = 1000;  // BrandMessage 1000자
+    const maxLength = 1000;
     if (finalMessage.length > maxLength) {
       return {
         success: false,
@@ -185,8 +160,7 @@ export async function sendKakaoTalk(params: {
       };
     }
 
-    // 4. 솔라피 직접 호출
-    console.log(`[sendKakaoTalk v3.0] ${phoneCheck.cleaned} → 솔라피 직접`);
+    console.log(`[sendKakaoTalk v3.1] ${phoneCheck.cleaned} → 솔라피 CTA`);
     const apiResult = await callSolapiAPI(phoneCheck.cleaned!, finalMessage);
 
     if (!apiResult.success) {
@@ -210,71 +184,39 @@ export async function sendKakaoTalk(params: {
         message_preview: finalMessage.substring(0, 100),
         groupId: apiResult.data?.groupId,
         type: apiResult.data?.type,
-        scenario_response: 'Solapi REST API Direct v3.0',
+        scenario_response: 'Solapi CTA Direct v3.1',
       },
     };
   } catch (error: any) {
-    console.error('[sendKakaoTalk v3.0] 최종 예외:', error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
+    console.error('[sendKakaoTalk v3.1] 최종 예외:', error.message);
+    return { success: false, error: error.message };
   }
 }
 
-// ─── Claude Tool Use 정의 (기존 동일) ─────────────────────────
 export const sendKakaoTalkTool = {
   name: 'sendKakaoTalk',
-  description: `카카오톡 메시지를 발송합니다 (솔라피 직접 호출).
+  description: `카카오톡 친구톡을 발송합니다 (솔라피 CTA 직접 호출).
 
-⚠️ 주의: MEDIUM 위험도. 대표님께 사전 확인 권장.
+⚠️ 주의: MEDIUM 위험도. 채널 친구에게만 발송 가능.
+⚠️ 광고 시간: 08:00 ~ 20:50 (야간 X)
 
 템플릿:
 - hot_lead: 핫리드 알림 (FP에게)
-  변수: name, interest, phone
 - payment_received: 결제 완료 알림
-  변수: plan, amount, name
 - daily_summary: 일일 요약
-  변수: new_users, paid_users, revenue
-- custom: 직접 메시지 입력
-
-예시:
-1. 직접 메시지:
-   sendKakaoTalk({
-     phone: "010-1234-5678",
-     message: "안녕하세요 OOO님, ..."
-   })
-
-2. 핫리드 알림:
-   sendKakaoTalk({
-     phone: "010-1234-5678",
-     template: "hot_lead",
-     variables: {name: "김OO", interest: "노후재무", phone: "010-9876-5432"}
-   })`,
+- custom: 직접 메시지`,
   input_schema: {
     type: 'object',
     properties: {
-      phone: {
-        type: 'string',
-        description: '수신자 전화번호 (010-XXXX-XXXX 형식)',
-      },
+      phone: { type: 'string', description: '수신자 전화번호 (010-XXXX-XXXX)' },
       template: {
         type: 'string',
         enum: ['hot_lead', 'payment_received', 'daily_summary', 'custom'],
         description: '메시지 템플릿 (선택)',
       },
-      variables: {
-        type: 'object',
-        description: '템플릿 변수 (예: {name: "홍길동"})',
-      },
-      message: {
-        type: 'string',
-        description: '직접 메시지 (template 미사용 시)',
-      },
-      bulk: {
-        type: 'boolean',
-        description: '대량 발송 여부 (현재는 미사용, 호환성 위해 유지)',
-      },
+      variables: { type: 'object', description: '템플릿 변수' },
+      message: { type: 'string', description: '직접 메시지' },
+      bulk: { type: 'boolean', description: '대량 발송 (현재 미사용)' },
     },
     required: ['phone'],
   },
