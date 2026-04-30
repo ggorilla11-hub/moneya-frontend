@@ -75,8 +75,8 @@ export default async function handler(
       weekday: 'long',
     });
 
-    const kpi = kpiResult.result || kpiResult;
-    const stats = statsResult.result || statsResult;
+    const kpi: any = kpiResult.result || kpiResult;
+    const stats: any = statsResult.result || statsResult;
 
     const message = `📊 일일 보고 (${dateStr})
 

@@ -76,8 +76,8 @@ export default async function handler(
 
     const weekRange = `${formatDate(lastWeekStart)} ~ ${formatDate(lastWeekEnd)}`;
 
-    const kpi = kpiResult.result || kpiResult;
-    const stats = statsResult.result || statsResult;
+    const kpi: any = kpiResult.result || kpiResult;
+    const stats: any = statsResult.result || statsResult;
 
     // 변화율 계산 (전주 대비)
     const changeRateText = (current: number, previous: number): string => {
