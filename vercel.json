@@ -7,6 +7,18 @@
     {
       "path": "/api/cron/compress-daily",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/daily-report",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/daily-attendance",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-kpi",
+      "schedule": "0 0 * * 1"
     }
   ]
 }
