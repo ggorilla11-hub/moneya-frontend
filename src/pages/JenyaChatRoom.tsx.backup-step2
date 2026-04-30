@@ -1,0 +1,334 @@
+// ════════════════════════════════════════════════════════════════
+// 제니야 대화방 (Phase 4 약식 통합)
+// 대표님 전용 음성 + 텍스트 통합 대화 공간
+// 작성: 2026-04-30
+// 위치: src/pages/JenyaChatRoom.tsx
+//
+// Step 1: UI 시뮬레이터 (디자인만, 기능 0%)
+// Step 2-3: 텍스트 + 음성 기능 추가 예정
+// ════════════════════════════════════════════════════════════════
+
+import { useState, useRef, useEffect } from 'react';
+
+interface User {
+  uid?: string;
+  email?: string | null;
+  displayName?: string | null;
+}
+
+interface JenyaChatRoomProps {
+  user: User;
+  onBack?: () => void;
+}
+
+// ─── 메시지 타입 ──────────────────────────────────────────────
+type MessageRole = 'user' | 'jenya' | 'system';
+type MessageType = 'text' | 'voice' | 'tool_use' | 'tool_result';
+
+interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  type: MessageType;
+  content: string;
+  timestamp: Date;
+  metadata?: {
+    tool_name?: string;
+    duration_ms?: number;
+  };
+}
+
+// ─── 빠른 명령 버튼 ───────────────────────────────────────────
+const QUICK_COMMANDS = [
+  { label: '어제 KPI', command: '어제 KPI 알려줘' },
+  { label: '핫리드 확인', command: '지금 핫리드 있어?' },
+  { label: '주간 분석', command: '이번주 어땠어?' },
+  { label: '메모리 현황', command: '메모리 얼마나 쌓였어?' },
+  { label: '회원 통계', command: '전체 회원 통계 보여줘' },
+  { label: '시스템 상태', command: '시스템 상태 점검해줘' },
+];
+
+// ─── 데모용 초기 메시지 (시뮬레이터 검증) ─────────────────────
+const DEMO_MESSAGES: ChatMessage[] = [
+  {
+    id: 'demo-1',
+    role: 'jenya',
+    type: 'text',
+    content: '네 대표님, 제니야입니다. 오늘도 든든하게 옆에서 함께하겠습니다. 무엇을 도와드릴까요?',
+    timestamp: new Date(),
+  },
+];
+
+function JenyaChatRoom({ user, onBack }: JenyaChatRoomProps) {
+  // ─── 상태 ──────────────────────────────────────────────────
+  const [messages, setMessages] = useState<ChatMessage[]>(DEMO_MESSAGES);
+  const [inputText, setInputText] = useState('');
+  const [isJenyaTyping, setIsJenyaTyping] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<'text' | 'voice'>('text');
+  const [voiceCallStatus, setVoiceCallStatus] = useState<'idle' | 'active'>('idle');
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // ─── 자동 스크롤 ──────────────────────────────────────────
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isJenyaTyping]);
+
+  // ─── 텍스트 메시지 보내기 (시뮬레이터 - 데모 응답) ─────────
+  const handleSendText = (text?: string) => {
+    const messageText = text || inputText.trim();
+    if (!messageText) return;
+
+    // 사용자 메시지 추가
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      type: 'text',
+      content: messageText,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInputText('');
+    setIsJenyaTyping(true);
+
+    // ⚠️ 시뮬레이터: 1.5초 후 데모 응답
+    setTimeout(() => {
+      const jenyaMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        role: 'jenya',
+        type: 'text',
+        content: `네 대표님, "${messageText}" 명령 확인했습니다. (시뮬레이터 - Step 2에서 실제 기능 연결 예정입니다.) 응원하겠습니다!`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, jenyaMsg]);
+      setIsJenyaTyping(false);
+    }, 1500);
+  };
+
+  // ─── 빠른 명령 클릭 ───────────────────────────────────────
+  const handleQuickCommand = (command: string) => {
+    handleSendText(command);
+  };
+
+  // ─── 음성 모드 전환 ───────────────────────────────────────
+  const handleToggleVoice = () => {
+    if (voiceMode === 'text') {
+      setVoiceMode('voice');
+      setVoiceCallStatus('active');
+      // ⚠️ Step 3에서 실제 Vapi 시작
+      const systemMsg: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        role: 'system',
+        type: 'text',
+        content: '🎙️ 음성 모드 시작 (시뮬레이터 - Step 3에서 Vapi 연결 예정)',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+    } else {
+      setVoiceMode('text');
+      setVoiceCallStatus('idle');
+      const systemMsg: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        role: 'system',
+        type: 'text',
+        content: '📝 텍스트 모드로 전환',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+    }
+  };
+
+  // ─── Enter 키로 전송 ──────────────────────────────────────
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendText();
+    }
+  };
+
+  // ─── 시간 포맷 ─────────────────────────────────────────────
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // UI 렌더링
+  // ════════════════════════════════════════════════════════════
+  return (
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white flex flex-col" style={{ top: 0, bottom: 64 }}>
+      
+      {/* ━━━━ 상단 헤더 ━━━━ */}
+      <div className="px-6 py-4 border-b border-white/10 flex items-center gap-4 backdrop-blur-sm bg-black/20">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="text-white/70 hover:text-white text-sm transition-colors"
+          >
+            ←
+          </button>
+        )}
+        
+        {/* 제니야 아바타 */}
+        <div className={`
+          w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 
+          flex items-center justify-center shadow-lg
+          ${voiceCallStatus === 'active' ? 'ring-2 ring-green-400 animate-pulse' : ''}
+        `}>
+          <span className="text-xl">🎙️</span>
+        </div>
+
+        <div className="flex-1">
+          <h1 className="font-bold">제니야</h1>
+          <p className="text-xs text-blue-200">
+            {voiceMode === 'voice' && voiceCallStatus === 'active' 
+              ? '🟢 음성 대화 중' 
+              : isJenyaTyping 
+                ? '입력 중...' 
+                : '온라인 - 대표님 전용'}
+          </p>
+        </div>
+
+        {/* 모드 표시 */}
+        <div className="text-xs px-2 py-1 rounded-full bg-white/10">
+          {voiceMode === 'voice' ? '🎙️ 음성' : '📝 텍스트'}
+        </div>
+      </div>
+
+      {/* ━━━━ 메시지 영역 ━━━━ */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex ${
+              msg.role === 'user' 
+                ? 'justify-end' 
+                : msg.role === 'system'
+                  ? 'justify-center'
+                  : 'justify-start'
+            }`}
+          >
+            {/* 시스템 메시지 (중앙) */}
+            {msg.role === 'system' && (
+              <div className="text-xs text-white/50 bg-white/5 px-3 py-1 rounded-full">
+                {msg.content}
+              </div>
+            )}
+
+            {/* 사용자 또는 제니야 메시지 */}
+            {msg.role !== 'system' && (
+              <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-2' : 'order-1'}`}>
+                <div
+                  className={`
+                    px-4 py-3 rounded-2xl shadow-md
+                    ${msg.role === 'user' 
+                      ? 'bg-blue-600 text-white rounded-br-sm' 
+                      : 'bg-white/10 backdrop-blur-sm text-white rounded-bl-sm border border-white/10'}
+                  `}
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                </div>
+                <p className={`text-xs text-white/40 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                  {formatTime(msg.timestamp)}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* 제니야 타이핑 인디케이터 */}
+        {isJenyaTyping && (
+          <div className="flex justify-start">
+            <div className="bg-white/10 backdrop-blur-sm px-4 py-3 rounded-2xl rounded-bl-sm border border-white/10">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* ━━━━ 빠른 명령 ━━━━ */}
+      {voiceMode === 'text' && messages.length < 3 && (
+        <div className="px-4 pb-2">
+          <p className="text-xs text-white/40 mb-2">빠른 명령</p>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {QUICK_COMMANDS.map((cmd) => (
+              <button
+                key={cmd.label}
+                onClick={() => handleQuickCommand(cmd.command)}
+                className="flex-shrink-0 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-full text-xs text-white/80 transition-colors border border-white/10"
+              >
+                {cmd.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ━━━━ 입력 영역 ━━━━ */}
+      <div className="px-4 py-3 border-t border-white/10 backdrop-blur-sm bg-black/30">
+        {voiceMode === 'text' ? (
+          // ─── 텍스트 입력 ───
+          <div className="flex items-end gap-2">
+            <button
+              onClick={handleToggleVoice}
+              className="w-12 h-12 rounded-full bg-blue-600/20 hover:bg-blue-600/40 flex items-center justify-center transition-colors flex-shrink-0"
+              title="음성 모드 시작"
+            >
+              <span className="text-xl">🎙️</span>
+            </button>
+
+            <textarea
+              ref={inputRef}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="제니야에게 말씀하세요..."
+              rows={1}
+              className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-blue-500 resize-none max-h-32"
+              style={{ minHeight: '48px' }}
+            />
+
+            <button
+              onClick={() => handleSendText()}
+              disabled={!inputText.trim()}
+              className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 flex items-center justify-center transition-colors flex-shrink-0"
+              title="전송"
+            >
+              <span className="text-xl">↑</span>
+            </button>
+          </div>
+        ) : (
+          // ─── 음성 모드 ───
+          <div className="flex items-center justify-center gap-4 py-2">
+            <button
+              onClick={handleToggleVoice}
+              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center shadow-lg transition-all"
+              title="음성 종료"
+            >
+              <span className="text-2xl">⏹</span>
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-bold">음성 대화 중</p>
+              <p className="text-xs text-white/60">말씀하세요</p>
+            </div>
+          </div>
+        )}
+
+        {/* 사용자 정보 */}
+        <p className="text-center text-xs text-white/30 mt-2">
+          {user.displayName || user.email || '대표님'} · 제니야 v1.0
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default JenyaChatRoom;
