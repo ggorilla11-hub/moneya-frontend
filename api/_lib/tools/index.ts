@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// 제니야 도구 통합 모듈 v3 (Phase 8 코딩 도구 추가)
-// 9개 도구: 조회 3개 + 발송 3개 + 코딩 3개
+// 제니야 도구 통합 모듈 v4 (Phase 9-1 메모리 도구 추가)
+// 12개 도구: 조회 3개 + 발송 3개 + 코딩 3개 + 메모리 3개
 // 작성: 2026-04-30
 // 위치: api/_lib/tools/index.ts
 // ════════════════════════════════════════════════════════════════
@@ -20,6 +20,11 @@ import readFile, { readFileTool } from './code-tools/read-file.js';
 import createFile, { createFileTool } from './code-tools/create-file.js';
 import editFile, { editFileTool } from './code-tools/edit-file.js';
 
+// ─── 메모리 도구 (Phase 9-1) ───────────────────────────────────
+import searchMemory, { searchMemoryTool } from './search-memory.js';
+import saveImportantInsight, { saveImportantInsightTool } from './save-important-insight.js';
+import getMemoryStats, { getMemoryStatsTool } from './get-memory-stats.js';
+
 // ─── 모든 도구 정의 ────────────────────────────────────────────
 export const ALL_TOOLS = [
   // 조회 (LOW 위험도 - 즉시 자동 실행)
@@ -36,6 +41,11 @@ export const ALL_TOOLS = [
   readFileTool,        // LOW
   createFileTool,      // MEDIUM
   editFileTool,        // HIGH (대표님 승인 필수)
+
+  // 메모리 (Phase 9-1)
+  searchMemoryTool,           // LOW
+  saveImportantInsightTool,   // MEDIUM
+  getMemoryStatsTool,         // LOW
 ];
 
 // ─── 도구 함수 매핑 ────────────────────────────────────────────
@@ -49,6 +59,9 @@ const TOOL_FUNCTIONS: Record<string, (params: any) => Promise<any>> = {
   readFile,
   createFile,
   editFile,
+  searchMemory,
+  saveImportantInsight,
+  getMemoryStats,
 };
 
 // ─── 위험도 매핑 ───────────────────────────────────────────────
@@ -58,12 +71,15 @@ export const TOOL_RISK_LEVELS: Record<string, 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITI
   getKPI: 'LOW',
   getUserStats: 'LOW',
   readFile: 'LOW',
+  searchMemory: 'LOW',
+  getMemoryStats: 'LOW',
 
   // MEDIUM: 실행 + 즉시 보고
   triggerMakeWebhook: 'MEDIUM',
   sendKakaoTalk: 'MEDIUM',
   sendEmail: 'MEDIUM',
   createFile: 'MEDIUM',
+  saveImportantInsight: 'MEDIUM',
 
   // HIGH: 대표님 승인 필수
   editFile: 'HIGH',
