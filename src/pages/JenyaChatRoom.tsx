@@ -233,12 +233,16 @@ function JenyaChatRoom({ user, onBack }: JenyaChatRoomProps) {
         return;
       }
 
+      // ━━━━ 디버그: 실제 환경변수 값 표시 ━━━━
+      const debugInfo = `[디버그] PUBLIC_KEY: ${VAPI_PUBLIC_KEY ? VAPI_PUBLIC_KEY.substring(0, 10) + '...' : 'undefined'} / JENYA_ID: ${VAPI_ASSISTANT_ID_JENNYA ? VAPI_ASSISTANT_ID_JENNYA.substring(0, 10) + '...' : 'undefined'}`;
+      console.log('[JenyaChatRoom DEBUG]', debugInfo);
+      
       if (!VAPI_PUBLIC_KEY || !VAPI_ASSISTANT_ID_JENNYA) {
         const errorMsg: ChatMessage = {
           id: `sys-${Date.now()}`,
           role: 'system',
           type: 'text',
-          content: '⚠️ Vapi 환경변수가 설정되지 않았습니다.',
+          content: `⚠️ Vapi 환경변수가 설정되지 않았습니다. ${debugInfo}`,
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, errorMsg]);
