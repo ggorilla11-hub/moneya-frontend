@@ -56,6 +56,7 @@ function JenyaVoicePage({ user, onBack }: JenyaVoicePageProps) {
     (async () => {
       try {
         // @ts-ignore - 외부 URL 동적 import (Vapi SDK)
+        // @ts-ignore - 외부 URL 동적 import (Vapi SDK)
         const module = await import(
           /* @vite-ignore */
           'https://cdn.jsdelivr.net/npm/@vapi-ai/web@2.5.2/+esm'
