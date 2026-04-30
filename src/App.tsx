@@ -31,6 +31,7 @@ import OnlineCoursePage from './pages/OnlineCoursePage';
 import VideoPlayerPage from './pages/VideoPlayerPage';
 import PodcastPage from './pages/PodcastPage';
 import DeleteAccountPage from './pages/DeleteAccountPage';
+import JenyaVoicePage from './pages/JenyaVoicePage';
 import type { ConsultingProduct } from './pages/ConsultingApplyPage';
 import BottomNav from './components/BottomNav';
 import ExpertDashboardPage from './pages/expert/ExpertDashboardPage';
@@ -88,7 +89,8 @@ type AppStep =
   | 'monthly-report'
   | 'online-course'
   | 'video-player'
-  | 'podcast';
+  | 'podcast'
+  | 'jenya-voice';
 
 type MainTab = 'home' | 'ai-spend' | 'financial-house' | 'consultation' | 'expert' | 'mypage';
 
@@ -372,6 +374,7 @@ function App() {
   if (currentStep === 'monthly-report') return <SpendProvider userId={user.uid}><MonthlyReportPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} adjustedBudget={adjustedBudget} /></SpendProvider>;
   if (currentStep === 'online-course') return <OnlineCoursePage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} onLessonSelect={(lesson) => handleLessonSelect(lesson, [])} isSubscribed={isSubscribed} />;
   if (currentStep === 'podcast') return <PodcastPage onBack={() => { setCurrentStep('main'); setCurrentTab('mypage'); }} />;
+  if (currentStep === 'jenya-voice') return <JenyaVoicePage user={user} onBack={() => setCurrentStep('main')} />;
   if (currentStep === 'video-player' && selectedLesson) {
     const idx = allLessons.findIndex(l => l.id === selectedLesson.id);
     return <VideoPlayerPage lesson={selectedLesson} onBack={handleVideoPlayerBack} onPrevLesson={handlePrevLesson} onNextLesson={handleNextLesson} hasPrev={idx > 0} hasNext={idx < allLessons.length - 1} />;
