@@ -20,8 +20,8 @@ const anthropic = new Anthropic({
 
 // ─── 모델 상수 ─────────────────────────────────────────────────
 export const MODELS = {
-  OPUS: 'claude-opus-4-7-20250219',     // 중요 결정, 압축 작업
-  SONNET: 'claude-sonnet-4-20250219',   // 일상 대화, 빠른 응답
+  OPUS: 'claude-opus-4-7',     // 중요 결정, 압축 작업
+  SONNET: 'claude-sonnet-4-6',   // 일상 대화, 빠른 응답
 } as const;
 
 export type ModelType = typeof MODELS[keyof typeof MODELS];
