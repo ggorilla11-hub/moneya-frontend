@@ -35,6 +35,8 @@ export type Message = {
 // ─── 응답 타입 ─────────────────────────────────────────────────
 export type ChatResponse = {
   content: string;
+  rawContent: any[];
+  stopReason: string;
   usage: {
     input_tokens: number;
     output_tokens: number;
@@ -49,6 +51,7 @@ export async function chat(params: {
   model?: ModelType;
   maxTokens?: number;
   temperature?: number;
+  tools?: any[];
 }): Promise<ChatResponse> {
   const {
     systemPrompt,
@@ -56,10 +59,11 @@ export async function chat(params: {
     model = MODELS.SONNET,
     maxTokens = 4096,
     temperature = 0.7,
+    tools,
   } = params;
 
   try {
-    const response = await anthropic.messages.create({
+    const requestParams: any = {
       model,
       max_tokens: maxTokens,
       temperature,
@@ -68,16 +72,24 @@ export async function chat(params: {
         role: msg.role,
         content: msg.content,
       })),
-    });
+    };
+
+    if (tools && tools.length > 0) {
+      requestParams.tools = tools;
+    }
+
+    const response = await anthropic.messages.create(requestParams);
 
     // 응답 텍스트 추출
     const textContent = response.content
-      .filter(block => block.type === 'text')
-      .map(block => (block as any).text)
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text)
       .join('\n');
 
     return {
       content: textContent,
+      rawContent: response.content,
+      stopReason: response.stop_reason || '',
       usage: {
         input_tokens: response.usage.input_tokens,
         output_tokens: response.usage.output_tokens,
