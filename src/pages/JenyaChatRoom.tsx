@@ -262,7 +262,10 @@ function JenyaChatRoom({ user, onBack }: JenyaChatRoomProps) {
         };
         setMessages(prev => [...prev, systemMsg]);
 
-        const vapi = new window.VapiClass(VAPI_PUBLIC_KEY);
+        // 검증된 패턴 (financial-house-building 동일)
+        const VapiConstructor = window.VapiClass.default || window.VapiClass;
+        console.log('[JenyaChatRoom] VapiConstructor type:', typeof VapiConstructor);
+        const vapi = new VapiConstructor(VAPI_PUBLIC_KEY);
         vapiRef.current = vapi;
 
         vapi.on('call-start', () => {
