@@ -122,10 +122,7 @@ export default async function handler(
     await saveMessage(conversationId, {
       role: 'assistant',
       content: claudeResponse.content,
-      tokens: {
-        input: claudeResponse.usage.input_tokens,
-        output: claudeResponse.usage.output_tokens,
-      },
+      tokens: claudeResponse.usage,
     });
 
     // ─── 9. 비용 계산 ─────────────────────────────────────────
